@@ -82,37 +82,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOBB-01 | — | Pending |
-| LOBB-02 | — | Pending |
-| LOBB-03 | — | Pending |
-| LOBB-04 | — | Pending |
-| LOBB-05 | — | Pending |
-| PUZZ-01 | — | Pending |
-| PUZZ-02 | — | Pending |
-| PUZZ-03 | — | Pending |
-| GAME-01 | — | Pending |
-| GAME-02 | — | Pending |
-| GAME-03 | — | Pending |
-| GAME-04 | — | Pending |
-| GAME-05 | — | Pending |
-| GAME-06 | — | Pending |
-| GAME-07 | — | Pending |
-| GAME-08 | — | Pending |
-| GAME-09 | — | Pending |
-| GAME-10 | — | Pending |
-| WIN-01 | — | Pending |
-| WIN-02 | — | Pending |
-| TIME-01 | — | Pending |
-| TIME-02 | — | Pending |
-| TIME-03 | — | Pending |
-| TIME-04 | — | Pending |
-| TIME-05 | — | Pending |
+| LOBB-01 | Phase 1 | Pending |
+| LOBB-02 | Phase 1 | Pending |
+| LOBB-03 | Phase 1 | Pending |
+| LOBB-04 | Phase 1 | Pending |
+| LOBB-05 | Phase 1 | Pending |
+| PUZZ-01 | Phase 1 | Pending |
+| PUZZ-02 | Phase 1 | Pending |
+| GAME-09 | Phase 1 | Pending |
+| GAME-10 | Phase 1 | Pending |
+| PUZZ-03 | Phase 2 | Pending |
+| GAME-01 | Phase 2 | Pending |
+| GAME-02 | Phase 2 | Pending |
+| GAME-03 | Phase 2 | Pending |
+| GAME-04 | Phase 2 | Pending |
+| GAME-05 | Phase 2 | Pending |
+| GAME-06 | Phase 2 | Pending |
+| GAME-07 | Phase 2 | Pending |
+| GAME-08 | Phase 2 | Pending |
+| WIN-01 | Phase 2 | Pending |
+| WIN-02 | Phase 2 | Pending |
+| TIME-01 | Phase 3 | Pending |
+| TIME-02 | Phase 3 | Pending |
+| TIME-03 | Phase 3 | Pending |
+| TIME-04 | Phase 3 | Pending |
+| TIME-05 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25 ⚠️
+- Mapped to phases: 25
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after initial definition*
+*Last updated: 2026-03-01 after roadmap creation*
