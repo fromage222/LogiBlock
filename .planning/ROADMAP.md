@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Server bootstrap, puzzle loading, game.js LobbyManager + getPublicState()
+- [x] 01-01-PLAN.md — Server bootstrap, puzzle loading, game.js LobbyManager + getPublicState()
 - [ ] 01-02-PLAN.md — Socket.IO lobby event handlers + disconnect handling (socket.js)
 - [ ] 01-03-PLAN.md — Client SPA: start screen, lobby screen, game screen with anchor cells
 
@@ -65,6 +65,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Ready to execute | - |
+| 1. Foundation | 1/3 | In progress | - |
 | 2. Game Loop | 0/TBD | Not started | - |
 | 3. Timer und Leaderboard | 0/TBD | Not started | - |

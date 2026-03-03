@@ -17,8 +17,8 @@
 
 ### Puzzle
 
-- [ ] **PUZZ-01**: Server lädt alle Puzzle-JSON-Dateien beim Start und validiert ihr Schema
-- [ ] **PUZZ-02**: Anker-Formen sind beim Spielstart an ihrer fixen Position vorplatziert und unveränderlich
+- [x] **PUZZ-01**: Server lädt alle Puzzle-JSON-Dateien beim Start und validiert ihr Schema
+- [x] **PUZZ-02**: Anker-Formen sind beim Spielstart an ihrer fixen Position vorplatziert und unveränderlich
 - [ ] **PUZZ-03**: Formen können vom aktiven Spieler rotiert werden (0°, 90°, 180°, 270°)
 
 ### Game Loop
@@ -87,8 +87,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LOBB-03 | Phase 1 | Pending |
 | LOBB-04 | Phase 1 | Pending |
 | LOBB-05 | Phase 1 | Pending |
-| PUZZ-01 | Phase 1 | Pending |
-| PUZZ-02 | Phase 1 | Pending |
+| PUZZ-01 | Phase 1 | Done (01-01) |
+| PUZZ-02 | Phase 1 | Done (01-01) |
 | GAME-09 | Phase 1 | Pending |
 | GAME-10 | Phase 1 | Pending |
 | PUZZ-03 | Phase 2 | Pending |
@@ -115,4 +115,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after roadmap creation*
+*Last updated: 2026-03-03 — PUZZ-01, PUZZ-02 completed in 01-01*
