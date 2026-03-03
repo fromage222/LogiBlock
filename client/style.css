@@ -69,7 +69,7 @@ hr { border: none; border-top: 1px solid #eee; margin: 0.5rem 0; }
 /* ── Error and hint messages ───────────────────────────────────────────── */
 .error-msg { color: #d32f2f; font-size: 0.85rem; min-height: 1.2em; }
 .hint { color: #777; font-size: 0.85rem; }
-.notification { color: #555; font-size: 0.9rem; font-style: italic; min-height: 1.4em; }
+.notification { color: #333; font-size: 0.9rem; font-style: italic; min-height: 1.4em; background: #fff3cd; border-radius: 4px; padding: 0.35rem 0.6rem; }
 
 /* ── Room code display ─────────────────────────────────────────────────── */
 .room-code-display {

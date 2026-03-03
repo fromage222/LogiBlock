@@ -28,6 +28,7 @@ const waitingMsg       = document.getElementById('waiting-msg');
 const puzzleSelect     = document.getElementById('puzzle-select');
 const startGameBtn     = document.getElementById('start-game-btn');
 const lobbyNotification = document.getElementById('lobby-notification');
+const selectedPuzzleDisplay = document.getElementById('selected-puzzle-display');
 
 const gameGrid         = document.getElementById('game-grid');
 
@@ -124,16 +125,21 @@ function renderLobbyUpdate(state) {
   if (amIHost) {
     hostControls.style.display = 'block';
     waitingMsg.style.display = 'none';
+    selectedPuzzleDisplay.style.display = 'none';
     // Enable start button only when >= 2 players (LOBB-04)
     startGameBtn.disabled = state.players.length < 2;
+    // Sync host dropdown to selected puzzle
+    if (state.selectedPuzzleId && puzzleSelect.options.length > 0) {
+      puzzleSelect.value = state.selectedPuzzleId;
+    }
   } else {
     hostControls.style.display = 'none';
     waitingMsg.style.display = 'block';
-  }
-
-  // Sync puzzle dropdown to currently selected puzzle (for non-host: read-only)
-  if (state.selectedPuzzleId && puzzleSelect.options.length > 0) {
-    puzzleSelect.value = state.selectedPuzzleId;
+    // Show selected puzzle name to non-hosts (state always includes selectedPuzzleName)
+    if (state.selectedPuzzleName) {
+      selectedPuzzleDisplay.textContent = `Selected puzzle: ${state.selectedPuzzleName}`;
+      selectedPuzzleDisplay.style.display = 'block';
+    }
   }
 }
 
@@ -208,10 +214,12 @@ socket.on('lobby:playerLeft', ({ playerName }) => {
 
 // Host left during lobby — destroy UI, return to start
 socket.on('lobby:hostLeft', ({ message }) => {
-  alert(message || 'Host left — lobby closed');
   myRoomCode = null;
   amIHost = false;
   showScreen('start-screen');
+  // Use inline error (not alert — browsers silently block repeated alert() calls)
+  showJoinError(message || 'Host left — lobby closed');
+  setTimeout(clearJoinError, 4000);
 });
 
 // Game started — transition to game screen, render initial grid
