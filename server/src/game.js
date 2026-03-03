@@ -156,6 +156,57 @@ function loadPuzzles() {
   return loaded;
 }
 
+// ─── Lobby mutation helpers (used by socket.js) ──────────────────────────────
+
+function addPlayer(roomCode, socketId, name) {
+  const lobby = lobbies.get(roomCode);
+  if (!lobby) return false;
+  lobby.players.push({ socketId, name, isHost: false });
+  return true;
+}
+
+function removePlayer(roomCode, socketId) {
+  const lobby = lobbies.get(roomCode);
+  if (!lobby) return false;
+  lobby.players = lobby.players.filter(p => p.socketId !== socketId);
+  return true;
+}
+
+function setSelectedPuzzle(roomCode, puzzleId) {
+  const lobby = lobbies.get(roomCode);
+  if (!lobby) return false;
+  if (!puzzleMap.has(puzzleId)) return false;
+  lobby.selectedPuzzleId = puzzleId;
+  return true;
+}
+
+function startGame(roomCode) {
+  const lobby = lobbies.get(roomCode);
+  if (!lobby) return { ok: false, error: 'Room not found' };
+  if (lobby.players.length < 2) return { ok: false, error: 'Need at least 2 players to start' };
+  if (lobby.phase !== 'lobby') return { ok: false, error: 'Game already started' };
+
+  const puzzle = puzzleMap.get(lobby.selectedPuzzleId);
+  if (!puzzle) return { ok: false, error: 'Selected puzzle not found' };
+
+  lobby.phase = 'playing';
+  lobby.grid = buildInitialGrid(puzzle);
+  lobby.activeTurnIndex = 0;          // Phase 2 uses this; set here for consistency
+  return { ok: true };
+}
+
+// GAME-09: advance turn when active player disconnects (Phase 2 fills logic)
+// Stub: in Phase 1 the server transitions to 'playing' but turn logic is minimal.
+function advanceTurnIfActive(lobby, socketId) {
+  if (!lobby || lobby.phase !== 'playing') return;
+  const activePlayer = lobby.players[lobby.activeTurnIndex];
+  if (activePlayer && activePlayer.socketId === socketId) {
+    if (lobby.players.length > 0) {
+      lobby.activeTurnIndex = lobby.activeTurnIndex % lobby.players.length;
+    }
+  }
+}
+
 module.exports = {
   lobbies,
   generateRoomCode,
@@ -168,4 +219,10 @@ module.exports = {
   buildInitialGrid,
   loadPuzzles,
   validatePuzzleSchema,
+  // new exports:
+  addPlayer,
+  removePlayer,
+  setSelectedPuzzle,
+  startGame,
+  advanceTurnIfActive,
 };
