@@ -1,0 +1,142 @@
+/* style.css — LogiBlock */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #f0f0f5;
+  color: #111;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Screen switching ──────────────────────────────────────────────────── */
+.screen { display: none; width: 100%; max-width: 480px; padding: 1.5rem; }
+.screen.active { display: block; }
+
+/* ── Card container ────────────────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+h1, h2, h3 { margin-bottom: 0.5rem; }
+h1 { font-size: 2rem; text-align: center; margin-bottom: 1rem; }
+
+/* ── Form elements ─────────────────────────────────────────────────────── */
+label { font-size: 0.85rem; font-weight: 600; color: #555; }
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+input[type="text"]:focus { outline: 2px solid #4a6cf7; border-color: transparent; }
+
+button {
+  padding: 0.6rem 1.2rem;
+  background: #4a6cf7;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+button:hover:not(:disabled) { background: #3a5ce7; }
+button:disabled { background: #aab; cursor: not-allowed; }
+
+select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  background: #fff;
+}
+
+hr { border: none; border-top: 1px solid #eee; margin: 0.5rem 0; }
+
+/* ── Error and hint messages ───────────────────────────────────────────── */
+.error-msg { color: #d32f2f; font-size: 0.85rem; min-height: 1.2em; }
+.hint { color: #777; font-size: 0.85rem; }
+.notification { color: #555; font-size: 0.9rem; font-style: italic; min-height: 1.4em; }
+
+/* ── Room code display ─────────────────────────────────────────────────── */
+.room-code-display {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f5f5ff;
+  border: 2px solid #4a6cf7;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+#room-code-text {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #4a6cf7;
+  flex: 1;
+}
+#copy-code-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* ── Lobby layout ──────────────────────────────────────────────────────── */
+.lobby-content { display: flex; flex-direction: column; gap: 1rem; }
+.player-list-section h3 { margin-bottom: 0.5rem; }
+#player-list { list-style: none; display: flex; flex-direction: column; gap: 0.25rem; }
+#player-list li {
+  padding: 0.4rem 0.75rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+#player-list li.me { font-weight: 600; background: #e8ecff; }
+.host-controls { display: flex; flex-direction: column; gap: 0.5rem; }
+.start-actions { display: flex; gap: 0.5rem; }
+
+/* ── Game screen ───────────────────────────────────────────────────────── */
+#game-screen { max-width: 700px; }
+.grid {
+  display: grid;
+  gap: 2px;
+  background: #ccc;
+  border: 2px solid #999;
+  width: fit-content;
+  margin: 1rem auto;
+}
+.grid-cell {
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-radius: 2px;
+}
+.grid-cell.empty { background: #f8f8f8; color: transparent; }
+.grid-cell.anchor {
+  background: #546e7a;  /* dark blue-grey — clearly non-interactive */
+  color: #fff;
+  cursor: default;
+}
+.grid-cell.placed {
+  background: #81c784;  /* green — movable placed piece */
+  color: #1b5e20;
+  cursor: pointer;
+}
