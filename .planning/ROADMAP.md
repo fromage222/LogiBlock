@@ -28,7 +28,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Der Host sieht einen aktiven Start-Button sobald mindestens 2 Spieler verbunden sind, und kann vor dem Start ein Puzzle auswählen.
   4. Nach dem Spielstart sind die Anker-Formen an ihren fixen Positionen im Grid sichtbar und können nicht bewegt werden.
   5. Wenn der aktive Spieler die Verbindung verliert, friert das Spiel nicht ein — der nächste Spieler ist automatisch dran; leere Lobbys verschwinden ohne manuellen Eingriff.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Server bootstrap, puzzle loading, game.js LobbyManager + getPublicState()
+- [ ] 01-02-PLAN.md — Socket.IO lobby event handlers + disconnect handling (socket.js)
+- [ ] 01-03-PLAN.md — Client SPA: start screen, lobby screen, game screen with anchor cells
 
 ### Phase 2: Game Loop
 **Goal**: Das Spiel ist vollständig spielbar — Züge werden serverseitig gegen die versteckte Lösung validiert, alle Spieler sehen den gleichen Spielstand in Echtzeit, und das Spiel endet mit einem Win-Screen.
@@ -60,6 +65,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/3 | Ready to execute | - |
 | 2. Game Loop | 0/TBD | Not started | - |
 | 3. Timer und Leaderboard | 0/TBD | Not started | - |
