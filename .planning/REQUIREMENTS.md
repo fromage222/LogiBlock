@@ -9,16 +9,16 @@
 
 ### Lobby
 
-- [ ] **LOBB-01**: Spieler kann einen neuen Raum erstellen und erhält einen einzigartigen Room-Code
-- [ ] **LOBB-02**: Spieler kann einem bestehenden Raum per Room-Code beitreten
-- [ ] **LOBB-03**: Alle Spieler sehen live welche Mitspieler in der Lobby verbunden sind
-- [ ] **LOBB-04**: Host kann das Spiel starten (erst wenn ≥2 Spieler verbunden sind)
-- [ ] **LOBB-05**: Host kann vor Spielstart aus den verfügbaren Puzzles auswählen
+- [x] **LOBB-01**: Spieler kann einen neuen Raum erstellen und erhält einen einzigartigen Room-Code
+- [x] **LOBB-02**: Spieler kann einem bestehenden Raum per Room-Code beitreten
+- [x] **LOBB-03**: Alle Spieler sehen live welche Mitspieler in der Lobby verbunden sind
+- [x] **LOBB-04**: Host kann das Spiel starten (erst wenn ≥2 Spieler verbunden sind)
+- [x] **LOBB-05**: Host kann vor Spielstart aus den verfügbaren Puzzles auswählen
 
 ### Puzzle
 
-- [ ] **PUZZ-01**: Server lädt alle Puzzle-JSON-Dateien beim Start und validiert ihr Schema
-- [ ] **PUZZ-02**: Anker-Formen sind beim Spielstart an ihrer fixen Position vorplatziert und unveränderlich
+- [x] **PUZZ-01**: Server lädt alle Puzzle-JSON-Dateien beim Start und validiert ihr Schema
+- [x] **PUZZ-02**: Anker-Formen sind beim Spielstart an ihrer fixen Position vorplatziert und unveränderlich
 - [ ] **PUZZ-03**: Formen können vom aktiven Spieler rotiert werden (0°, 90°, 180°, 270°)
 
 ### Game Loop
@@ -31,8 +31,8 @@
 - [ ] **GAME-06**: Die Lösung verlässt niemals den Server — `getPublicState()` ist der einzige Serialisierungspfad
 - [ ] **GAME-07**: Bei ungültigem Zug erhält nur der aktive Spieler eine Fehlermeldung mit Grund
 - [ ] **GAME-08**: Nach jedem akzeptierten Zug erhalten alle Spieler sofort den neuen Grid-State (Echtzeit-Sync)
-- [ ] **GAME-09**: Wenn der aktive Spieler disconnected wird sein Zug automatisch übersprungen und der nächste Spieler ist dran
-- [ ] **GAME-10**: Leere Lobbys (alle Spieler disconnected) werden automatisch zerstört
+- [x] **GAME-09**: Wenn der aktive Spieler disconnected wird sein Zug automatisch übersprungen und der nächste Spieler ist dran
+- [x] **GAME-10**: Leere Lobbys (alle Spieler disconnected) werden automatisch zerstört
 
 ### Gewinn & Timer
 
@@ -82,15 +82,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOBB-01 | Phase 1 | Pending |
-| LOBB-02 | Phase 1 | Pending |
-| LOBB-03 | Phase 1 | Pending |
-| LOBB-04 | Phase 1 | Pending |
-| LOBB-05 | Phase 1 | Pending |
-| PUZZ-01 | Phase 1 | Pending |
-| PUZZ-02 | Phase 1 | Pending |
-| GAME-09 | Phase 1 | Pending |
-| GAME-10 | Phase 1 | Pending |
+| LOBB-01 | Phase 1 | Complete |
+| LOBB-02 | Phase 1 | Complete |
+| LOBB-03 | Phase 1 | Complete |
+| LOBB-04 | Phase 1 | Complete |
+| LOBB-05 | Phase 1 | Complete |
+| PUZZ-01 | Phase 1 | Done (01-01) |
+| PUZZ-02 | Phase 1 | Done (01-01) |
+| GAME-09 | Phase 1 | Complete |
+| GAME-10 | Phase 1 | Complete |
 | PUZZ-03 | Phase 2 | Pending |
 | GAME-01 | Phase 2 | Pending |
 | GAME-02 | Phase 2 | Pending |
@@ -115,4 +115,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after roadmap creation*
+*Last updated: 2026-03-03 — PUZZ-01, PUZZ-02 completed in 01-01*
