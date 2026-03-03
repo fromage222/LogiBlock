@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Server bootstrap, puzzle loading, game.js LobbyManager + getPublicState()
 - [x] 01-02-PLAN.md — Socket.IO lobby event handlers + disconnect handling (socket.js)
-- [ ] 01-03-PLAN.md — Client SPA: start screen, lobby screen, game screen with anchor cells
+- [x] 01-03-PLAN.md — Client SPA: start screen, lobby screen, game screen with anchor cells (checkpoint: awaiting human verify)
 
 ### Phase 2: Game Loop
 **Goal**: Das Spiel ist vollständig spielbar — Züge werden serverseitig gegen die versteckte Lösung validiert, alle Spieler sehen den gleichen Spielstand in Echtzeit, und das Spiel endet mit einem Win-Screen.
@@ -65,6 +65,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 2/3 | In progress | - |
+| 1. Foundation | 3/3 | Checkpoint — human verify | - |
 | 2. Game Loop | 0/TBD | Not started | - |
 | 3. Timer und Leaderboard | 0/TBD | Not started | - |
