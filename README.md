@@ -66,7 +66,7 @@ npm install
 node src/server.js
 ```
 
-Der Server läuft dann auf `http://localhost:3000`
+Der Server läuft dann auf `http://localhost:8000`
 
 ### Client öffnen
 
@@ -82,7 +82,49 @@ Oder `client/index.html` direkt im Browser öffnen.
 `.env.example` in `.env` umbenennen und anpassen:
 
 ```
-PORT=3000
+PORT=8000
+```
+
+---
+
+## Deployment (Uni-Server)
+
+Der Server läuft auf dem Ubuntu-Server der DHBW unter `http://141.72.176.152:8000`.
+Der Client wird direkt vom Express-Server ausgeliefert — kein separates Hosting nötig.
+
+### Erstmalig einrichten
+
+```bash
+ssh <username>@141.72.176.152
+git clone https://github.com/fromage222/LogiBlock.git
+cd LogiBlock/server
+npm install
+```
+
+### Server starten
+
+```bash
+ssh <username>@141.72.176.152
+cd LogiBlock/server
+node src/server.js
+```
+
+Server stoppen: `Ctrl+C`
+Oder falls die SSH-Verbindung bereits geschlossen ist:
+```bash
+pkill -f "node src/server.js"
+```
+
+### Repository aktualisieren & neu starten
+
+```bash
+ssh <username>@141.72.176.152
+cd LogiBlock
+git config pull.rebase false   # einmalig nötig
+git pull origin dev
+pkill -f "node src/server.js"
+cd server
+node src/server.js
 ```
 
 ---
