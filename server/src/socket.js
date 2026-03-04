@@ -10,6 +10,10 @@ const {
   advanceTurnIfActive,
   getPublicState,
   getPuzzleListForClient,
+  // NEW from Plan 02-01:
+  placePiece,
+  returnPiece,
+  advanceTurn,
 } = require('./game');
 
 /**
@@ -125,6 +129,46 @@ function registerSocketHandlers(io, socket, puzzleMap) {
 
     // getPublicState now returns grid with anchor shapes pre-placed (PUZZ-02)
     io.to(roomCode).emit('game:start', getPublicState(roomCode));
+  });
+
+  // ── game:move ──────────────────────────────────────────────────────────────
+  // Client emits: { action, shapeId, rotation?, originRow?, originCol? }
+  // action 'place': validates, places piece, advances turn or emits game:win
+  // action 'return': validates, returns piece to bank, does NOT advance turn
+  socket.on('game:move', ({ action, shapeId, rotation, originRow, originCol } = {}) => {
+    const roomCode = socket.data.roomCode;
+    if (!roomCode) return;
+
+    const lobby = getLobby(roomCode);
+    if (!lobby || lobby.phase !== 'playing') return;
+
+    // Guard: only active player may move
+    const activePlayer = lobby.players[lobby.activeTurnIndex];
+    if (!activePlayer || activePlayer.socketId !== socket.id) {
+      return socket.emit('game:error', 'Not your turn');
+    }
+
+    if (action === 'place') {
+      const result = placePiece(lobby, shapeId, rotation ?? 0, originRow ?? 0, originCol ?? 0);
+      if (!result.ok) {
+        return socket.emit('game:error', result.error);
+      }
+      if (result.win) {
+        // WIN-01 + WIN-02: emit game:win to all; do NOT advance turn; do NOT emit stateUpdate
+        io.to(roomCode).emit('game:win', getPublicState(roomCode));
+      } else {
+        advanceTurn(lobby);
+        io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
+      }
+    } else if (action === 'return') {
+      const result = returnPiece(lobby, shapeId);
+      if (!result.ok) {
+        return socket.emit('game:error', result.error);
+      }
+      // Return does NOT advance turn — same player continues (per CONTEXT.md locked decision)
+      io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
+    }
+    // Unknown action: silently ignore
   });
 
   // ── disconnecting ──────────────────────────────────────────────────────────
