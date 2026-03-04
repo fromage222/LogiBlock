@@ -9,6 +9,43 @@ let myRoomCode = null;
 let amIHost = false;
 let myPlayerName = null;
 
+// Phase 2: game interaction state
+let selectedShapeId = null;   // currently selected piece in bank
+let selectedRotation = 0;     // rotation of selected piece: 0|90|180|270
+let pieceColors = {};         // Map<shapeId, colorString>
+let currentGrid = null;       // cached grid data for ghost preview (null cells)
+let currentGridSize = null;   // cached { rows, cols }
+let currentBankShapes = [];   // cached bankShapes array for ghost lookup
+
+// ─── Rotation helpers (same math as server — duplicated per no-build-tools constraint) ───
+function rotateCells90CW(cells) {
+  const rotated = cells.map(([dr, dc]) => [dc, -dr]);
+  const minR = Math.min(...rotated.map(([r]) => r));
+  const minC = Math.min(...rotated.map(([, c]) => c));
+  return rotated.map(([r, c]) => [r - minR, c - minC]);
+}
+function rotateCells(cells, rotation) {
+  let result = cells.slice();
+  const times = ((rotation / 90) % 4 + 4) % 4;
+  for (let i = 0; i < times; i++) result = rotateCells90CW(result);
+  return result;
+}
+
+// ─── Piece color assignment ───────────────────────────────────────────────────
+const PIECE_COLORS = ['#5c85d6', '#e07b39', '#6ab187', '#c05c7e', '#9b6bb5', '#c8b84a'];
+function initPieceColors(state) {
+  // Collect all movable shape IDs from bank + grid
+  const ids = new Set();
+  (state.bankShapes || []).forEach(s => ids.add(s.id));
+  if (state.grid) {
+    state.grid.forEach(row => row.forEach(cell => {
+      if (cell && cell.movable !== false) ids.add(cell.shapeId);
+    }));
+  }
+  let i = 0;
+  ids.forEach(id => { pieceColors[id] = PIECE_COLORS[i++ % PIECE_COLORS.length]; });
+}
+
 // ─── DOM references ───────────────────────────────────────────────────────────
 const startScreen   = document.getElementById('start-screen');
 const lobbyScreen   = document.getElementById('lobby-screen');
@@ -136,6 +173,11 @@ function renderGrid(state) {
 
   if (!state.grid || !state.gridSize) return;
 
+  // Cache grid data for ghost preview
+  currentGrid = state.grid;
+  currentGridSize = state.gridSize;
+  currentBankShapes = state.bankShapes || [];
+
   const { rows, cols } = state.gridSize;
   gameGrid.style.gridTemplateColumns = `repeat(${cols}, 40px)`;
   gameGrid.style.gridTemplateRows    = `repeat(${rows}, 40px)`;
@@ -144,6 +186,8 @@ function renderGrid(state) {
     for (let c = 0; c < cols; c++) {
       const cell = document.createElement('div');
       cell.classList.add('grid-cell');
+      cell.setAttribute('data-row', r);
+      cell.setAttribute('data-col', c);
 
       const content = state.grid[r][c];
       if (content === null) {
@@ -156,7 +200,17 @@ function renderGrid(state) {
       } else {
         cell.classList.add('placed');
         cell.textContent = content.shapeId;
+        // Per-piece color override (replaces CSS .placed green)
+        cell.style.background = pieceColors[content.shapeId] || '#81c784';
+        cell.style.color = '#fff';
+        // Click to return piece to bank
+        cell.addEventListener('click', () => handleReturnClick(content.shapeId));
       }
+
+      // Drag event listeners on ALL cells (empty + placed) for ghost preview and drop
+      cell.addEventListener('dragover', (e) => handleDragOver(e, r, c));
+      cell.addEventListener('dragleave', () => {}); // no-op — ghost cleared on dragend
+      cell.addEventListener('drop', (e) => handleDrop(e, r, c));
 
       gameGrid.appendChild(cell);
     }
