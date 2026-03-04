@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 2 of 3 (Game Loop)
-Plan: 1 of 5 in current phase
-Status: Active — 02-01 complete, proceeding to 02-02
-Last activity: 2026-03-04 — Completed 02-01 (Server Game Logic TDD)
+Plan: 2 of 5 in current phase
+Status: Active — 02-02 complete, proceeding to 02-03
+Last activity: 2026-03-04 — Completed 02-02 (HTML/CSS Game Screen Layout)
 
-Progress: [████░░░░░░] 40%
+Progress: [█████░░░░░] 47%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (02-01 complete)
-- Average duration: 5.5 min
-- Total execution time: 0.37 hours
+- Total plans completed: 5 (02-02 complete)
+- Average duration: 5.2 min
+- Total execution time: 0.43 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3 | 20 min | 6.7 min |
-| 02-game-loop | 1 | 3 min | 3 min |
+| 02-game-loop | 2 | 8 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (15 min), 01-02 (2 min), 01-03 (3 min), 02-01 (3 min)
+- Last 5 plans: 01-01 (15 min), 01-02 (2 min), 01-03 (3 min), 02-01 (3 min), 02-02 (5 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -60,6 +60,9 @@ Recent decisions affecting current work:
 - **`advanceTurnIfActive` vor `removePlayer` aufrufen** (02-01): Reihenfolge entscheidend — disconnectingIndex muss noch gültig sein wenn die Index-Anpassungslogik läuft.
 - **`checkWin` exportiert aber nur intern aufgerufen** (02-01): Testbarkeit ohne Sicherheitsrisiko — solution-Objekt verlässt nie den Server.
 - **`before()` Hook für `loadPuzzles()` in Tests** (02-01): Kein module-level side-effect; saubere Trennung zwischen Test-Setup und Code-Modulinitalisierung.
+- **Win overlay außerhalb #game-screen** (02-02): display:none-Vererbung vom .screen-Pattern vermieden — JS kann overlay unabhängig vom Screen-Status ein-/ausblenden.
+- **#game-screen max-width auf 900px** (02-02): Phase-2-Override appended am Ende von style.css — Bank-Panel passt ohne Overflow.
+- **HTML-Contract-First Pattern** (02-02): Element-IDs in HTML definiert bevor main.js (Plan 04) sie abfragt — vermeidet "scavenger hunt"-Antipattern.
 
 ### Pending Todos
 
@@ -72,5 +75,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 02-01-PLAN.md (Server Game Logic TDD)
-Resume file: .planning/phases/02-game-loop/02-01-SUMMARY.md
+Stopped at: Completed 02-02-PLAN.md (HTML/CSS Game Screen Layout)
+Resume file: .planning/phases/02-game-loop/02-02-SUMMARY.md

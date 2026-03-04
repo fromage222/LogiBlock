@@ -23,8 +23,8 @@
 
 ### Game Loop
 
-- [ ] **GAME-01**: Der aktive Spieler ist für alle Teilnehmer klar markiert sichtbar
-- [ ] **GAME-02**: Die Zugreihenfolge ist zirkulär, server-kontrolliert, und für alle sichtbar
+- [x] **GAME-01**: Der aktive Spieler ist für alle Teilnehmer klar markiert sichtbar
+- [x] **GAME-02**: Die Zugreihenfolge ist zirkulär, server-kontrolliert, und für alle sichtbar
 - [x] **GAME-03**: Aktiver Spieler kann eine Form aus der Bank ins Grid legen (Position + Rotation)
 - [x] **GAME-04**: Aktiver Spieler kann eine falsch platzierte Form aus dem Grid zurück in die Bank legen
 - [x] **GAME-05**: Jeder Zug wird serverseitig gegen die hinterlegte Lösung validiert bevor er akzeptiert wird
@@ -37,7 +37,7 @@
 ### Gewinn & Timer
 
 - [x] **WIN-01**: Gewinnbedingung wird erkannt wenn das Grid vollständig und korrekt gefüllt ist (Server-Prüfung)
-- [ ] **WIN-02**: Alle Spieler sehen einen Win-Screen wenn das Puzzle gelöst wurde
+- [x] **WIN-02**: Alle Spieler sehen einen Win-Screen wenn das Puzzle gelöst wurde
 - [ ] **TIME-01**: Ein Timer startet exakt wenn das Spiel beginnt (Host drückt Start)
 - [ ] **TIME-02**: Der Timer stoppt exakt wenn das Puzzle korrekt gelöst wurde
 - [ ] **TIME-03**: Die Lösungszeit wird dem Team auf dem Win-Screen angezeigt
@@ -92,8 +92,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GAME-09 | Phase 1 | Complete |
 | GAME-10 | Phase 1 | Complete |
 | PUZZ-03 | Phase 2 | Done (02-01) |
-| GAME-01 | Phase 2 | Pending |
-| GAME-02 | Phase 2 | Pending |
+| GAME-01 | Phase 2 | Complete |
+| GAME-02 | Phase 2 | Complete |
 | GAME-03 | Phase 2 | Done (02-01) |
 | GAME-04 | Phase 2 | Done (02-01) |
 | GAME-05 | Phase 2 | Done (02-01) |
@@ -101,7 +101,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GAME-07 | Phase 2 | Pending |
 | GAME-08 | Phase 2 | Pending |
 | WIN-01 | Phase 2 | Done (02-01) |
-| WIN-02 | Phase 2 | Pending |
+| WIN-02 | Phase 2 | Complete |
 | TIME-01 | Phase 3 | Pending |
 | TIME-02 | Phase 3 | Pending |
 | TIME-03 | Phase 3 | Pending |
