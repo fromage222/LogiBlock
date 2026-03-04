@@ -1,6 +1,6 @@
 'use strict';
 
-const { describe, it, before, beforeEach } = require('node:test');
+const { describe, it, before } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
@@ -17,6 +17,11 @@ const {
   advanceTurn,
   advanceTurnIfActive,
 } = require('./game');
+
+// ─── One-time setup: load puzzles before any test runs ────────────────────────
+before(() => {
+  loadPuzzles();
+});
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
