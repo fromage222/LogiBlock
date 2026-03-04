@@ -45,7 +45,14 @@ Plans:
   3. Eine falsch platzierte Form kann der aktive Spieler aus dem Grid zurück in die Bank legen.
   4. Nach jedem akzeptierten Zug sehen alle Spieler sofort den aktualisierten Grid-Zustand ohne Seitenreload.
   5. Bei einem ungültigen Zug sieht nur der aktive Spieler eine Fehlermeldung; bei vollständig korrektem Grid erscheint für alle der Win-Screen.
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Server game logic TDD (rotateCells, placePiece, returnPiece, checkWin, advanceTurn, getPublicState extension)
+- [ ] 02-02-PLAN.md — Client HTML + CSS (bank panel, turn banner, player badges, win overlay structure and styles)
+- [ ] 02-03-PLAN.md — Server socket handler (game:move with game:error point-to-point and game:win broadcast)
+- [ ] 02-04-PLAN.md — Client game loop JS (renderBank, drag-and-drop, ghost preview, renderTurnUI, renderWin, extended renderGrid)
+- [ ] 02-05-PLAN.md — Human verification checkpoint (end-to-end game loop playable)
 
 ### Phase 3: Timer und Leaderboard
 **Goal**: Das Spielerlebnis ist vollständig — die Lösungszeit wird gemessen und auf dem Win-Screen angezeigt; die Rangliste aller gelösten Puzzles der aktuellen Server-Session ist auf dem Start-Screen sichtbar.
@@ -66,5 +73,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Checkpoint — human verify | - |
-| 2. Game Loop | 0/TBD | Not started | - |
+| 2. Game Loop | 0/5 | Not started | - |
 | 3. Timer und Leaderboard | 0/TBD | Not started | - |
