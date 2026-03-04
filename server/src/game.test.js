@@ -1,0 +1,440 @@
+'use strict';
+
+const { describe, it, before, beforeEach } = require('node:test');
+const assert = require('node:assert/strict');
+
+const {
+  lobbies,
+  loadPuzzles,
+  createLobby,
+  startGame,
+  addPlayer,
+  getPublicState,
+  rotateCells,
+  placePiece,
+  returnPiece,
+  checkWin,
+  advanceTurn,
+  advanceTurnIfActive,
+} = require('./game');
+
+// ─── Test helpers ─────────────────────────────────────────────────────────────
+
+function makeLobby(roomCode = 'TEST01') {
+  lobbies.delete(roomCode);
+  createLobby(roomCode, 'host-socket', 'Alice');
+  addPlayer(roomCode, 'p2-socket', 'Bob');
+  const result = startGame(roomCode);
+  if (!result.ok) throw new Error('startGame failed: ' + result.error);
+  return lobbies.get(roomCode);
+}
+
+// ─── rotateCells ─────────────────────────────────────────────────────────────
+
+describe('rotateCells', () => {
+  it('rotation 0 returns original cells (unchanged)', () => {
+    const cells = [[0,0],[0,1],[1,0]];
+    const result = rotateCells(cells, 0);
+    // Order may differ — compare as sorted sets
+    const sorted = (arr) => [...arr].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    assert.deepEqual(sorted(result), sorted(cells));
+  });
+
+  it('rotation 90 CW: [dr,dc] → [dc,-dr] normalized', () => {
+    // L-shape: [0,0],[0,1],[1,0]
+    // 90 CW: each [dr,dc] → [dc,-dr]
+    //   [0,0] → [0,0]
+    //   [0,1] → [1,0]
+    //   [1,0] → [0,-1] → normalized to [0,0] shift: minR=0,minC=-1 → add 1 to all cols
+    //   final: [0,1],[1,1],[0,0] → sorted: [0,0],[0,1],[1,1]
+    const cells = [[0,0],[0,1],[1,0]];
+    const result = rotateCells(cells, 90);
+    const sorted = (arr) => [...arr].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    assert.deepEqual(sorted(result), sorted([[0,0],[0,1],[1,1]]));
+  });
+
+  it('rotation 180 returns shape rotated 180 degrees, normalized', () => {
+    const cells = [[0,0],[0,1],[1,1]];
+    const at0   = rotateCells(cells, 0);
+    const at180 = rotateCells(cells, 180);
+    // 180 should differ from 0 for asymmetric shapes
+    assert.notDeepEqual(at0, at180);
+    // All values must be >= 0 (normalized)
+    for (const [r, c] of at180) {
+      assert.ok(r >= 0, `row ${r} is negative`);
+      assert.ok(c >= 0, `col ${c} is negative`);
+    }
+  });
+
+  it('4 × 90° CW returns to original shape', () => {
+    const cells = [[0,0],[0,1],[1,1]];
+    const sorted = (arr) => [...arr].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const at0   = sorted(rotateCells(cells, 0));
+    const at360 = sorted(rotateCells(cells, 360));
+    assert.deepEqual(at360, at0);
+  });
+
+  it('rotation 270: output never contains negative values (normalized)', () => {
+    const cells = [[0,0],[0,1],[1,0],[1,1]];
+    const result = rotateCells(cells, 270);
+    for (const [r, c] of result) {
+      assert.ok(r >= 0, `row ${r} is negative`);
+      assert.ok(c >= 0, `col ${c} is negative`);
+    }
+  });
+
+  it('min row and min col of result are always 0 (normalized)', () => {
+    const cells = [[0,0],[0,1],[0,2],[1,2]];
+    for (const deg of [0, 90, 180, 270]) {
+      const result = rotateCells(cells, deg);
+      const minR = Math.min(...result.map(([r]) => r));
+      const minC = Math.min(...result.map(([, c]) => c));
+      assert.equal(minR, 0, `minR for ${deg}° should be 0`);
+      assert.equal(minC, 0, `minC for ${deg}° should be 0`);
+    }
+  });
+});
+
+// ─── checkWin ─────────────────────────────────────────────────────────────────
+
+describe('checkWin', () => {
+  it('returns false when grid has null where solution expects a shapeId', () => {
+    const lobby = makeLobby('CWTEST1');
+    // Grid is freshly started — movable shapes not placed yet
+    const puzzle = require('./game').getPuzzleById(lobby.selectedPuzzleId);
+    assert.equal(checkWin(lobby, puzzle), false);
+  });
+
+  it('returns true when every cell matches puzzle solution exactly', () => {
+    const lobby = makeLobby('CWTEST2');
+    const puzzle = require('./game').getPuzzleById(lobby.selectedPuzzleId);
+    // Build a grid that exactly matches solution
+    const { rows, cols } = puzzle.gridSize;
+    const grid = [];
+    for (let r = 0; r < rows; r++) {
+      grid.push([]);
+      for (let c = 0; c < cols; c++) {
+        const sid = puzzle.solution[r][c];
+        grid[r].push(sid ? { shapeId: sid, movable: sid !== 'A' } : null);
+      }
+    }
+    lobby.grid = grid;
+    assert.equal(checkWin(lobby, puzzle), true);
+  });
+
+  it('returns false when a non-null solution cell has a wrong shapeId in grid', () => {
+    const lobby = makeLobby('CWTEST3');
+    const puzzle = require('./game').getPuzzleById(lobby.selectedPuzzleId);
+    // Build matching grid then corrupt one cell
+    const { rows, cols } = puzzle.gridSize;
+    const grid = [];
+    for (let r = 0; r < rows; r++) {
+      grid.push([]);
+      for (let c = 0; c < cols; c++) {
+        const sid = puzzle.solution[r][c];
+        grid[r].push(sid ? { shapeId: sid, movable: sid !== 'A' } : null);
+      }
+    }
+    // Overwrite a movable cell with a wrong shapeId
+    outer:
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (puzzle.solution[r][c] !== null && grid[r][c] && grid[r][c].movable) {
+          grid[r][c] = { shapeId: 'WRONG', movable: true };
+          break outer;
+        }
+      }
+    }
+    lobby.grid = grid;
+    assert.equal(checkWin(lobby, puzzle), false);
+  });
+
+  it('returns false when a null solution cell has something in grid', () => {
+    const lobby = makeLobby('CWTEST4');
+    const puzzle = require('./game').getPuzzleById(lobby.selectedPuzzleId);
+    const { rows, cols } = puzzle.gridSize;
+    const grid = [];
+    for (let r = 0; r < rows; r++) {
+      grid.push([]);
+      for (let c = 0; c < cols; c++) {
+        const sid = puzzle.solution[r][c];
+        grid[r].push(sid ? { shapeId: sid, movable: sid !== 'A' } : null);
+      }
+    }
+    // Put something in a null solution cell
+    outer:
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (puzzle.solution[r][c] === null) {
+          grid[r][c] = { shapeId: 'X', movable: true };
+          break outer;
+        }
+      }
+    }
+    lobby.grid = grid;
+    assert.equal(checkWin(lobby, puzzle), false);
+  });
+});
+
+// ─── placePiece ───────────────────────────────────────────────────────────────
+
+describe('placePiece', () => {
+  // puzzle_01: shape B = [[0,0],[0,1],[1,1]] at 0° → fits at origin (1,1) in 4×4 grid
+  // shape C = [[0,0],[1,0],[1,1]]
+
+  it('returns { ok: true, win: false } for valid placement', () => {
+    const lobby = makeLobby('PP01');
+    // Place shape B at row 0, col 1 with 0° rotation
+    const result = placePiece(lobby, 'B', 0, 0, 1);
+    assert.equal(result.ok, true);
+    assert.equal(result.win, false);
+  });
+
+  it('writes cells as { shapeId, movable: true } after successful placement', () => {
+    const lobby = makeLobby('PP02');
+    placePiece(lobby, 'B', 0, 0, 1);
+    // B at (0,1): cells [0,0],[0,1],[1,1] → absolute (0,1),(0,2),(1,2)
+    assert.deepEqual(lobby.grid[0][1], { shapeId: 'B', movable: true });
+    assert.deepEqual(lobby.grid[0][2], { shapeId: 'B', movable: true });
+    assert.deepEqual(lobby.grid[1][2], { shapeId: 'B', movable: true });
+  });
+
+  it('returns { ok: false, error: "Cell occupied" } when target cell is already filled', () => {
+    const lobby = makeLobby('PP03');
+    placePiece(lobby, 'B', 0, 0, 1); // place B at (0,1)
+    // Try placing C at (0,1) where B already occupies (0,1)
+    const result = placePiece(lobby, 'C', 0, 0, 1);
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'Cell occupied');
+  });
+
+  it('returns { ok: false, error: "Piece out of bounds" } when any cell is outside grid', () => {
+    const lobby = makeLobby('PP04');
+    // B shape [[0,0],[0,1],[1,1]] at origin (3,3) in 4×4 grid → (3,4) out of bounds
+    const result = placePiece(lobby, 'B', 0, 3, 3);
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'Piece out of bounds');
+  });
+
+  it('returns { ok: false, error: "Shape already placed" } when shape is already on grid', () => {
+    const lobby = makeLobby('PP05');
+    placePiece(lobby, 'B', 0, 0, 1);
+    const result = placePiece(lobby, 'B', 0, 2, 0);
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'Shape already placed');
+  });
+
+  it('returns { ok: false, error: "Invalid shape" } for unknown shapeId', () => {
+    const lobby = makeLobby('PP06');
+    const result = placePiece(lobby, 'UNKNOWN', 0, 0, 0);
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'Invalid shape');
+  });
+
+  it('returns { ok: false, error: "Invalid shape" } for anchor shape (non-movable)', () => {
+    const lobby = makeLobby('PP07');
+    // Shape A is anchor (movable: false)
+    const result = placePiece(lobby, 'A', 0, 0, 0);
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'Invalid shape');
+  });
+
+  it('returns { ok: true, win: true } when placement completes the solution', () => {
+    // puzzle_01 solution:
+    // row0: A B B null
+    // row1: A C B null
+    // row2: A C C null
+    // row3: null null null null
+    // A is anchor at (0,0): covers (0,0),(1,0),(2,0)
+    // B shape [[0,0],[0,1],[1,1]] at 0° → place at origin (0,1): covers (0,1),(0,2),(1,2) ✓
+    // C shape [[0,0],[1,0],[1,1]] at 0° → place at origin (1,1): covers (1,1),(2,1),(2,2) ✓
+    const lobby = makeLobby('PP08');
+    placePiece(lobby, 'B', 0, 0, 1);
+    const result = placePiece(lobby, 'C', 0, 1, 1);
+    assert.equal(result.ok, true);
+    assert.equal(result.win, true);
+  });
+});
+
+// ─── returnPiece ──────────────────────────────────────────────────────────────
+
+describe('returnPiece', () => {
+  it('returns { ok: true } and clears movable cells for a placed shape', () => {
+    const lobby = makeLobby('RP01');
+    placePiece(lobby, 'B', 0, 0, 1);
+    const result = returnPiece(lobby, 'B');
+    assert.equal(result.ok, true);
+    // B cells: (0,1),(0,2),(1,2) should all be null now
+    assert.equal(lobby.grid[0][1], null);
+    assert.equal(lobby.grid[0][2], null);
+    assert.equal(lobby.grid[1][2], null);
+  });
+
+  it('returns { ok: false, error: "Shape not on grid" } when shape is not placed', () => {
+    const lobby = makeLobby('RP02');
+    const result = returnPiece(lobby, 'B');
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'Shape not on grid');
+  });
+
+  it('returns { ok: false, error: "Invalid shape" } for unknown shapeId', () => {
+    const lobby = makeLobby('RP03');
+    const result = returnPiece(lobby, 'UNKNOWN');
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'Invalid shape');
+  });
+
+  it('does not clear non-movable anchor cells', () => {
+    const lobby = makeLobby('RP04');
+    // Anchor A is at (0,0),(1,0),(2,0) — returnPiece should reject since A is not movable
+    const result = returnPiece(lobby, 'A');
+    assert.equal(result.ok, false);
+    // Anchor cells should remain intact
+    assert.deepEqual(lobby.grid[0][0], { shapeId: 'A', movable: false });
+  });
+});
+
+// ─── advanceTurn ──────────────────────────────────────────────────────────────
+
+describe('advanceTurn', () => {
+  it('increments activeTurnIndex by 1', () => {
+    const lobby = makeLobby('AT01');
+    lobby.activeTurnIndex = 0;
+    advanceTurn(lobby);
+    assert.equal(lobby.activeTurnIndex, 1);
+  });
+
+  it('wraps around modulo players.length', () => {
+    const lobby = makeLobby('AT02');
+    // lobby has 2 players (Alice + Bob)
+    lobby.activeTurnIndex = 1;
+    advanceTurn(lobby);
+    assert.equal(lobby.activeTurnIndex, 0);
+  });
+
+  it('is a no-op when players.length === 0', () => {
+    const lobby = makeLobby('AT03');
+    lobby.players = [];
+    lobby.activeTurnIndex = 0;
+    advanceTurn(lobby);
+    assert.equal(lobby.activeTurnIndex, 0);
+  });
+});
+
+// ─── advanceTurnIfActive ──────────────────────────────────────────────────────
+
+describe('advanceTurnIfActive', () => {
+  it('adjusts activeTurnIndex when active player disconnects (newLength > 0)', () => {
+    const lobby = makeLobby('ATIA01');
+    // 2 players: Alice (index 0) is active
+    lobby.activeTurnIndex = 0;
+    const aliceId = lobby.players[0].socketId;
+    // Bob's index is 1 >= activeTurnIndex after Alice removed
+    advanceTurnIfActive(lobby, aliceId);
+    // newLength = 1; activeTurnIndex = 0 % 1 = 0
+    assert.equal(lobby.activeTurnIndex, 0);
+  });
+
+  it('sets activeTurnIndex = 0 when active player disconnects and no players remain', () => {
+    const lobby = makeLobby('ATIA02');
+    lobby.players = [{ socketId: 'only', name: 'Solo', isHost: true }];
+    lobby.activeTurnIndex = 0;
+    advanceTurnIfActive(lobby, 'only');
+    assert.equal(lobby.activeTurnIndex, 0);
+  });
+
+  it('decrements activeTurnIndex when non-active lower-index player disconnects', () => {
+    // 3 players: index 0=Alice, 1=Bob, 2=Carol; active is index 2
+    const lobby = makeLobby('ATIA03');
+    lobby.players = [
+      { socketId: 'alice', name: 'Alice', isHost: true },
+      { socketId: 'bob',   name: 'Bob',   isHost: false },
+      { socketId: 'carol', name: 'Carol', isHost: false },
+    ];
+    lobby.activeTurnIndex = 2;
+    // Bob (index 1) disconnects — index 1 < activeTurnIndex 2
+    advanceTurnIfActive(lobby, 'bob');
+    assert.equal(lobby.activeTurnIndex, 1);
+  });
+
+  it('leaves activeTurnIndex unchanged when non-active higher-index player disconnects', () => {
+    // 3 players: active is index 0; Carol (index 2) disconnects
+    const lobby = makeLobby('ATIA04');
+    lobby.players = [
+      { socketId: 'alice', name: 'Alice', isHost: true },
+      { socketId: 'bob',   name: 'Bob',   isHost: false },
+      { socketId: 'carol', name: 'Carol', isHost: false },
+    ];
+    lobby.activeTurnIndex = 0;
+    advanceTurnIfActive(lobby, 'carol');
+    assert.equal(lobby.activeTurnIndex, 0);
+  });
+
+  it('does nothing if lobby is not in playing phase', () => {
+    const lobby = makeLobby('ATIA05');
+    lobby.phase = 'lobby';
+    lobby.activeTurnIndex = 0;
+    const aliceId = lobby.players[0].socketId;
+    advanceTurnIfActive(lobby, aliceId);
+    assert.equal(lobby.activeTurnIndex, 0);
+  });
+});
+
+// ─── getPublicState extension ─────────────────────────────────────────────────
+
+describe('getPublicState Phase 2 extension', () => {
+  it('includes activePlayerName (name of current turn player)', () => {
+    const lobby = makeLobby('GPS01');
+    lobby.activeTurnIndex = 0;
+    const state = getPublicState('GPS01');
+    assert.equal(state.activePlayerName, lobby.players[0].name);
+  });
+
+  it('includes activeTurnIndex', () => {
+    const lobby = makeLobby('GPS02');
+    lobby.activeTurnIndex = 1;
+    const state = getPublicState('GPS02');
+    assert.equal(state.activeTurnIndex, 1);
+  });
+
+  it('includes bankShapes: movable shapes not yet placed on grid', () => {
+    const lobby = makeLobby('GPS03');
+    const state = getPublicState('GPS03');
+    // Initially no movable shapes placed — all movable shapes should be in bank
+    const puzzle = require('./game').getPuzzleById(lobby.selectedPuzzleId);
+    const movableCount = puzzle.shapes.filter(s => s.movable).length;
+    assert.equal(state.bankShapes.length, movableCount);
+  });
+
+  it('bankShapes shrinks after placing a piece', () => {
+    const lobby = makeLobby('GPS04');
+    const stateBefore = getPublicState('GPS04');
+    placePiece(lobby, 'B', 0, 0, 1);
+    const stateAfter = getPublicState('GPS04');
+    assert.equal(stateAfter.bankShapes.length, stateBefore.bankShapes.length - 1);
+  });
+
+  it('bankShapes items have { id, cells } shape', () => {
+    const lobby = makeLobby('GPS05');
+    const state = getPublicState('GPS05');
+    for (const shape of state.bankShapes) {
+      assert.ok(typeof shape.id === 'string', 'bankShape.id must be string');
+      assert.ok(Array.isArray(shape.cells), 'bankShape.cells must be array');
+    }
+  });
+
+  it('NEVER includes "solution" key in output (GAME-06 invariant)', () => {
+    const lobby = makeLobby('GPS06');
+    const state = getPublicState('GPS06');
+    const json = JSON.stringify(state);
+    assert.ok(!json.includes('"solution"'), 'solution key found in public state — GAME-06 VIOLATED');
+  });
+
+  it('activePlayerName is null when no players exist', () => {
+    const lobby = makeLobby('GPS07');
+    lobby.players = [];
+    lobby.activeTurnIndex = 0;
+    const state = getPublicState('GPS07');
+    assert.equal(state.activePlayerName, null);
+  });
+});
