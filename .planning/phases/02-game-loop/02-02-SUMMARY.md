@@ -102,6 +102,16 @@ None. Shell was escaping `!` in `-e` node scripts, solved by using a temporary .
 - CSS interaction classes ready for JS to add/remove: `.player-badge.active`, `.bank-piece.selected`, `.ghost-valid`, `.ghost-invalid`
 - No blockers.
 
+## Self-Check: PASSED
+
+- FOUND: client/index.html
+- FOUND: client/style.css
+- FOUND: .planning/phases/02-game-loop/02-02-SUMMARY.md
+- FOUND commit: 3a48fe0 (feat: restructure game screen HTML)
+- FOUND commit: 1330e5a (feat: add Phase 2 CSS)
+- All 6 element IDs verified via node script
+- All 9 CSS selectors verified via node script
+
 ---
 *Phase: 02-game-loop*
 *Completed: 2026-03-04*
