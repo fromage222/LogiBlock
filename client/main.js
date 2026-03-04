@@ -21,7 +21,6 @@ const joinRoomBtn      = document.getElementById('join-room-btn');
 const joinError        = document.getElementById('join-error');
 
 const roomCodeText     = document.getElementById('room-code-text');
-const copyCodeBtn      = document.getElementById('copy-code-btn');
 const playerList       = document.getElementById('player-list');
 const hostControls     = document.getElementById('host-controls');
 const waitingMsg       = document.getElementById('waiting-msg');
@@ -80,18 +79,6 @@ joinRoomBtn.addEventListener('click', () => {
   clearJoinError();
   myPlayerName = name;
   socket.emit('joinRoom', { roomCode: code, playerName: name });
-});
-
-// ─── Copy room code to clipboard ──────────────────────────────────────────────
-copyCodeBtn.addEventListener('click', async () => {
-  try {
-    await navigator.clipboard.writeText(roomCodeText.textContent);
-    copyCodeBtn.textContent = 'Copied!';
-    setTimeout(() => { copyCodeBtn.textContent = 'Copy'; }, 2000);
-  } catch (err) {
-    // Fallback for non-HTTPS contexts (shouldn't happen on localhost)
-    console.warn('Clipboard write failed:', err);
-  }
 });
 
 // ─── Puzzle selection (host only) ─────────────────────────────────────────────
