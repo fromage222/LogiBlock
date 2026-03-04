@@ -13,15 +13,15 @@ updated: 2026-03-04T00:00:00Z
 ## Tests
 
 ### 1. Cold Start Smoke Test
-expected: SSH in, kill existing process, restart with `node src/server.js`. Server boots cleanly — "Loaded X puzzles" and "Server listening on port 3000". Open http://141.72.176.152:3000 in browser — start screen visible.
+expected: SSH in, kill existing process, restart with `node src/server.js`. Server boots cleanly — "Loaded X puzzles" and "Server listening on port 8000". Open http://141.72.176.152:8000 in browser — start screen visible.
 result: pass
 
 ### 2. Create a Room
-expected: Open http://141.72.176.152:3000, enter a player name, click "Create Room". Lobby screen appears with name in player list and 6-digit room code displayed.
+expected: Open http://141.72.176.152:8000, enter a player name, click "Create Room". Lobby screen appears with name in player list and 6-digit room code displayed.
 result: pass
 
 ### 3. Join a Room
-expected: Second browser tab at http://141.72.176.152:3000. Enter different name, paste room code, click "Join Room". Both tabs show lobby screen with both player names listed.
+expected: Second browser tab at http://141.72.176.152:8000. Enter different name, paste room code, click "Join Room". Both tabs show lobby screen with both player names listed.
 result: pass
 
 ### 4. Host Controls vs Guest View
