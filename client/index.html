@@ -61,9 +61,21 @@
 
   <!-- ── Game Screen ──────────────────────────────────────────────────── -->
   <div id="game-screen" class="screen">
-    <h2 id="game-title">LogiBlock — Playing</h2>
-    <div id="game-grid" class="grid"></div>
-    <p class="hint">Anchor pieces are fixed. Movable pieces will be placed in Phase 2.</p>
+    <h2 id="game-title">LogiBlock</h2>
+    <p id="turn-banner" class="turn-banner"></p>
+    <div class="game-area">
+      <div id="player-badges" class="player-badges"></div>
+      <div id="game-grid" class="grid"></div>
+      <div id="piece-bank" class="piece-bank"></div>
+    </div>
+  </div>
+
+  <!-- Win overlay — outside game-screen, shown by JS on win -->
+  <div id="win-overlay" class="win-overlay" style="display:none;">
+    <div class="win-card">
+      <h2>Puzzle Solved!</h2>
+      <p id="win-message"></p>
+    </div>
   </div>
 
   <!-- Socket.IO client — auto-served by the Express server -->
