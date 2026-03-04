@@ -29,8 +29,8 @@
 - [x] **GAME-04**: Aktiver Spieler kann eine falsch platzierte Form aus dem Grid zurück in die Bank legen
 - [x] **GAME-05**: Jeder Zug wird serverseitig gegen die hinterlegte Lösung validiert bevor er akzeptiert wird
 - [x] **GAME-06**: Die Lösung verlässt niemals den Server — `getPublicState()` ist der einzige Serialisierungspfad
-- [ ] **GAME-07**: Bei ungültigem Zug erhält nur der aktive Spieler eine Fehlermeldung mit Grund
-- [ ] **GAME-08**: Nach jedem akzeptierten Zug erhalten alle Spieler sofort den neuen Grid-State (Echtzeit-Sync)
+- [x] **GAME-07**: Bei ungültigem Zug erhält nur der aktive Spieler eine Fehlermeldung mit Grund
+- [x] **GAME-08**: Nach jedem akzeptierten Zug erhalten alle Spieler sofort den neuen Grid-State (Echtzeit-Sync)
 - [x] **GAME-09**: Wenn der aktive Spieler disconnected wird sein Zug automatisch übersprungen und der nächste Spieler ist dran
 - [x] **GAME-10**: Leere Lobbys (alle Spieler disconnected) werden automatisch zerstört
 
@@ -98,8 +98,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GAME-04 | Phase 2 | Done (02-01) |
 | GAME-05 | Phase 2 | Done (02-01) |
 | GAME-06 | Phase 2 | Done (02-01) |
-| GAME-07 | Phase 2 | Pending |
-| GAME-08 | Phase 2 | Pending |
+| GAME-07 | Phase 2 | Done (02-03) |
+| GAME-08 | Phase 2 | Done (02-03) |
 | WIN-01 | Phase 2 | Done (02-01) |
 | WIN-02 | Phase 2 | Complete |
 | TIME-01 | Phase 3 | Pending |
