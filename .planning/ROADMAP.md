@@ -48,7 +48,7 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Server game logic TDD (rotateCells, placePiece, returnPiece, checkWin, advanceTurn, getPublicState extension)
+- [x] 02-01-PLAN.md — Server game logic TDD (rotateCells, placePiece, returnPiece, checkWin, advanceTurn, getPublicState extension)
 - [ ] 02-02-PLAN.md — Client HTML + CSS (bank panel, turn banner, player badges, win overlay structure and styles)
 - [ ] 02-03-PLAN.md — Server socket handler (game:move with game:error point-to-point and game:win broadcast)
 - [ ] 02-04-PLAN.md — Client game loop JS (renderBank, drag-and-drop, ghost preview, renderTurnUI, renderWin, extended renderGrid)
@@ -73,5 +73,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Checkpoint — human verify | - |
-| 2. Game Loop | 0/5 | Not started | - |
+| 2. Game Loop | 1/5 | In progress | - |
 | 3. Timer und Leaderboard | 0/TBD | Not started | - |
