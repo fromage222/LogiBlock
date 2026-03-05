@@ -217,6 +217,100 @@ function renderGrid(state) {
   }
 }
 
+// ─── Bank rendering (game screen) ────────────────────────────────────────────
+function renderBank(state) {
+  const bank = document.getElementById('piece-bank');
+  bank.innerHTML = '';
+  const amIActive = state.activePlayerName === myPlayerName;
+  (state.bankShapes || []).forEach(shape => {
+    const pieceEl = document.createElement('div');
+    pieceEl.classList.add('bank-piece');
+    pieceEl.dataset.shapeId = shape.id;
+    pieceEl.draggable = amIActive;
+    if (!amIActive) pieceEl.style.pointerEvents = 'none';
+    // Per-piece color
+    const color = pieceColors[shape.id] || '#ccc';
+    pieceEl.style.setProperty('--piece-color', color);
+    // Mini CSS grid preview (canonical 0° cells only — never use selectedRotation here)
+    pieceEl.appendChild(buildMiniGrid(shape.cells, color));
+    // Label
+    const label = document.createElement('span');
+    label.textContent = shape.id;
+    pieceEl.appendChild(label);
+    // Selection: click once to select; click again to rotate +90°
+    pieceEl.addEventListener('click', () => {
+      if (!amIActive) return;
+      if (selectedShapeId === shape.id) {
+        selectedRotation = (selectedRotation + 90) % 360;
+      } else {
+        selectedShapeId = shape.id;
+        selectedRotation = 0;
+      }
+      updateBankSelection();
+    });
+    // Drag start
+    pieceEl.addEventListener('dragstart', (e) => {
+      if (!selectedShapeId) {
+        selectedShapeId = shape.id;
+        selectedRotation = 0;
+        updateBankSelection();
+      }
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', shape.id); // required for Firefox
+    });
+    bank.appendChild(pieceEl);
+  });
+}
+
+function buildMiniGrid(cells, color) {
+  const maxR = Math.max(...cells.map(([r]) => r));
+  const maxC = Math.max(...cells.map(([, c]) => c));
+  const container = document.createElement('div');
+  container.style.display = 'grid';
+  container.style.gridTemplateColumns = `repeat(${maxC + 1}, 12px)`;
+  container.style.gridTemplateRows = `repeat(${maxR + 1}, 12px)`;
+  container.style.gap = '1px';
+  for (let r = 0; r <= maxR; r++) {
+    for (let c = 0; c <= maxC; c++) {
+      const cell = document.createElement('div');
+      cell.style.width = '12px';
+      cell.style.height = '12px';
+      cell.style.borderRadius = '2px';
+      const filled = cells.some(([dr, dc]) => dr === r && dc === c);
+      cell.style.background = filled ? color : 'transparent';
+      container.appendChild(cell);
+    }
+  }
+  return container;
+}
+
+function updateBankSelection() {
+  document.querySelectorAll('.bank-piece').forEach(el => {
+    el.classList.toggle('selected', el.dataset.shapeId === selectedShapeId);
+  });
+}
+
+// ─── Turn UI rendering ────────────────────────────────────────────────────────
+function renderTurnUI(state) {
+  const banner = document.getElementById('turn-banner');
+  if (state.activePlayerName) {
+    banner.textContent = state.activePlayerName === myPlayerName
+      ? "It's your turn!"
+      : `It's ${state.activePlayerName}'s turn`;
+  } else {
+    banner.textContent = '';
+  }
+  const badgesContainer = document.getElementById('player-badges');
+  badgesContainer.innerHTML = '';
+  (state.players || []).forEach(player => {
+    const badge = document.createElement('div');
+    badge.classList.add('player-badge');
+    badge.textContent = player.name;
+    if (player.name === state.activePlayerName) badge.classList.add('active');
+    badgesContainer.appendChild(badge);
+  });
+}
+
 // ─── Socket event listeners ───────────────────────────────────────────────────
 
 // Room created (only received by the creator)
