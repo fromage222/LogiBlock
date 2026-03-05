@@ -311,6 +311,92 @@ function renderTurnUI(state) {
   });
 }
 
+// ─── Ghost preview helpers ────────────────────────────────────────────────────
+function clearGhostPreview() {
+  document.querySelectorAll('.ghost-valid, .ghost-invalid').forEach(el => {
+    el.classList.remove('ghost-valid', 'ghost-invalid');
+  });
+}
+function updateGhostPreview(originRow, originCol) {
+  clearGhostPreview();
+  if (!selectedShapeId || !currentGridSize) return;
+  const shape = currentBankShapes.find(s => s.id === selectedShapeId);
+  if (!shape) return;
+  const cells = rotateCells(shape.cells, selectedRotation);
+  const { rows, cols } = currentGridSize;
+  const valid = cells.every(([dr, dc]) => {
+    const r = originRow + dr, c = originCol + dc;
+    return r >= 0 && r < rows && c >= 0 && c < cols &&
+           currentGrid && currentGrid[r][c] === null;
+  });
+  cells.forEach(([dr, dc]) => {
+    const r = originRow + dr, c = originCol + dc;
+    if (r < 0 || r >= rows || c < 0 || c >= cols) return;
+    const cellEl = document.querySelector(`.grid-cell[data-row="${r}"][data-col="${c}"]`);
+    if (cellEl) cellEl.classList.add(valid ? 'ghost-valid' : 'ghost-invalid');
+  });
+}
+
+// ─── Drag event handlers (called from renderGrid) ─────────────────────────────
+function handleDragOver(e, r, c) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  updateGhostPreview(r, c);
+}
+function handleDrop(e, r, c) {
+  e.preventDefault();
+  clearGhostPreview();
+  if (!selectedShapeId) return;
+  socket.emit('game:move', {
+    action: 'place',
+    shapeId: selectedShapeId,
+    rotation: selectedRotation,
+    originRow: r,
+    originCol: c,
+  });
+  selectedShapeId = null;
+  selectedRotation = 0;
+  updateBankSelection();
+}
+// Clear ghost on drag cancel (Escape / drag outside window)
+document.addEventListener('dragend', () => {
+  clearGhostPreview();
+});
+
+// ─── Return piece click handler ───────────────────────────────────────────────
+function handleReturnClick(shapeId) {
+  const banner = document.getElementById('turn-banner');
+  const amIActive = banner && banner.textContent.startsWith("It's your turn");
+  if (!amIActive) return;
+  socket.emit('game:move', { action: 'return', shapeId });
+}
+
+// ─── Win overlay ──────────────────────────────────────────────────────────────
+function renderWin(state) {
+  const overlay = document.getElementById('win-overlay');
+  const msg = document.getElementById('win-message');
+  msg.textContent = `${(state.players || []).map(p => p.name).join(', ')} solved the puzzle!`;
+  overlay.style.display = 'flex';
+}
+
+// ─── In-game error notification ───────────────────────────────────────────────
+// Create in-game notification element once (idempotent)
+function ensureGameNotification() {
+  if (!document.getElementById('game-notification')) {
+    const el = document.createElement('p');
+    el.id = 'game-notification';
+    el.className = 'notification';
+    el.setAttribute('aria-live', 'polite');
+    document.getElementById('game-screen').appendChild(el);
+  }
+  return document.getElementById('game-notification');
+}
+function showGameError(message) {
+  const el = ensureGameNotification();
+  el.textContent = `Move rejected: ${message}`;
+  setTimeout(() => { el.textContent = ''; }, 3500);
+}
+
 // ─── Socket event listeners ───────────────────────────────────────────────────
 
 // Room created (only received by the creator)
@@ -357,15 +443,37 @@ socket.on('lobby:hostLeft', ({ message }) => {
   setTimeout(clearJoinError, 4000);
 });
 
-// Game started — transition to game screen, render initial grid
+// Game started — transition to game screen, initialise colors, render all UI
 socket.on('game:start', (state) => {
   showScreen('game-screen');
+  initPieceColors(state);
   renderGrid(state);
+  renderBank(state);
+  renderTurnUI(state);
 });
 
-// Game state update during play (e.g., on disconnect — Phase 2 will also use this)
+// Game state update during play — reset selection, re-render all UI
 socket.on('game:stateUpdate', (state) => {
+  selectedShapeId = null;
+  selectedRotation = 0;
   renderGrid(state);
+  renderBank(state);
+  renderTurnUI(state);
+});
+
+// Per user decision: invalid placement (occupied / out-of-bounds) snaps back
+// silently — no error message. Only turn-order violations are shown.
+socket.on('game:error', (message) => {
+  if (message !== 'Not your turn') return;
+  showGameError(message);
+});
+
+// Game won — render final state and show win overlay
+socket.on('game:win', (state) => {
+  renderGrid(state);
+  renderBank(state);
+  renderTurnUI(state);
+  renderWin(state);
 });
 
 // Inline error — show under the join input on start screen; or as notification in lobby
