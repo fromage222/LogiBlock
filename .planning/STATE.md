@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 2 of 3 (Game Loop)
-Plan: 3 of 5 in current phase
-Status: Active — 02-03 complete, proceeding to 02-04
-Last activity: 2026-03-04 — Completed 02-03 (game:move Socket Handler)
+Plan: 4 of 5 in current phase
+Status: Active — 02-04 complete, proceeding to 02-05
+Last activity: 2026-03-05 — Completed 02-04 (Client Game Loop)
 
-Progress: [██████░░░░] 53%
+Progress: [███████░░░] 63%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6 (02-03 complete)
-- Average duration: 4.8 min
-- Total execution time: 0.48 hours
+- Total plans completed: 7 (02-04 complete)
+- Average duration: 5 min
+- Total execution time: 0.57 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3 | 20 min | 6.7 min |
-| 02-game-loop | 3 | 12 min | 4 min |
+| 02-game-loop | 4 | 20 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (2 min), 01-03 (3 min), 02-01 (3 min), 02-02 (5 min), 02-03 (4 min)
+- Last 5 plans: 01-03 (3 min), 02-01 (3 min), 02-02 (5 min), 02-03 (4 min), 02-04 (8 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -65,6 +65,9 @@ Recent decisions affecting current work:
 - **HTML-Contract-First Pattern** (02-02): Element-IDs in HTML definiert bevor main.js (Plan 04) sie abfragt — vermeidet "scavenger hunt"-Antipattern.
 - **Mock-based socket tests** (02-03): makeMocks() fakt io/socket-Objekte — kein socket.io-client nötig; trigger() ruft Handler direkt auf.
 - **Unknown action silently ignored** (02-03): Kein game:error für unbekannte Action-Strings — konsistent mit Phase-Guard und roomCode-Guard.
+- **game:error gefiltert auf 'Not your turn'** (02-04): Placement-Errors lautlos — Server sendet game:stateUpdate der das Piece zurückschnappt; nur Turn-Violations inline anzeigen.
+- **game-notification Element dynamisch per JS** (02-04): ensureGameNotification() ist idempotent — kein DOM-Contract-Coupling mit index.html nötig.
+- **Bank-Preview immer canonical 0°** (02-04): buildMiniGrid zeigt immer unrotierte Cells — selectedRotation ist reiner Drag-State, nicht Preview-State.
 
 ### Pending Todos
 
@@ -76,6 +79,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-04
-Stopped at: Completed 02-03-PLAN.md (game:move Socket Handler)
-Resume file: .planning/phases/02-game-loop/02-03-SUMMARY.md
+Last session: 2026-03-05
+Stopped at: Completed 02-04-PLAN.md (Client Game Loop)
+Resume file: .planning/phases/02-game-loop/02-04-SUMMARY.md
