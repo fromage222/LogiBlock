@@ -203,14 +203,32 @@ function renderGrid(state) {
         // Per-piece color override (replaces CSS .placed green)
         cell.style.background = pieceColors[content.shapeId] || '#81c784';
         cell.style.color = '#fff';
-        // Click to return piece to bank
-        cell.addEventListener('click', () => handleReturnClick(content.shapeId));
       }
 
-      // Drag event listeners on ALL cells (empty + placed) for ghost preview and drop
-      cell.addEventListener('dragover', (e) => handleDragOver(e, r, c));
-      cell.addEventListener('dragleave', () => {}); // no-op — ghost cleared on dragend
-      cell.addEventListener('drop', (e) => handleDrop(e, r, c));
+      // Mousemove: show ghost preview when piece is selected
+      cell.addEventListener('mousemove', () => {
+        if (selectedShapeId) updateGhostPreview(r, c);
+      });
+
+      // Click: place selected piece, or return placed piece if none selected
+      cell.addEventListener('click', () => {
+        if (selectedShapeId) {
+          socket.emit('game:move', {
+            action: 'place',
+            shapeId: selectedShapeId,
+            rotation: selectedRotation,
+            originRow: r,
+            originCol: c,
+          });
+          selectedShapeId = null;
+          selectedRotation = 0;
+          clearGhostPreview();
+          refreshCursorPiece();
+          updateBankSelection();
+        } else if (content && content.movable !== false) {
+          handleReturnClick(content.shapeId);
+        }
+      });
 
       gameGrid.appendChild(cell);
     }
@@ -226,7 +244,7 @@ function renderBank(state) {
     const pieceEl = document.createElement('div');
     pieceEl.classList.add('bank-piece');
     pieceEl.dataset.shapeId = shape.id;
-    pieceEl.draggable = amIActive;
+    pieceEl.draggable = amIActive; // controls CSS styling only; no dragstart listener
     if (!amIActive) pieceEl.style.pointerEvents = 'none';
     // Per-piece color
     const color = pieceColors[shape.id] || '#ccc';
@@ -248,33 +266,23 @@ function renderBank(state) {
       }
       updateBankSelection();
     });
-    // Drag start
-    pieceEl.addEventListener('dragstart', (e) => {
-      if (!selectedShapeId) {
-        selectedShapeId = shape.id;
-        selectedRotation = 0;
-        updateBankSelection();
-      }
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', shape.id); // required for Firefox
-    });
     bank.appendChild(pieceEl);
   });
 }
 
-function buildMiniGrid(cells, color) {
+function buildMiniGrid(cells, color, cellSize = 12) {
   const maxR = Math.max(...cells.map(([r]) => r));
   const maxC = Math.max(...cells.map(([, c]) => c));
   const container = document.createElement('div');
   container.style.display = 'grid';
-  container.style.gridTemplateColumns = `repeat(${maxC + 1}, 12px)`;
-  container.style.gridTemplateRows = `repeat(${maxR + 1}, 12px)`;
+  container.style.gridTemplateColumns = `repeat(${maxC + 1}, ${cellSize}px)`;
+  container.style.gridTemplateRows = `repeat(${maxR + 1}, ${cellSize}px)`;
   container.style.gap = '1px';
   for (let r = 0; r <= maxR; r++) {
     for (let c = 0; c <= maxC; c++) {
       const cell = document.createElement('div');
-      cell.style.width = '12px';
-      cell.style.height = '12px';
+      cell.style.width = `${cellSize}px`;
+      cell.style.height = `${cellSize}px`;
       cell.style.borderRadius = '2px';
       const filled = cells.some(([dr, dc]) => dr === r && dc === c);
       cell.style.background = filled ? color : 'transparent';
@@ -284,10 +292,55 @@ function buildMiniGrid(cells, color) {
   return container;
 }
 
+// ─── Cursor piece (floating piece that follows the mouse when selected) ────────
+let _cursorEl = null;
+function getCursorEl() {
+  if (!_cursorEl) {
+    _cursorEl = document.createElement('div');
+    _cursorEl.style.cssText = [
+      'position:fixed', 'pointer-events:none', 'z-index:1000',
+      'display:none', 'transform:translate(-50%,-50%)',
+      'background:rgba(255,255,255,0.93)', 'border:2px solid #4a6cf7',
+      'border-radius:8px', 'padding:8px',
+      'box-shadow:0 6px 18px rgba(0,0,0,0.25)',
+    ].join(';');
+    document.body.appendChild(_cursorEl);
+  }
+  return _cursorEl;
+}
+function refreshCursorPiece() {
+  const el = getCursorEl();
+  if (!selectedShapeId) { el.style.display = 'none'; return; }
+  const shape = currentBankShapes.find(s => s.id === selectedShapeId);
+  if (!shape) { el.style.display = 'none'; return; }
+  const color = pieceColors[selectedShapeId] || '#ccc';
+  el.innerHTML = '';
+  el.appendChild(buildMiniGrid(rotateCells(shape.cells, selectedRotation), color, 22));
+  el.style.display = 'block';
+}
+document.addEventListener('mousemove', (e) => {
+  const el = getCursorEl();
+  el.style.left = e.clientX + 'px';
+  el.style.top = e.clientY + 'px';
+  if (selectedShapeId) refreshCursorPiece();
+});
+
 function updateBankSelection() {
   document.querySelectorAll('.bank-piece').forEach(el => {
-    el.classList.toggle('selected', el.dataset.shapeId === selectedShapeId);
+    const isSelected = el.dataset.shapeId === selectedShapeId;
+    el.classList.toggle('selected', isSelected);
+    if (isSelected) {
+      // Rebuild mini grid to reflect current rotation
+      const shape = currentBankShapes.find(s => s.id === el.dataset.shapeId);
+      if (shape) {
+        const rotatedCells = rotateCells(shape.cells, selectedRotation);
+        const color = pieceColors[shape.id] || '#ccc';
+        const oldMini = el.querySelector('div');
+        if (oldMini) el.replaceChild(buildMiniGrid(rotatedCells, color), oldMini);
+      }
+    }
   });
+  refreshCursorPiece();
 }
 
 // ─── Turn UI rendering ────────────────────────────────────────────────────────
@@ -337,30 +390,19 @@ function updateGhostPreview(originRow, originCol) {
   });
 }
 
-// ─── Drag event handlers (called from renderGrid) ─────────────────────────────
-function handleDragOver(e, r, c) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  updateGhostPreview(r, c);
-}
-function handleDrop(e, r, c) {
-  e.preventDefault();
-  clearGhostPreview();
+// Clear ghost when cursor leaves the grid
+gameGrid.addEventListener('mouseleave', () => clearGhostPreview());
+
+// Deselect piece when clicking outside the grid and bank
+document.addEventListener('click', (e) => {
   if (!selectedShapeId) return;
-  socket.emit('game:move', {
-    action: 'place',
-    shapeId: selectedShapeId,
-    rotation: selectedRotation,
-    originRow: r,
-    originCol: c,
-  });
-  selectedShapeId = null;
-  selectedRotation = 0;
-  updateBankSelection();
-}
-// Clear ghost on drag cancel (Escape / drag outside window)
-document.addEventListener('dragend', () => {
-  clearGhostPreview();
+  if (!e.target.closest('#game-grid') && !e.target.closest('#piece-bank')) {
+    selectedShapeId = null;
+    selectedRotation = 0;
+    clearGhostPreview();
+    refreshCursorPiece();
+    updateBankSelection();
+  }
 });
 
 // ─── Return piece click handler ───────────────────────────────────────────────
@@ -456,15 +498,13 @@ socket.on('game:start', (state) => {
 socket.on('game:stateUpdate', (state) => {
   selectedShapeId = null;
   selectedRotation = 0;
+  refreshCursorPiece();
   renderGrid(state);
   renderBank(state);
   renderTurnUI(state);
 });
 
-// Per user decision: invalid placement (occupied / out-of-bounds) snaps back
-// silently — no error message. Only turn-order violations are shown.
 socket.on('game:error', (message) => {
-  if (message !== 'Not your turn') return;
   showGameError(message);
 });
 
