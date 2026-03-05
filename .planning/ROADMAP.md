@@ -51,8 +51,8 @@ Plans:
 - [x] 02-01-PLAN.md — Server game logic TDD (rotateCells, placePiece, returnPiece, checkWin, advanceTurn, getPublicState extension)
 - [x] 02-02-PLAN.md — Client HTML + CSS (bank panel, turn banner, player badges, win overlay structure and styles)
 - [x] 02-03-PLAN.md — Server socket handler (game:move with game:error point-to-point and game:win broadcast)
-- [ ] 02-04-PLAN.md — Client game loop JS (renderBank, drag-and-drop, ghost preview, renderTurnUI, renderWin, extended renderGrid)
-- [ ] 02-05-PLAN.md — Human verification checkpoint (end-to-end game loop playable)
+- [x] 02-04-PLAN.md — Client game loop JS (renderBank, drag-and-drop, ghost preview, renderTurnUI, renderWin, extended renderGrid)
+- [x] 02-05-PLAN.md — Human verification checkpoint (end-to-end game loop playable)
 
 ### Phase 3: Timer und Leaderboard
 **Goal**: Das Spielerlebnis ist vollständig — die Lösungszeit wird gemessen und auf dem Win-Screen angezeigt; die Rangliste aller gelösten Puzzles der aktuellen Server-Session ist auf dem Start-Screen sichtbar.
@@ -72,6 +72,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 3/3 | Checkpoint — human verify | - |
-| 2. Game Loop | 4/5 | In Progress|  |
+| 1. Foundation | 3/3 | Complete | 2026-03-05 |
+| 2. Game Loop | 5/5 | Complete — human verified | 2026-03-05 |
 | 3. Timer und Leaderboard | 0/TBD | Not started | - |

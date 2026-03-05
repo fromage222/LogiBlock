@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 2 — Game Loop
+**Current focus:** Phase 3 — Timer und Leaderboard
 
 ## Current Position
 
 Phase: 2 of 3 (Game Loop)
-Plan: 4 of 5 in current phase
-Status: Active — 02-04 complete, proceeding to 02-05
-Last activity: 2026-03-05 — Completed 02-04 (Client Game Loop)
+Plan: 5 of 5 in current phase
+Status: Phase 2 Complete — all 5 plans done, human verification passed
+Last activity: 2026-03-05 — Completed 02-05 (Human Verification — Phase 2 approved)
 
-Progress: [███████░░░] 63%
+Progress: [████████░░] 73%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (02-04 complete)
-- Average duration: 5 min
-- Total execution time: 0.57 hours
+- Total plans completed: 8 (02-05 complete)
+- Average duration: 4.9 min
+- Total execution time: 0.60 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3 | 20 min | 6.7 min |
-| 02-game-loop | 4 | 20 min | 5 min |
+| 02-game-loop | 5 | 22 min | 4.4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (3 min), 02-01 (3 min), 02-02 (5 min), 02-03 (4 min), 02-04 (8 min)
+- Last 5 plans: 02-01 (3 min), 02-02 (5 min), 02-03 (4 min), 02-04 (8 min), 02-05 (2 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -68,6 +68,7 @@ Recent decisions affecting current work:
 - **game:error gefiltert auf 'Not your turn'** (02-04): Placement-Errors lautlos — Server sendet game:stateUpdate der das Piece zurückschnappt; nur Turn-Violations inline anzeigen.
 - **game-notification Element dynamisch per JS** (02-04): ensureGameNotification() ist idempotent — kein DOM-Contract-Coupling mit index.html nötig.
 - **Bank-Preview immer canonical 0°** (02-04): buildMiniGrid zeigt immer unrotierte Cells — selectedRotation ist reiner Drag-State, nicht Preview-State.
+- **Phase 2 human verification passed** (02-05): Alle 30 Verifikationsschritte bestätigt — Turn-Indicator, Bank-Panel, Ghost-Preview, Place/Return, Win-Overlay, Disconnect — Phase 2 vollständig abgeschlossen.
 
 ### Pending Todos
 
@@ -80,5 +81,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed 02-04-PLAN.md (Client Game Loop)
-Resume file: .planning/phases/02-game-loop/02-04-SUMMARY.md
+Stopped at: Completed 02-05-PLAN.md (Human Verification — Phase 2 complete)
+Resume file: .planning/phases/02-game-loop/02-05-SUMMARY.md
