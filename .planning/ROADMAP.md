@@ -63,7 +63,12 @@ Plans:
   2. Der Timer stoppt exakt wenn das Puzzle korrekt gelöst wurde — die gemessene Zeit ist präzise.
   3. Der Win-Screen zeigt die Lösungszeit des Teams an.
   4. Auf dem Start-Screen ist eine Rangliste aller bisherigen Team-Zeiten der aktuellen Server-Session sichtbar; nach einem Server-Neustart ist sie leer.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Server: startTime in game.js + enriched game:start/game:win payloads + leaderboard functions
+- [ ] 03-02-PLAN.md — Client: live timer, win card restructure, Play Again, leaderboard render
+- [ ] 03-03-PLAN.md — Human verification checkpoint (end-to-end timer + leaderboard)
 
 ## Progress
 
@@ -74,4 +79,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-03-05 |
 | 2. Game Loop | 5/5 | Complete — human verified | 2026-03-05 |
-| 3. Timer und Leaderboard | 0/TBD | Not started | - |
+| 3. Timer und Leaderboard | 0/3 | Not started | - |
