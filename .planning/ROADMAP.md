@@ -12,9 +12,9 @@ LogiBlock wird in drei Phasen gebaut, die den architektonischen Abhängigkeiten 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Server-Infrastruktur, Lobby-Lifecycle und Puzzle-Loading
-- [ ] **Phase 2: Game Loop** - Züge, Validierung, Echtzeit-Sync und Gewinnbedingung
-- [ ] **Phase 3: Timer und Leaderboard** - Spielzeit-Messung und Session-Rangliste
+- [x] **Phase 1: Foundation** - Server-Infrastruktur, Lobby-Lifecycle und Puzzle-Loading
+- [x] **Phase 2: Game Loop** - Züge, Validierung, Echtzeit-Sync und Gewinnbedingung
+- [x] **Phase 3: Timer und Leaderboard** - Spielzeit-Messung und Session-Rangliste
 
 ## Phase Details
 
@@ -66,9 +66,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Server: startTime in game.js + enriched game:start/game:win payloads + leaderboard functions
-- [ ] 03-02-PLAN.md — Client: live timer, win card restructure, Play Again, leaderboard render
-- [ ] 03-03-PLAN.md — Human verification checkpoint (end-to-end timer + leaderboard)
+- [x] 03-01-PLAN.md — Server: startTime in game.js + enriched game:start/game:win payloads + leaderboard functions
+- [x] 03-02-PLAN.md — Client: live timer, win card restructure, Play Again, leaderboard render
+- [x] 03-03-PLAN.md — Human verification checkpoint (end-to-end timer + leaderboard)
 
 ## Progress
 
@@ -79,4 +79,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-03-05 |
 | 2. Game Loop | 5/5 | Complete — human verified | 2026-03-05 |
-| 3. Timer und Leaderboard | 2/3 | In Progress|  |
+| 3. Timer und Leaderboard | 3/3 | Complete — human verified | 2026-03-10 |
