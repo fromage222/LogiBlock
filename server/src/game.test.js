@@ -443,3 +443,42 @@ describe('getPublicState Phase 2 extension', () => {
     assert.equal(state.activePlayerName, null);
   });
 });
+
+// ─── leaderboard ──────────────────────────────────────────────────────────────
+
+describe('leaderboard', () => {
+  it('startGame sets lobby.startTime to a number', () => {
+    const lobby = makeLobby('LB-TEST');
+    assert.strictEqual(typeof lobby.startTime, 'number');
+    assert.ok(lobby.startTime > 0);
+  });
+
+  it('recordLeaderboardEntry stores entry with name strings only', () => {
+    const { recordLeaderboardEntry, getLeaderboard } = require('./game');
+    const lobby = makeLobby('LB-TEST2');
+    recordLeaderboardEntry(lobby, 5000);
+    const entries = getLeaderboard();
+    const entry = entries.find(e => e.playerNames.includes('Alice'));
+    assert.ok(entry, 'entry must exist');
+    assert.strictEqual(entry.elapsedMs, undefined);   // raw ms not exposed
+    assert.strictEqual(typeof entry.time, 'string');  // pre-formatted
+    assert.ok(entry.playerNames.every(n => typeof n === 'string'), 'playerNames must be strings');
+  });
+
+  it('getLeaderboard returns entries sorted fastest first with rank starting at 1', () => {
+    const { recordLeaderboardEntry, getLeaderboard } = require('./game');
+    const lb1 = makeLobby('LB-SORT1');
+    const lb2 = makeLobby('LB-SORT2');
+    recordLeaderboardEntry(lb1, 90000);   // 1:30
+    recordLeaderboardEntry(lb2, 30000);   // 0:30  — should rank lower than 1:30
+    const entries = getLeaderboard();
+    // Leaderboard is module-level and shared — find our two added entries by time
+    const entry90 = entries.find(e => e.time === '01:30');
+    const entry30 = entries.find(e => e.time === '00:30');
+    assert.ok(entry90, 'entry for 1:30 must exist');
+    assert.ok(entry30, 'entry for 0:30 must exist');
+    assert.ok(entry30.rank < entry90.rank, '0:30 must rank higher (lower number) than 1:30');
+    // Ranks must be 1-indexed
+    assert.ok(entries[0].rank === 1, 'first entry must have rank 1');
+  });
+});

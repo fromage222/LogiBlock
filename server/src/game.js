@@ -8,7 +8,11 @@ const path = require('path');
 //   phase: 'lobby' | 'playing'
 //   players: [{ socketId, name, isHost }]
 //   grid: null in lobby phase; populated at game start (Phase 2)
+//   startTime: null in lobby phase; Date.now() ms timestamp when game started
 const lobbies = new Map();
+
+// TIME-05: in-memory only — cleared on server restart
+const leaderboard = [];
 
 // puzzleMap: Map<puzzleId, puzzleObject> — includes solution (NEVER send to client)
 let puzzleMap = new Map();
@@ -331,7 +335,36 @@ function startGame(roomCode) {
   lobby.phase = 'playing';
   lobby.grid = buildInitialGrid(puzzle);
   lobby.activeTurnIndex = 0;          // Phase 2 uses this; set here for consistency
+  lobby.startTime = Date.now();       // TIME-01: authoritative start moment
   return { ok: true };
+}
+
+// ─── Leaderboard (TIME-04, TIME-05) ──────────────────────────────────────────
+
+function formatTime(elapsedMs) {
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const mm = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+  const ss = String(totalSeconds % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
+function recordLeaderboardEntry(lobby, elapsedMs) {
+  const puzzle = puzzleMap.get(lobby.selectedPuzzleId);
+  leaderboard.push({
+    puzzleName: puzzle ? puzzle.name : 'Unknown',
+    elapsedMs,
+    playerNames: lobby.players.map(p => p.name),   // name strings only (Pitfall 5)
+  });
+  leaderboard.sort((a, b) => a.elapsedMs - b.elapsedMs);
+}
+
+function getLeaderboard() {
+  return leaderboard.map((e, i) => ({
+    rank: i + 1,
+    puzzleName: e.puzzleName,
+    time: formatTime(e.elapsedMs),   // pre-formatted MM:SS for client
+    playerNames: e.playerNames,
+  }));
 }
 
 // GAME-09: advance turn index when a player disconnects.
@@ -380,4 +413,7 @@ module.exports = {
   checkWin,
   advanceTurn,
   advanceTurnIfActive,
+  // Phase 3 exports:
+  recordLeaderboardEntry,
+  getLeaderboard,
 };
