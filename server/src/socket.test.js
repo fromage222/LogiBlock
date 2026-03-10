@@ -55,6 +55,11 @@ function makeMocks(roomCode, socketId, playerName) {
         emitted.room[event].push({ code, payload });
       },
     }),
+    // io.emit() for broadcasting to ALL sockets (e.g. leaderboard:update)
+    emit: (event, payload) => {
+      if (!emitted.room[event]) emitted.room[event] = [];
+      emitted.room[event].push({ code: '*', payload });
+    },
   };
 
   const socket = {

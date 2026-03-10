@@ -14,6 +14,9 @@ const {
   placePiece,
   returnPiece,
   advanceTurn,
+  // NEW from Plan 03-01:
+  recordLeaderboardEntry,
+  getLeaderboard,
 } = require('./game');
 
 /**
@@ -128,7 +131,12 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     }
 
     // getPublicState now returns grid with anchor shapes pre-placed (PUZZ-02)
-    io.to(roomCode).emit('game:start', getPublicState(roomCode));
+    // TIME-01: include startTime so client can anchor the live timer
+    // lobby.startTime is set by startGame() — re-read via same reference (lobby is the same Map value)
+    io.to(roomCode).emit('game:start', {
+      ...getPublicState(roomCode),
+      startTime: lobby.startTime,
+    });
   });
 
   // ── game:move ──────────────────────────────────────────────────────────────
@@ -155,7 +163,14 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       }
       if (result.win) {
         // WIN-01 + WIN-02: emit game:win to all; do NOT advance turn; do NOT emit stateUpdate
-        io.to(roomCode).emit('game:win', getPublicState(roomCode));
+        // TIME-02: authoritative elapsed time computed server-side
+        const elapsedMs = Date.now() - lobby.startTime;
+        recordLeaderboardEntry(lobby, elapsedMs);
+        io.to(roomCode).emit('game:win', {
+          ...getPublicState(roomCode),
+          elapsedMs,                                      // TIME-03: client shows final time
+        });
+        io.emit('leaderboard:update', getLeaderboard()); // TIME-04: broadcast to ALL sockets
       } else {
         advanceTurn(lobby);
         io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
