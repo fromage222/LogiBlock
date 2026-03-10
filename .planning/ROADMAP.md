@@ -79,4 +79,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-03-05 |
 | 2. Game Loop | 5/5 | Complete — human verified | 2026-03-05 |
-| 3. Timer und Leaderboard | 1/3 | In Progress|  |
+| 3. Timer und Leaderboard | 2/3 | In Progress|  |
