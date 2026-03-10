@@ -28,6 +28,22 @@
         <p id="join-error" class="error-msg" aria-live="polite"></p>
       </div>
     </div>
+    <section id="leaderboard-section" class="leaderboard-section">
+      <h2>Leaderboard</h2>
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Puzzle</th>
+            <th>Time</th>
+            <th>Players</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <tr><td colspan="4" class="leaderboard-empty">No games completed yet</td></tr>
+        </tbody>
+      </table>
+    </section>
   </div>
 
   <!-- ── Lobby Screen ──────────────────────────────────────────────────── -->
@@ -63,6 +79,7 @@
   <div id="game-screen" class="screen">
     <h2 id="game-title">LogiBlock</h2>
     <p id="turn-banner" class="turn-banner"></p>
+    <p id="game-timer" class="game-timer">00:00</p>
     <div class="game-area">
       <div id="player-badges" class="player-badges"></div>
       <div id="game-grid" class="grid"></div>
@@ -74,7 +91,9 @@
   <div id="win-overlay" class="win-overlay" style="display:none;">
     <div class="win-card">
       <h2>Puzzle Solved!</h2>
-      <p id="win-message"></p>
+      <p class="win-time" id="win-time">00:00</p>
+      <p class="win-players" id="win-players"></p>
+      <button id="play-again-btn" class="btn-primary">Play Again</button>
     </div>
   </div>
 
