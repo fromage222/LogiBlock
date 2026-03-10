@@ -38,11 +38,11 @@
 
 - [x] **WIN-01**: Gewinnbedingung wird erkannt wenn das Grid vollständig und korrekt gefüllt ist (Server-Prüfung)
 - [x] **WIN-02**: Alle Spieler sehen einen Win-Screen wenn das Puzzle gelöst wurde
-- [ ] **TIME-01**: Ein Timer startet exakt wenn das Spiel beginnt (Host drückt Start)
-- [ ] **TIME-02**: Der Timer stoppt exakt wenn das Puzzle korrekt gelöst wurde
+- [x] **TIME-01**: Ein Timer startet exakt wenn das Spiel beginnt (Host drückt Start)
+- [x] **TIME-02**: Der Timer stoppt exakt wenn das Puzzle korrekt gelöst wurde
 - [ ] **TIME-03**: Die Lösungszeit wird dem Team auf dem Win-Screen angezeigt
-- [ ] **TIME-04**: Auf dem Start-Screen sind alle bisherigen Team-Zeiten der aktuellen Server-Session als Rangliste sichtbar
-- [ ] **TIME-05**: Zeiten werden in-memory gehalten — bei Server-Neustart sind alle Zeiten weg (kein Persistence nötig)
+- [x] **TIME-04**: Auf dem Start-Screen sind alle bisherigen Team-Zeiten der aktuellen Server-Session als Rangliste sichtbar
+- [x] **TIME-05**: Zeiten werden in-memory gehalten — bei Server-Neustart sind alle Zeiten weg (kein Persistence nötig)
 
 ---
 
@@ -102,11 +102,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GAME-08 | Phase 2 | Done (02-03) |
 | WIN-01 | Phase 2 | Done (02-01) |
 | WIN-02 | Phase 2 | Complete |
-| TIME-01 | Phase 3 | Pending |
-| TIME-02 | Phase 3 | Pending |
+| TIME-01 | Phase 3 | Complete |
+| TIME-02 | Phase 3 | Complete |
 | TIME-03 | Phase 3 | Pending |
-| TIME-04 | Phase 3 | Pending |
-| TIME-05 | Phase 3 | Pending |
+| TIME-04 | Phase 3 | Complete |
+| TIME-05 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 25 total

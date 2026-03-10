@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-05T08:45:28.791Z"
+last_updated: "2026-03-10T19:53:45.913Z"
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 11
+  completed_plans: 9
 ---
 
 # Project State
@@ -22,19 +22,19 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-Phase: 2 of 3 (Game Loop)
-Plan: 5 of 5 in current phase
-Status: Phase 2 Complete — all 5 plans done, human verification passed
-Last activity: 2026-03-05 — Completed 02-05 (Human Verification — Phase 2 approved)
+Phase: 3 of 3 (Timer und Leaderboard)
+Plan: 1 of 3 in current phase — Plan 01 complete
+Status: Phase 3 In Progress — 03-01 done (server-side timer + leaderboard)
+Last activity: 2026-03-10 — Completed 03-01 (Server-side timer and leaderboard)
 
-Progress: [████████░░] 73%
+Progress: [█████████░] 82%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8 (02-05 complete)
+- Total plans completed: 9 (03-01 complete)
 - Average duration: 4.9 min
-- Total execution time: 0.60 hours
+- Total execution time: 0.73 hours
 
 **By Phase:**
 
@@ -42,9 +42,10 @@ Progress: [████████░░] 73%
 |-------|-------|-------|----------|
 | 01-foundation | 3 | 20 min | 6.7 min |
 | 02-game-loop | 5 | 22 min | 4.4 min |
+| 03-timer-und-leaderboard | 1 | 8 min | 8.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (3 min), 02-02 (5 min), 02-03 (4 min), 02-04 (8 min), 02-05 (2 min)
+- Last 5 plans: 02-02 (5 min), 02-03 (4 min), 02-04 (8 min), 02-05 (2 min), 03-01 (8 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -82,6 +83,10 @@ Recent decisions affecting current work:
 - **game-notification Element dynamisch per JS** (02-04): ensureGameNotification() ist idempotent — kein DOM-Contract-Coupling mit index.html nötig.
 - **Bank-Preview immer canonical 0°** (02-04): buildMiniGrid zeigt immer unrotierte Cells — selectedRotation ist reiner Drag-State, nicht Preview-State.
 - **Phase 2 human verification passed** (02-05): Alle 30 Verifikationsschritte bestätigt — Turn-Indicator, Bank-Panel, Ghost-Preview, Place/Return, Win-Overlay, Disconnect — Phase 2 vollständig abgeschlossen.
+- [Phase 03-timer-und-leaderboard]: getPublicState() NOT modified — startTime and elapsedMs spread alongside it for game:start and game:win payloads
+- [Phase 03-timer-und-leaderboard]: io.emit() (global broadcast) for leaderboard:update — spec explicitly requires all sockets receive it, not just the winning room
+- [Phase 03-timer-und-leaderboard]: Module-level leaderboard array in game.js — TIME-05: session-scoped, cleared on server restart, no file I/O
+- [Phase 03-timer-und-leaderboard]: playerNames in leaderboard entries stores only name strings — raw player objects never stored to avoid leaking socket IDs
 
 ### Pending Todos
 
@@ -93,6 +98,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-05
-Stopped at: Completed 02-05-PLAN.md (Human Verification — Phase 2 complete)
-Resume file: .planning/phases/02-game-loop/02-05-SUMMARY.md
+Last session: 2026-03-10
+Stopped at: Completed 03-01-PLAN.md (Server-side timer and leaderboard)
+Resume file: .planning/phases/03-timer-und-leaderboard/03-01-SUMMARY.md
