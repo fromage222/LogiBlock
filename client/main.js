@@ -8,6 +8,7 @@ const socket = io();
 let myRoomCode = null;
 let amIHost = false;
 let myPlayerName = null;
+let timerInterval = null;
 
 // Phase 2: game interaction state
 let selectedShapeId = null;   // currently selected piece in bank
@@ -413,13 +414,48 @@ function handleReturnClick(shapeId) {
   socket.emit('game:move', { action: 'return', shapeId });
 }
 
+// ─── Timer helpers ─────────────────────────────────────────────────────────
+function formatTime(elapsedMs) {
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const mm = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+  const ss = String(totalSeconds % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
+function updateTimerDisplay(elapsedMs) {
+  const el = document.getElementById('game-timer');
+  if (el) el.textContent = formatTime(elapsedMs);
+}
+
+function startLiveTimer(startTime) {
+  clearInterval(timerInterval);   // always clear before starting new interval
+  timerInterval = null;
+  updateTimerDisplay(Date.now() - startTime);
+  timerInterval = setInterval(() => {
+    updateTimerDisplay(Date.now() - startTime);
+  }, 1000);
+}
+
 // ─── Win overlay ──────────────────────────────────────────────────────────────
 function renderWin(state) {
   const overlay = document.getElementById('win-overlay');
-  const msg = document.getElementById('win-message');
-  msg.textContent = `${(state.players || []).map(p => p.name).join(', ')} solved the puzzle!`;
+  const timeEl = document.getElementById('win-time');
+  const playersEl = document.getElementById('win-players');
+  if (timeEl) timeEl.textContent = formatTime(state.elapsedMs || 0);
+  if (playersEl) playersEl.textContent = (state.players || []).map(p => p.name).join(', ');
   overlay.style.display = 'flex';
 }
+
+// ─── Play Again ───────────────────────────────────────────────────────────
+document.getElementById('play-again-btn').addEventListener('click', () => {
+  clearInterval(timerInterval);   // clear interval if still running
+  timerInterval = null;
+  document.getElementById('win-overlay').style.display = 'none';
+  showScreen('start-screen');
+  myRoomCode = null;
+  amIHost = false;
+  // No game:leave event needed — socket.data.roomCode is overwritten on next createRoom/joinRoom
+});
 
 // ─── In-game error notification ───────────────────────────────────────────────
 // Create in-game notification element once (idempotent)
@@ -437,6 +473,24 @@ function showGameError(message) {
   const el = ensureGameNotification();
   el.textContent = `Move rejected: ${message}`;
   setTimeout(() => { el.textContent = ''; }, 3500);
+}
+
+// ─── Leaderboard render ────────────────────────────────────────────────────
+function renderLeaderboard(entries) {
+  const tbody = document.getElementById('leaderboard-body');
+  if (!tbody) return;
+  if (!entries || entries.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="leaderboard-empty">No games completed yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = entries.map(e =>
+    `<tr>
+      <td>${e.rank}</td>
+      <td>${e.puzzleName}</td>
+      <td class="leaderboard-time">${e.time}</td>
+      <td>${e.playerNames.join(', ')}</td>
+    </tr>`
+  ).join('');
 }
 
 // ─── Socket event listeners ───────────────────────────────────────────────────
@@ -492,6 +546,7 @@ socket.on('game:start', (state) => {
   renderGrid(state);
   renderBank(state);
   renderTurnUI(state);
+  startLiveTimer(state.startTime);   // TIME-01
 });
 
 // Game state update during play — reset selection, re-render all UI
@@ -510,10 +565,12 @@ socket.on('game:error', (message) => {
 
 // Game won — render final state and show win overlay
 socket.on('game:win', (state) => {
+  clearInterval(timerInterval);      // TIME-02: freeze timer
+  timerInterval = null;
   renderGrid(state);
   renderBank(state);
   renderTurnUI(state);
-  renderWin(state);
+  renderWin(state);                  // TIME-03: shows state.elapsedMs
 });
 
 // Inline error — show under the join input on start screen; or as notification in lobby
@@ -523,4 +580,9 @@ socket.on('room:error', (message) => {
   } else {
     showLobbyNotification(`Error: ${message}`);
   }
+});
+
+// Leaderboard update — re-render leaderboard on start screen (TIME-04)
+socket.on('leaderboard:update', (entries) => {
+  renderLeaderboard(entries);
 });
