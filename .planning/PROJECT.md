@@ -1,8 +1,17 @@
 # LogiBlock
 
+## Current Milestone: v1.1 Grid & Pieces Redesign
+
+**Goal:** Grid-Form auf unregelm. 5×9 umstellen, 10 eigene Puzzle-Steine definieren, und die Interaktion (Rotation per Klick, Platzierung per Doppelklick) intuitiver gestalten.
+
+**Target features:**
+- Unregelm. Grid-Form (5×9, untere Ecken fehlen, 43 aktive Felder) als feste Puzzle-Basis
+- 10 eigene Steine (3–5 Felder) die zusammen exakt 43 Felder belegen
+- Neue Interaktion: Linksklick = rotieren, Doppelklick = platzieren
+
 ## What This Is
 
-LogiBlock ist ein kooperatives Multiplayer-Puzzlespiel, bei dem Spieler gemeinsam Tetromino-ähnliche Formen aus einer geteilten Bank in ein Grid legen, bis es lückenlos gefüllt ist. Das Spiel ist rundenbasiert — jeder Spieler macht genau einen Zug pro Runde. Ein Live-Timer misst die Teamlösungszeit; eine Session-Rangliste zeigt alle bisherigen Bestzeiten. Das Projekt ist eine Uni-Abgabe.
+LogiBlock ist ein kooperatives Multiplayer-Puzzlespiel, bei dem Spieler gemeinsam eigens definierte Formen aus einer geteilten Bank in ein Grid legen, bis es lückenlos gefüllt ist. Das Spiel ist rundenbasiert — jeder Spieler macht genau einen Zug pro Runde. Ein Live-Timer misst die Teamlösungszeit; eine Session-Rangliste zeigt alle bisherigen Bestzeiten. Das Projekt ist eine Uni-Abgabe.
 
 ## Core Value
 
@@ -26,7 +35,9 @@ Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig
 
 ### Active
 
-(Keine aktiven v2-Requirements definiert — siehe REQUIREMENTS.md für v2-Kandidaten)
+- [ ] Unregelm. Grid-Form (5×9, untere Ecken fehlen) serversseitig und client-seitig unterstützt — v1.1 (GRID-*)
+- [ ] 10 eigene Steine mit 3–5 Feldern in Puzzle-JSON definiert und validiert — v1.1 (PIEC-*)
+- [ ] Linksklick auf Grid rotiert ausgewählten Stein; Doppelklick platziert ihn — v1.1 (CTRL-*)
 
 ### Out of Scope
 
@@ -65,4 +76,4 @@ Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig
 | advanceTurnIfActive vor removePlayer | Turn-Index ist noch valide solange Player noch im Array | ✓ Gut — 5 TDD-Tests bestätigen alle Disconnect-Szenarien |
 
 ---
-*Last updated: 2026-03-15 after v1.0 milestone*
+*Last updated: 2026-03-15 after v1.1 milestone start*
