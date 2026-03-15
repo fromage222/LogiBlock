@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogiBlock</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ── Start Screen ──────────────────────────────────────────────────── -->
+  <div id="start-screen" class="screen active">
+    <h1>LogiBlock</h1>
+    <div class="card">
+      <label for="player-name-input">Your Name</label>
+      <input id="player-name-input" type="text" maxlength="20" placeholder="Enter your name" autocomplete="off">
+
+      <div class="start-actions">
+        <button id="create-room-btn">Create Room</button>
+      </div>
+
+      <hr>
+
+      <div class="join-section">
+        <label for="room-code-input">Join with Room Code</label>
+        <input id="room-code-input" type="text" maxlength="6" placeholder="6-digit code" autocomplete="off">
+        <button id="join-room-btn">Join Room</button>
+        <p id="join-error" class="error-msg" aria-live="polite"></p>
+      </div>
+    </div>
+    <section id="leaderboard-section" class="leaderboard-section">
+      <h2>Leaderboard</h2>
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Puzzle</th>
+            <th>Time</th>
+            <th>Players</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <tr><td colspan="4" class="leaderboard-empty">No games completed yet</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- ── Lobby Screen ──────────────────────────────────────────────────── -->
+  <div id="lobby-screen" class="screen">
+    <h2>Lobby</h2>
+
+    <div class="room-code-display">
+      <span id="room-code-text"></span>
+    </div>
+
+    <div class="lobby-content">
+      <section class="player-list-section">
+        <h3>Players</h3>
+        <ul id="player-list"></ul>
+      </section>
+
+      <section class="host-controls" id="host-controls" style="display:none;">
+        <label for="puzzle-select">Puzzle</label>
+        <select id="puzzle-select"></select>
+
+        <button id="start-game-btn" disabled>Start Game</button>
+        <p id="start-hint" class="hint">Need at least 2 players to start</p>
+      </section>
+
+      <p id="waiting-msg" class="hint">Waiting for host to start the game...</p>
+      <p id="selected-puzzle-display" class="hint" style="display:none;"></p>
+
+      <p id="lobby-notification" class="notification" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <!-- ── Game Screen ──────────────────────────────────────────────────── -->
+  <div id="game-screen" class="screen">
+    <h2 id="game-title">LogiBlock</h2>
+    <p id="turn-banner" class="turn-banner"></p>
+    <p id="game-timer" class="game-timer">00:00</p>
+    <div class="game-area">
+      <div id="player-badges" class="player-badges"></div>
+      <div id="game-grid" class="grid"></div>
+      <div id="piece-bank" class="piece-bank"></div>
+    </div>
+  </div>
+
+  <!-- Win overlay — outside game-screen, shown by JS on win -->
+  <div id="win-overlay" class="win-overlay" style="display:none;">
+    <div class="win-card">
+      <h2>Puzzle Solved!</h2>
+      <p class="win-time" id="win-time">00:00</p>
+      <p class="win-players" id="win-players"></p>
+      <button id="play-again-btn" class="btn-primary">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Socket.IO client — auto-served by the Express server -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
