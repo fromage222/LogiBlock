@@ -62,29 +62,27 @@ Deferred — kein Scope für v1.1.
 
 ## Traceability
 
-Wird während Roadmap-Erstellung befüllt.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GRID-01 | — | Pending |
-| GRID-02 | — | Pending |
-| GRID-03 | — | Pending |
-| GRID-04 | — | Pending |
-| GRID-05 | — | Pending |
-| GRID-06 | — | Pending |
-| PIEC-01 | — | Pending |
-| PIEC-02 | — | Pending |
-| PIEC-03 | — | Pending |
-| CTRL-01 | — | Pending |
-| CTRL-02 | — | Pending |
-| CTRL-03 | — | Pending |
-| CTRL-04 | — | Pending |
+| GRID-01 | Phase 4 | Pending |
+| GRID-02 | Phase 4 | Pending |
+| PIEC-01 | Phase 4 | Pending |
+| PIEC-02 | Phase 4 | Pending |
+| GRID-03 | Phase 5 | Pending |
+| GRID-04 | Phase 5 | Pending |
+| GRID-05 | Phase 6 | Pending |
+| GRID-06 | Phase 6 | Pending |
+| PIEC-03 | Phase 6 | Pending |
+| CTRL-01 | Phase 7 | Pending |
+| CTRL-02 | Phase 7 | Pending |
+| CTRL-03 | Phase 7 | Pending |
+| CTRL-04 | Phase 7 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13 ⚠️
+- Mapped to phases: 13
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after initial definition*
+*Last updated: 2026-03-15 after roadmap creation (v1.1 traceability complete)*
