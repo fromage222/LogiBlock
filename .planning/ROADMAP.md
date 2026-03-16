@@ -30,19 +30,19 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 ## Phase Details
 
 ### Phase 4: Schema and Server Data Model
-**Goal**: The server can load, validate, and represent the new irregular 5×9 puzzle with 10 custom pieces; all 68 existing tests still pass
+**Goal**: The server can load, validate, and represent the new irregular 5×9 puzzle with 10 custom pieces; all existing tests still pass
 **Depends on**: Phase 3 (v1.0 complete)
 **Requirements**: GRID-01, GRID-02, PIEC-01, PIEC-02
 **Success Criteria** (what must be TRUE):
   1. The server starts without errors when `puzzles/puzzle_v11.json` is present, loading the irregular 5×9 grid definition
-  2. The server grid array contains `{ inactive: true }` sentinel objects at the four missing corner positions, and `null` at all 43 active positions
-  3. The schema validator rejects a puzzle JSON whose movable piece cells do not total exactly 43 (the active cell count)
-  4. All 68 existing v1.0 tests pass without modification after the sentinel is introduced
-**Plans**: TBD
+  2. The server grid array contains `{ inactive: true }` sentinel objects at the 2 missing corner positions [4,7] and [4,8], and `null` at all 43 active positions
+  3. The schema validator rejects a puzzle JSON whose total shape cells do not match the non-null solution cell count (when inactiveCells is declared)
+  4. All existing tests pass without modification after the sentinel is introduced
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: Author `puzzle_v11.json` and extend `validatePuzzleSchema()` with `inactiveCells` and cell-count cross-check
-- [ ] 04-02: Update `buildInitialGrid()` to populate inactive positions with `{ inactive: true }` sentinel
+- [ ] 04-01-PLAN.md — Author `puzzle_v11.json` (5×9, 43 active cells, 10 pieces) and extend `validatePuzzleSchema()` with `inactiveCells` field validation + cell-count cross-check
+- [ ] 04-02-PLAN.md — Replace `buildInitialGrid()` with sentinel-aware single-pass implementation; unit tests; human verification
 
 ### Phase 5: Server Logic Fixes
 **Goal**: The server correctly rejects piece placement on inactive cells and fires the win condition when all 43 active cells are filled
@@ -92,7 +92,7 @@ Plans:
 | 1. Foundation | v1.0 | 3/3 | Complete | 2026-03-05 |
 | 2. Game Loop | v1.0 | 5/5 | Complete — human verified | 2026-03-05 |
 | 3. Timer und Leaderboard | v1.0 | 3/3 | Complete — human verified | 2026-03-10 |
-| 4. Schema and Server Data Model | v1.1 | 0/2 | Not started | - |
+| 4. Schema and Server Data Model | v1.1 | 0/2 | Planned | - |
 | 5. Server Logic Fixes | v1.1 | 0/1 | Not started | - |
 | 6. Client Grid Rendering | v1.1 | 0/1 | Not started | - |
 | 7. New Interaction Model | v1.1 | 0/1 | Not started | - |
