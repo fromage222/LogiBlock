@@ -92,7 +92,7 @@ Plans:
 | 1. Foundation | v1.0 | 3/3 | Complete | 2026-03-05 |
 | 2. Game Loop | v1.0 | 5/5 | Complete — human verified | 2026-03-05 |
 | 3. Timer und Leaderboard | v1.0 | 3/3 | Complete — human verified | 2026-03-10 |
-| 4. Schema and Server Data Model | v1.1 | 0/2 | Planned | - |
+| 4. Schema and Server Data Model | 1/2 | In Progress|  | - |
 | 5. Server Logic Fixes | v1.1 | 0/1 | Not started | - |
 | 6. Client Grid Rendering | v1.1 | 0/1 | Not started | - |
 | 7. New Interaction Model | v1.1 | 0/1 | Not started | - |
