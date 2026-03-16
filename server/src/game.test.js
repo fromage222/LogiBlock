@@ -522,13 +522,13 @@ describe('validatePuzzleSchema — cell-count cross-check', () => {
 
 describe('buildInitialGrid — irregular grid with inactiveCells', () => {
   // Uses puzzle_v11 which is loaded in the before() hook via loadPuzzles()
-  // puzzle_v11 has inactiveCells: [[4,7],[4,8]]
+  // puzzle_v11 has inactiveCells: [[4,0],[4,8]]
 
   it('marks inactive positions with { inactive: true } sentinel', () => {
     const puzzle = getPuzzleById('puzzle_v11');
     assert.ok(puzzle, 'puzzle_v11 must be loaded');
     const grid = buildInitialGrid(puzzle);
-    assert.deepEqual(grid[4][7], { inactive: true });
+    assert.deepEqual(grid[4][0], { inactive: true });
     assert.deepEqual(grid[4][8], { inactive: true });
   });
 
@@ -537,8 +537,8 @@ describe('buildInitialGrid — irregular grid with inactiveCells', () => {
     const grid = buildInitialGrid(puzzle);
     // Sample of active cells — should all be null at init
     assert.strictEqual(grid[0][0], null);
-    assert.strictEqual(grid[4][0], null);
-    assert.strictEqual(grid[4][6], null); // last active cell in row 4
+    assert.strictEqual(grid[4][1], null);
+    assert.strictEqual(grid[4][7], null); // last active cell in row 4
   });
 
   it('produces a 5x9 grid', () => {
