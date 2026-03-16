@@ -22,7 +22,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 **Milestone Goal:** Irregular 5×9 grid (43 active cells, 4 missing corners), 10 custom pieces that tile it exactly, and a new click interaction model (single-click rotates, double-click places).
 
-- [ ] **Phase 4: Schema and Server Data Model** - Introduce the irregular grid sentinel and new puzzle JSON; lock the foundational data model all other phases depend on
+- [x] **Phase 4: Schema and Server Data Model** - Introduce the irregular grid sentinel and new puzzle JSON; lock the foundational data model all other phases depend on
 - [ ] **Phase 5: Server Logic Fixes** - Propagate the sentinel to win detection and placement rejection so the game plays correctly on the irregular grid
 - [ ] **Phase 6: Client Grid Rendering** - Render inactive cells as visual gaps and extend the color palette to 10 pieces
 - [ ] **Phase 7: New Interaction Model** - Replace click-to-place with single-click rotation and double-click placement
@@ -41,8 +41,8 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Author `puzzle_v11.json` (5×9, 43 active cells, 10 pieces) and extend `validatePuzzleSchema()` with `inactiveCells` field validation + cell-count cross-check
-- [ ] 04-02-PLAN.md — Replace `buildInitialGrid()` with sentinel-aware single-pass implementation; unit tests; human verification
+- [x] 04-01-PLAN.md — Author `puzzle_v11.json` (5×9, 43 active cells, 10 pieces) and extend `validatePuzzleSchema()` with `inactiveCells` field validation + cell-count cross-check
+- [x] 04-02-PLAN.md — Replace `buildInitialGrid()` with sentinel-aware single-pass implementation; unit tests; human verification
 
 ### Phase 5: Server Logic Fixes
 **Goal**: The server correctly rejects piece placement on inactive cells and fires the win condition when all 43 active cells are filled
@@ -92,7 +92,7 @@ Plans:
 | 1. Foundation | v1.0 | 3/3 | Complete | 2026-03-05 |
 | 2. Game Loop | v1.0 | 5/5 | Complete — human verified | 2026-03-05 |
 | 3. Timer und Leaderboard | v1.0 | 3/3 | Complete — human verified | 2026-03-10 |
-| 4. Schema and Server Data Model | 1/2 | In Progress|  | - |
+| 4. Schema and Server Data Model | v1.1 | 2/2 | Complete — human verified | 2026-03-16 |
 | 5. Server Logic Fixes | v1.1 | 0/1 | Not started | - |
 | 6. Client Grid Rendering | v1.1 | 0/1 | Not started | - |
 | 7. New Interaction Model | v1.1 | 0/1 | Not started | - |

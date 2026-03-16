@@ -14,7 +14,7 @@ Requirements für Milestone v1.1 — Grid & Pieces Redesign. Jedes Requirement w
 ### Grid (GRID)
 
 - [x] **GRID-01**: Spieler spielt auf einem 5×9-Grid mit fehlenden unteren Ecken (43 aktive Felder) — das neue unregelm. Grid ersetzt das bisherige rechteckige Layout
-- [ ] **GRID-02**: Spieler kann ein Puzzle mit unregelm. Grid spielen — Server lädt `inactiveCells`-Feld aus Puzzle-JSON und markiert diese Zellen beim Spielstart mit `{ inactive: true }` Sentinel
+- [x] **GRID-02**: Spieler kann ein Puzzle mit unregelm. Grid spielen — Server lädt `inactiveCells`-Feld aus Puzzle-JSON und markiert diese Zellen beim Spielstart mit `{ inactive: true }` Sentinel
 - [ ] **GRID-03**: Server lehnt Platzierung von Steinen auf inaktiven Zellen ab (automatisch via non-null Sentinel, kein zusätzlicher Code in `placePiece()` nötig)
 - [ ] **GRID-04**: Spieler gewinnt korrekt wenn alle 43 aktiven Felder belegt sind — `checkWin()` ignoriert inaktive Zellen bei der Gewinnprüfung
 - [ ] **GRID-05**: Spieler sieht die Grid-Lücken als transparente Felder ohne Klick-Interaktion — Client rendert inaktive Zellen mit CSS `.grid-cell.inactive` (transparent, kein Border, kein Pointer-Event)
@@ -65,7 +65,7 @@ Deferred — kein Scope für v1.1.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | GRID-01 | Phase 4 | Complete |
-| GRID-02 | Phase 4 | Pending |
+| GRID-02 | Phase 4 | Complete |
 | PIEC-01 | Phase 4 | Complete |
 | PIEC-02 | Phase 4 | Complete |
 | GRID-03 | Phase 5 | Pending |
@@ -85,4 +85,4 @@ Deferred — kein Scope für v1.1.
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after roadmap creation (v1.1 traceability complete)*
+*Last updated: 2026-03-16 — GRID-02 marked complete after 04-02-PLAN.md execution*

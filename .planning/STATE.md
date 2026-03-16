@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Grid & Pieces Redesign
-status: unknown
-last_updated: "2026-03-16T18:46:32.559Z"
+status: phase-complete
+last_updated: "2026-03-16T19:51:06Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** v1.1 roadmap complete — ready to plan Phase 4
+**Current focus:** Phase 4 complete — sentinel-aware grid data model ready for Phase 5 checkWin() fix
 
 ## Current Position
 
 Phase: 4 of 7 (Schema and Server Data Model)
-Plan: 1 of 2 complete
-Status: In Progress
-Last activity: 2026-03-16 — 04-01 puzzle_v11.json and validatePuzzleSchema() extension complete
+Plan: 2 of 2 complete
+Status: Phase Complete
+Last activity: 2026-03-16 — 04-02 buildInitialGrid() sentinel implementation and tests complete
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [██████████] 100% (Phase 4 complete)
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Progress: [█░░░░░░░░░] 10%
 
 *v1.1 metrics will accumulate from Phase 4 onward*
 | Phase 04-schema-and-server-data-model P01 | 3 | 2 tasks | 3 files |
+| Phase 04-schema-and-server-data-model P02 | 20min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -59,6 +60,8 @@ v1.1 decisions locked by research:
 - Sentinel representation: `{ inactive: true }` object (not `null`) — existing `placePiece()` guard rejects it for free
 - [Phase 04-schema-and-server-data-model]: inactiveCells cross-check gated on field presence — backward-compatible with existing puzzles
 - [Phase 04-schema-and-server-data-model]: puzzle_v11.json Corner Cut: 10 pieces (P01-P07 tetrominoes, P08-P10 pentominoes), 43 active cells in 5x9 grid with inactiveCells [[4,7],[4,8]]
+- [04-02]: Single-pass Array.from with Set-based 'r-c' key lookup for inactiveCells — O(1) per cell, single allocation
+- [04-02]: checkWin() sentinel fix explicitly deferred to Phase 5 — documented with inline comment in game.js
 
 ### Pending Todos
 
@@ -66,10 +69,10 @@ None.
 
 ### Blockers/Concerns
 
-None — research confidence is HIGH across all four phase areas.
+None — Phase 4 complete. Phase 5 can proceed: only remaining gap is `checkWin()` needing `!cell.inactive` guard.
 
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Completed 04-01-PLAN.md
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
