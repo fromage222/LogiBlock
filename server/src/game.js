@@ -263,6 +263,28 @@ function validatePuzzleSchema(puzzle) {
   }
   if (!Array.isArray(puzzle.solution))
     throw new Error('Missing "solution" array');
+  // ── Block 1: inactiveCells format validation (optional field) ──────────────
+  if (puzzle.inactiveCells !== undefined) {
+    if (!Array.isArray(puzzle.inactiveCells))
+      throw new Error('"inactiveCells" must be an array');
+    for (const entry of puzzle.inactiveCells) {
+      if (!Array.isArray(entry) || entry.length !== 2 ||
+          typeof entry[0] !== 'number' || typeof entry[1] !== 'number')
+        throw new Error('Each "inactiveCells" entry must be a [row, col] number array');
+      const [r, c] = entry;
+      if (r < 0 || r >= puzzle.gridSize.rows || c < 0 || c >= puzzle.gridSize.cols)
+        throw new Error(`inactiveCells entry [${r},${c}] is out of bounds for gridSize ${puzzle.gridSize.rows}x${puzzle.gridSize.cols}`);
+    }
+
+    // ── Block 2: cell-count cross-check (only when inactiveCells declared) ──
+    const totalShapeCells = puzzle.shapes.reduce((sum, s) => sum + s.cells.length, 0);
+    const activeSolutionCells = puzzle.solution.flat().filter(id => id !== null).length;
+    if (totalShapeCells !== activeSolutionCells) {
+      throw new Error(
+        `Shapes cover ${totalShapeCells} cells but solution has ${activeSolutionCells} active cells — puzzle is unsolvable`
+      );
+    }
+  }
 }
 
 function loadPuzzles() {

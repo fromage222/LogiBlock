@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   lobbies,
   loadPuzzles,
+  validatePuzzleSchema,
   createLobby,
   startGame,
   addPlayer,
@@ -441,6 +442,77 @@ describe('getPublicState Phase 2 extension', () => {
     lobby.activeTurnIndex = 0;
     const state = getPublicState('GPS07');
     assert.equal(state.activePlayerName, null);
+  });
+});
+
+// ─── validatePuzzleSchema — inactiveCells validation ─────────────────────────
+
+describe('validatePuzzleSchema — inactiveCells validation', () => {
+  const baseSchema = () => ({
+    id: 'test', name: 'Test', gridSize: { rows: 3, cols: 3 },
+    shapes: [{ id: 'A', cells: [[0,0]], movable: true }],
+    solution: [['A',null,null],[null,null,null],[null,null,null]]
+  });
+
+  it('passes when inactiveCells is absent', () => {
+    assert.doesNotThrow(() => validatePuzzleSchema(baseSchema()));
+  });
+
+  it('passes when inactiveCells is a valid array of [r,c] pairs within bounds', () => {
+    const p = baseSchema();
+    p.inactiveCells = [[2,1],[2,2]];
+    assert.doesNotThrow(() => validatePuzzleSchema(p));
+  });
+
+  it('throws when inactiveCells is not an array', () => {
+    const p = baseSchema();
+    p.inactiveCells = 'bad';
+    assert.throws(() => validatePuzzleSchema(p), /inactiveCells.*array/i);
+  });
+
+  it('throws when an inactiveCells entry is not a 2-element number array', () => {
+    const p = baseSchema();
+    p.inactiveCells = [[0]]; // only 1 element
+    assert.throws(() => validatePuzzleSchema(p), /inactiveCells.*\[row, col\]/i);
+  });
+
+  it('throws when an inactiveCells entry is out of gridSize bounds', () => {
+    const p = baseSchema();
+    p.inactiveCells = [[5, 5]]; // beyond 3x3
+    assert.throws(() => validatePuzzleSchema(p), /out of bounds/i);
+  });
+});
+
+// ─── validatePuzzleSchema — cell-count cross-check ───────────────────────────
+
+describe('validatePuzzleSchema — cell-count cross-check', () => {
+  const makeFixture = (shapeCells, solutionNonNull, withInactive = true) => {
+    // Build minimal valid fixture
+    const cells = Array.from({ length: shapeCells }, (_, i) => [0, i]);
+    const solRow = Array.from({ length: solutionNonNull }, () => 'A')
+      .concat(Array(Math.max(0, 5 - solutionNonNull)).fill(null));
+    return {
+      id: 'fix', name: 'Fix',
+      gridSize: { rows: 1, cols: Math.max(shapeCells, solutionNonNull, 5) },
+      inactiveCells: withInactive ? [[0, 4]] : undefined,
+      shapes: [{ id: 'A', cells, movable: true }],
+      solution: [solRow]
+    };
+  };
+
+  it('passes when shape cell count equals non-null solution cell count', () => {
+    const p = makeFixture(3, 3);
+    assert.doesNotThrow(() => validatePuzzleSchema(p));
+  });
+
+  it('throws when shape cell count does not match non-null solution cell count', () => {
+    const p = makeFixture(3, 4);
+    assert.throws(() => validatePuzzleSchema(p), /cells.*solution|unsolvable/i);
+  });
+
+  it('skips cross-check when inactiveCells is absent (existing puzzles unaffected)', () => {
+    const p = makeFixture(3, 4, false); // mismatched but no inactiveCells
+    assert.doesNotThrow(() => validatePuzzleSchema(p));
   });
 });
 
