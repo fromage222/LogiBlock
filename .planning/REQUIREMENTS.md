@@ -1,118 +1,88 @@
 # Requirements: LogiBlock
 
-**Defined:** 2026-03-01
+**Defined:** 2026-03-15
 **Core Value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
 
----
+## v1.0 Requirements (Validated)
 
-## v1 Requirements
+Alle v1.0 Requirements sind shipped und validiert. Siehe MILESTONES.md.
 
-### Lobby
+## v1.1 Requirements
 
-- [x] **LOBB-01**: Spieler kann einen neuen Raum erstellen und erhält einen einzigartigen Room-Code
-- [x] **LOBB-02**: Spieler kann einem bestehenden Raum per Room-Code beitreten
-- [x] **LOBB-03**: Alle Spieler sehen live welche Mitspieler in der Lobby verbunden sind
-- [x] **LOBB-04**: Host kann das Spiel starten (erst wenn ≥2 Spieler verbunden sind)
-- [x] **LOBB-05**: Host kann vor Spielstart aus den verfügbaren Puzzles auswählen
+Requirements für Milestone v1.1 — Grid & Pieces Redesign. Jedes Requirement wird auf Roadmap-Phasen gemappt.
 
-### Puzzle
+### Grid (GRID)
 
-- [x] **PUZZ-01**: Server lädt alle Puzzle-JSON-Dateien beim Start und validiert ihr Schema
-- [x] **PUZZ-02**: Anker-Formen sind beim Spielstart an ihrer fixen Position vorplatziert und unveränderlich
-- [ ] **PUZZ-03**: Formen können vom aktiven Spieler rotiert werden (0°, 90°, 180°, 270°)
+- [x] **GRID-01**: Spieler spielt auf einem 5×9-Grid mit fehlenden unteren Ecken (43 aktive Felder) — das neue unregelm. Grid ersetzt das bisherige rechteckige Layout
+- [x] **GRID-02**: Spieler kann ein Puzzle mit unregelm. Grid spielen — Server lädt `inactiveCells`-Feld aus Puzzle-JSON und markiert diese Zellen beim Spielstart mit `{ inactive: true }` Sentinel
+- [ ] **GRID-03**: Server lehnt Platzierung von Steinen auf inaktiven Zellen ab (automatisch via non-null Sentinel, kein zusätzlicher Code in `placePiece()` nötig)
+- [ ] **GRID-04**: Spieler gewinnt korrekt wenn alle 43 aktiven Felder belegt sind — `checkWin()` ignoriert inaktive Zellen bei der Gewinnprüfung
+- [ ] **GRID-05**: Spieler sieht die Grid-Lücken als transparente Felder ohne Klick-Interaktion — Client rendert inaktive Zellen mit CSS `.grid-cell.inactive` (transparent, kein Border, kein Pointer-Event)
+- [ ] **GRID-06**: Spieler erkennt nicht-klickbare Grid-Felder am Cursor-Feedback — `cursor: default` statt `cursor: pointer` auf inaktiven Zellen
 
-### Game Loop
+### Steine (PIEC)
 
-- [ ] **GAME-01**: Der aktive Spieler ist für alle Teilnehmer klar markiert sichtbar
-- [ ] **GAME-02**: Die Zugreihenfolge ist zirkulär, server-kontrolliert, und für alle sichtbar
-- [ ] **GAME-03**: Aktiver Spieler kann eine Form aus der Bank ins Grid legen (Position + Rotation)
-- [ ] **GAME-04**: Aktiver Spieler kann eine falsch platzierte Form aus dem Grid zurück in die Bank legen
-- [ ] **GAME-05**: Jeder Zug wird serverseitig gegen die hinterlegte Lösung validiert bevor er akzeptiert wird
-- [ ] **GAME-06**: Die Lösung verlässt niemals den Server — `getPublicState()` ist der einzige Serialisierungspfad
-- [ ] **GAME-07**: Bei ungültigem Zug erhält nur der aktive Spieler eine Fehlermeldung mit Grund
-- [ ] **GAME-08**: Nach jedem akzeptierten Zug erhalten alle Spieler sofort den neuen Grid-State (Echtzeit-Sync)
-- [x] **GAME-09**: Wenn der aktive Spieler disconnected wird sein Zug automatisch übersprungen und der nächste Spieler ist dran
-- [x] **GAME-10**: Leere Lobbys (alle Spieler disconnected) werden automatisch zerstört
+- [x] **PIEC-01**: Spieler kann das neue 5×9-Puzzle mit 10 eigenen Formen spielen — `puzzles/puzzle_v11.json` ist geladen und vom Server beim Start validiert
+- [x] **PIEC-02**: Puzzle ist mathematisch lösbar — Server-Validator prüft beim Start dass Gesamt-Feldanzahl aller beweglichen Steine exakt der Anzahl aktiver Lösung-Zellen entspricht (43 Felder)
+- [ ] **PIEC-03**: Spieler sieht 10 Steine mit 10 verschiedenen Farben im Bank-Panel — `PIECE_COLORS` ist auf 10 Einträge erweitert, kein Farb-Konflikt
 
-### Gewinn & Timer
+### Interaktion (CTRL)
 
-- [ ] **WIN-01**: Gewinnbedingung wird erkannt wenn das Grid vollständig und korrekt gefüllt ist (Server-Prüfung)
-- [ ] **WIN-02**: Alle Spieler sehen einen Win-Screen wenn das Puzzle gelöst wurde
-- [ ] **TIME-01**: Ein Timer startet exakt wenn das Spiel beginnt (Host drückt Start)
-- [ ] **TIME-02**: Der Timer stoppt exakt wenn das Puzzle korrekt gelöst wurde
-- [ ] **TIME-03**: Die Lösungszeit wird dem Team auf dem Win-Screen angezeigt
-- [ ] **TIME-04**: Auf dem Start-Screen sind alle bisherigen Team-Zeiten der aktuellen Server-Session als Rangliste sichtbar
-- [ ] **TIME-05**: Zeiten werden in-memory gehalten — bei Server-Neustart sind alle Zeiten weg (kein Persistence nötig)
-
----
+- [ ] **CTRL-01**: Spieler kann ausgewählten Stein durch Linksklick auf eine aktive Grid-Zelle rotieren — Rotation zyklisch 0°→90°→180°→270°; 200ms Debounce verhindert unbeabsichtigte Rotation bei Doppelklick
+- [ ] **CTRL-02**: Spieler platziert ausgewählten Stein per Doppelklick auf die gewünschte Grid-Position — ersetzt den bisherigen Einfachklick zum Platzieren
+- [ ] **CTRL-03**: Ghost-Preview zeigt sofort die neue Rotation nach einem Linksklick — cached letzte Hover-Zelle und re-rendert Preview nach Rotation
+- [ ] **CTRL-04**: Bank-Mini-Grid reflektiert die aktuelle Rotation des ausgewählten Steins nach einem Grid-Klick — `updateBankSelection()` wird aus dem Click-Handler aufgerufen
 
 ## v2 Requirements
 
-### UI Polish
+Deferred — kein Scope für v1.1.
 
-- **UI-01**: Spielerfarben — jeder Spieler hat eine Farbe, platzierte Formen werden entsprechend eingefärbt
-- **UI-02**: Ghost/Preview — Hover zeigt wo die gewählte Form landen würde, vor dem Bestätigen
-- **UI-03**: Move-History Log — Sidebar zeigt laufend wer welche Aktion durchgeführt hat
+### Animationen
 
-### Gameplay Extensions
+- **ANIM-01**: Rotation-Animation bei Stein-Klick (CSS transition)
+- **ANIM-02**: Platzierungs-Bestätigungs-Puls auf `.placed`-Zellen
 
-- **GAME-11**: Turn-Timer — Zeitlimit pro Zug; bei Ablauf wird der Zug automatisch übersprungen
-- **GAME-12**: Reconnect-Unterstützung — Spieler kann nach Disconnect in selben Raum zurückkehren
+### Weitere
 
----
+- **EXT-01**: Tastenkürzel R für Rotation (alternativer Code-Pfad)
+- **EXT-02**: Mehrere unregelm. Grid-Formen (verschiedene Puzzles mit verschiedenen Formen)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| User Accounts / Login | Nicht nötig für Uni-Abgabe; würde OAuth, Sessions, Passwörter erfordern |
-| Persistente Datenbank | In-memory reicht; kein Uni-Requirement für Persistenz |
-| Mobile / Touch-Optimierung | Desktop-Browser ist Zielplattform |
-| In-Game Puzzle-Editor | Separates Sub-Projekt; Puzzles werden manuell als JSON erstellt |
-| Chat-System | Move-History (v2) reicht für Koordination |
-| AI-Spieler | Kein Requirement; kein Multiplayer-Demo-Wert |
-| WebRTC / Peer-to-Peer | Würde Server-Authoritative-Validierung aushebeln — Kernkonzept |
-| Permanente Highscore-Speicherung | Explizit ausgeschlossen — Zeiten nur in-memory |
-
----
+| Accounts / Login | Nicht nötig für Uni-Abgabe |
+| Persistente Rangliste | In-memory Session-Leaderboard reicht |
+| Mobile-Optimierung | Desktop-Browser reicht für Abgabe |
+| Puzzle-Editor in-game | Puzzles werden manuell als JSON erstellt |
+| WebRTC / Peer-to-Peer | Würde Server-Authoritative-Validierung aushebeln |
+| Drag & Drop | Bereits in v1.0 zugunsten Click-to-Place abgelehnt; Doppelklick-Modell inkompatibel |
+| Rechtsklick-Rotation | Browser-Kontextmenü-Interferenz macht dies unzuverlässig |
+| Bank-Klick setzt Rotation zurück | Bewusst ausgeschlossen — Rotation soll beim Wechsel zur Bank erhalten bleiben |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOBB-01 | Phase 1 | Complete |
-| LOBB-02 | Phase 1 | Complete |
-| LOBB-03 | Phase 1 | Complete |
-| LOBB-04 | Phase 1 | Complete |
-| LOBB-05 | Phase 1 | Complete |
-| PUZZ-01 | Phase 1 | Done (01-01) |
-| PUZZ-02 | Phase 1 | Done (01-01) |
-| GAME-09 | Phase 1 | Complete |
-| GAME-10 | Phase 1 | Complete |
-| PUZZ-03 | Phase 2 | Pending |
-| GAME-01 | Phase 2 | Pending |
-| GAME-02 | Phase 2 | Pending |
-| GAME-03 | Phase 2 | Pending |
-| GAME-04 | Phase 2 | Pending |
-| GAME-05 | Phase 2 | Pending |
-| GAME-06 | Phase 2 | Pending |
-| GAME-07 | Phase 2 | Pending |
-| GAME-08 | Phase 2 | Pending |
-| WIN-01 | Phase 2 | Pending |
-| WIN-02 | Phase 2 | Pending |
-| TIME-01 | Phase 3 | Pending |
-| TIME-02 | Phase 3 | Pending |
-| TIME-03 | Phase 3 | Pending |
-| TIME-04 | Phase 3 | Pending |
-| TIME-05 | Phase 3 | Pending |
+| GRID-01 | Phase 4 | Complete |
+| GRID-02 | Phase 4 | Complete |
+| PIEC-01 | Phase 4 | Complete |
+| PIEC-02 | Phase 4 | Complete |
+| GRID-03 | Phase 5 | Pending |
+| GRID-04 | Phase 5 | Pending |
+| GRID-05 | Phase 6 | Pending |
+| GRID-06 | Phase 6 | Pending |
+| PIEC-03 | Phase 6 | Pending |
+| CTRL-01 | Phase 7 | Pending |
+| CTRL-02 | Phase 7 | Pending |
+| CTRL-03 | Phase 7 | Pending |
+| CTRL-04 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 25 total
-- Mapped to phases: 25
+- v1.1 requirements: 13 total
+- Mapped to phases: 13
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-03-01*
-*Last updated: 2026-03-03 — PUZZ-01, PUZZ-02 completed in 01-01*
+*Requirements defined: 2026-03-15*
+*Last updated: 2026-03-16 — GRID-02 marked complete after 04-02-PLAN.md execution*

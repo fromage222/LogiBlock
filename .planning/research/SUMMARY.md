@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** LogiBlock — Cooperative Multiplayer Puzzle Game
-**Domain:** Browser-based, turn-based cooperative multiplayer puzzle game (tetromino placement, shared grid)
-**Researched:** 2026-03-01
+**Project:** LogiBlock v1.1 — Grid & Pieces Redesign
+**Domain:** Cooperative server-authoritative web puzzle game with irregular grid and custom polyomino pieces
+**Researched:** 2026-03-15
 **Confidence:** HIGH
 
 ## Executive Summary
 
-LogiBlock is a cooperative multiplayer puzzle game where 2–4 players collaboratively place tetromino-shaped pieces onto a shared grid, solving a puzzle that only the server knows. The genre is well-understood: browser-based multiplayer games of this type follow a server-authoritative model where all game state lives on the server, clients act only as dumb rendering terminals, and the solution to the puzzle is never transmitted to any client. The established implementation approach for this scale (7 concurrent lobbies, 4 players each) is a Node.js + Socket.IO server with Vanilla JS clients — no framework, no database, no external state store. Every design decision in the research converges on simplicity: in-memory state, synchronous event handlers, CSS Grid for layout, and Socket.IO rooms as the lobby primitive.
+LogiBlock v1.1 is a targeted, additive upgrade to a working multiplayer puzzle game. Three orthogonal changes land on top of a stable v1.0 system: an irregular 5x9 grid with four inactive corner cells (43 active cells out of 45), ten custom polyomino-style pieces that tile those 43 cells exactly, and a new click interaction model (single-click rotates the selected piece, double-click places it). All research confirms that zero new npm packages or client-side libraries are required. Every mechanism maps directly onto existing patterns in `game.js` and `main.js`, and all changes are confined to four boundaries: the puzzle JSON schema, server-side validation logic, client rendering, and client event handling.
 
-The recommended approach is a 3-phase build: (1) establish the server foundation — lobby lifecycle, puzzle loading, solution security, and disconnect safety — before any game logic is written; (2) implement the full game loop — turn management, piece placement with server-side validation against the hidden solution, return-piece action, win detection, and real-time state broadcast; (3) polish the client UI — responsive grid rendering, bank interaction, turn indicators, and move feedback. This ordering is dictated by architecture dependencies: the `Room` class and `GameManager` must exist before any socket wiring, which must exist before any client work begins. Deviating from this order produces untestable dead-ends.
+The recommended approach is to build strictly in dependency order: establish the data model first (the `{ inactive: true }` sentinel in `buildInitialGrid()` plus `inactiveCells` in puzzle JSON), then propagate that decision to server validation and win detection, then to client rendering, and finally to the interaction model. The interaction model change is the highest complexity item because the browser event sequence `click -> click -> dblclick` requires a `setTimeout`/`clearTimeout` disambiguation pattern — without it, every double-click (place) also applies an unwanted 90-degree rotation. All other changes are low-complexity, with the server-side `checkWin()` fix being a single line.
 
-The dominant risk in this project is not complexity — the tech stack is minimal — but a cluster of correctness traps: solution data leaking through state broadcasts, frozen games after player disconnect, race conditions from optimistic client updates, and turn validation that trusts the client. All four are preventable with day-one invariants (see Critical Pitfalls). The secondary risk is scope creep into anti-features (accounts, database, mobile touch, WebRTC) that add no demonstration value and consume significant time.
+The primary risk is that the inactive cell sentinel decision is interdependent across five locations: `buildInitialGrid()`, `placePiece()`, `checkWin()`, `getPublicState()`, `renderGrid()`, and `updateGhostPreview()`. If any one site is updated without the others, the game enters a state where pieces land on inactive cells, the win condition never fires, or ghost preview disagrees with server validation — all silently. The mitigation is to treat the sentinel introduction as a single atomic commit that touches all affected sites, validated by a new test for each behavior added.
 
 ---
 
@@ -19,113 +19,138 @@ The dominant risk in this project is not complexity — the tech stack is minima
 
 ### Recommended Stack
 
-The stack is deliberately minimal and matches the university project constraint of Vanilla JS on the client with no build tooling. Server dependencies are: `express` (v4.18, HTTP + static file serving), `socket.io` (v4.7, real-time bidirectional events with built-in room support), `dotenv` (environment config), and `cors` (development CORS). The development dependency is `nodemon` (v3). The client loads `socket.io-client` from CDN — no npm install, no bundler.
+The v1.0 stack (Node.js 20 LTS, Express 4.x, Socket.IO 4.7, Vanilla JS ES2022+, HTML5, CSS3) is fully sufficient for v1.1. Research confirmed zero new dependencies needed. The `inactiveCells` extension is a JSON schema addition requiring no new runtime behavior. The `dblclick` event is a W3C standard DOM event; the `setTimeout`/`clearTimeout` disambiguation is five lines of idiomatic Vanilla JS. CSS Grid handles the irregular visual correctly via `pointer-events: none` and `background: transparent` on inactive cells — no Canvas, SVG, or gesture library is warranted.
 
-Express v5 and Socket.IO v5 are explicitly excluded (unstable RC). TypeScript, React, Vite, databases (Prisma, MongoDB), Redis, game engines (Phaser), and raw WebSockets are all excluded for documented reasons. The rationale for each exclusion is that the tools provide zero value at this scale or violate the project constraint. CSS Grid is the correct layout primitive for the game board; HTML Canvas is not.
+**Core technologies (unchanged from v1.0):**
+- **Node.js 20 LTS + Express 4.x**: Runtime and HTTP server — already validated and running
+- **Socket.IO 4.7**: Real-time turn events — no new socket events needed; `game:move` payload is unchanged
+- **Vanilla JS ES2022+**: All three feature areas implemented with native DOM APIs only
+- **CSS3 / CSS Grid**: Inactive cell rendering via one new `.grid-cell.inactive` rule
 
-**Core technologies:**
-- Node.js 20 LTS: stable runtime with `node:test` built in for unit testing game logic
-- Express 4.18: HTTP server and static file serving; no need for v5
-- Socket.IO 4.7: real-time events, built-in rooms eliminate custom lobby bookkeeping; must match client version
-- Vanilla JS (ES2022+): project constraint; a grid-based turn game needs no framework
-- CSS Grid + Flexbox: declarative layout with native DOM event handling; canvas is overkill
-- `crypto.randomBytes`: zero-dependency room code generation, sufficient for 7 lobbies
+**New additions (data and configuration only — no new dependencies):**
+- `inactiveCells: [[r,c], ...]` optional field in puzzle JSON — backward-compatible
+- `{ inactive: true }` sentinel object in the server grid 2D array
+- `.grid-cell.inactive` CSS rule (5 lines)
+- `PIECE_COLORS` array extended from 6 to 10 entries in `main.js`
 
 ### Expected Features
 
-The full feature dependency tree is documented in FEATURES.md. The MVP list is clear and non-negotiable: without every item in Table Stakes, the project either does not function or fails its requirements.
+**Must have (table stakes — v1.1 is broken or misleading without these):**
+- Inactive cell sentinel (`{ inactive: true }`) in the 2D grid array, passed unchanged through `getPublicState()` to the client
+- Inactive cells visually inert: `background: transparent`, `border: none`, `pointer-events: none`, `cursor: default`
+- Server rejects placement on inactive cells — handled automatically if sentinel is non-null, since `placePiece()` already guards `!== null`
+- `checkWin()` skips inactive cells (one-line fix: `if (cell && cell.inactive) continue`)
+- Ghost preview correctly treats inactive cells as invalid — handled automatically if sentinel flows through, since `updateGhostPreview()` already blocks non-null cells
+- Click disambiguation: single-click rotates the selected piece (deferred ~200ms), double-click places
+- Piece stays selected across rotations (grid single-click must not deselect `selectedShapeId`)
+- Ghost preview re-renders after rotation (cache last-hovered cell; call `updateGhostPreview` from the click handler)
+- New puzzle JSON for the 5x9 irregular grid with 10 pieces authored, validated at startup
+- Piece bank handles 10 pieces without overflow (already handled by existing `max-height: 500px; overflow-y: auto`)
+- 10 distinct piece colors (extend `PIECE_COLORS` from 6 to 10 entries to avoid color collisions)
 
-**Must have (table stakes):**
-- Room creation + join by code (6-char) — multiplayer cannot exist without this
-- Lobby with player list and host-controlled start — prevents mid-join race conditions
-- Puzzle loading from JSON with anchor pieces pre-placed — defines the game object
-- Shared grid and piece bank display (server as single source of truth) — core game UI
-- Active player indicator + circular turn progression — fundamental turn-based contract
-- Place piece action with server-side validation against hidden solution — the defining technical requirement
-- Return piece (grid to bank) — required per spec for collaborative correction
-- Real-time state broadcast after every action — all clients stay synchronized
-- Win condition detection and win screen — game must have an end state
-- Disconnect handling (advance turn if active player disconnects) — prevents permanent freeze
-- Invalid move feedback to acting player — minimum UX requirement
+**Should have (elevates demo quality):**
+- Cursor feedback: `cursor: pointer` on active empty cells, `cursor: default` on inactive cells (pure CSS, no JS)
+- Bank mini-grid shows rotated orientation immediately after grid-click rotation (call `updateBankSelection()` from the new click handler — one line, easy to miss)
+- Tooltip on inactive cells via `title` attribute: "Not part of this puzzle" (one line of code)
 
-**Should have (elevates grade):**
-- Player color coding (low effort, high visual impact — each player's pieces in their color)
-- Multiple puzzle selection (shows the JSON system is generic and reusable)
-- Ghost/preview on hover (client-side only, no server involvement — polished UX)
-- Move history log (makes event streaming visible; excellent for graders)
-
-**Defer (v2+ or cut entirely):**
-- Turn timer — medium complexity, add only if time permits
-- Piece rotation — decide based on whether puzzle JSONs actually require it
-- Reconnect support — high complexity, not required for demo; `socket.id` changes on reconnect, document as known limitation
-- All anti-features: accounts, database, leaderboards, mobile touch, spectator mode, chat, AI player, WebRTC
+**Defer to v2+:**
+- CSS rotation animation on piece click
+- Placement confirmation pulse animation on `.placed` cells
+- Keyboard shortcut for rotation (R key) — not in spec, separate code path to maintain
+- Mobile/touch support — explicitly out of scope per PROJECT.md
+- Right-click to rotate — browser context menu interference makes this fragile
 
 ### Architecture Approach
 
-The architecture follows a strict server-authoritative pattern: all game state lives in a `Map<roomCode, Room>` on the server; clients hold a mirror copy of the public (solution-stripped) state and re-render on every `game:stateUpdate` broadcast. The server has five components (`server.js`, `socket.js`, `GameManager`, `Room`, `PuzzleLoader`) with clear single responsibilities. The client has four components (`SocketClient`, `LobbyView`, `GameView`, `WinView`) plus a plain JS `ClientState` object. The Socket.IO room name IS the game lobby code — no custom room abstraction is needed. Move handlers are kept synchronous to exploit Node.js's single-threaded event loop as a natural mutex against race conditions.
+The system architecture is entirely unchanged: Browser SPA communicates with the Node.js server exclusively via Socket.IO events. The server is authoritative for all game state. The v1.1 changes are confined to five locations — `puzzles/puzzle_v11.json` (new file), `server/src/game.js` (~15 lines modified across 4 functions), `client/main.js` (~30 lines modified across `renderGrid()` and click handlers), and `client/style.css` (5 lines added). Socket event names, payload shapes, lobby flow, timer, leaderboard, disconnect handling, and all 14 socket handler functions are explicitly unchanged.
 
-**Major components:**
-1. `Room` class — all game logic: turn rotation, move validation against solution, grid/bank mutation, win detection; no Socket.IO dependency; fully unit-testable
-2. `GameManager` — room lifecycle (create, join, destroy), room code generation with collision check, max-room enforcement
-3. `socket.js` — thin event router: maps socket events to `GameManager` actions, broadcasts results via `io.to(roomCode).emit()`; contains zero game logic
-4. `PuzzleLoader` — reads and validates all `puzzles/*.json` at startup; holds solutions in memory; never serializes solution fields
-5. `GameView` (client) — renders CSS Grid from server state; handles click-select interaction; emits `game:move`; re-renders fully on each `game:stateUpdate`
+**Component change surface for v1.1:**
+1. **Puzzle JSON schema** — Add optional `inactiveCells: [[r,c],...]`; backward-compatible; existing puzzles unaffected
+2. **`game.js: buildInitialGrid()`** — Populate inactive positions with `{ inactive: true }` sentinel; active cells remain `null`
+3. **`game.js: checkWin()`** — One-line guard: `if (cell && cell.inactive) continue` before the solution comparison
+4. **`game.js: validatePuzzleSchema()`** — Accept and validate optional `inactiveCells`; add movable-cell-count vs. active-solution-cell-count cross-check
+5. **`client/main.js: renderGrid()`** — Detect `content.inactive`, apply `.inactive` CSS class, skip all event listener attachment for that cell
+6. **`client/main.js: grid cell click handlers`** — Replace `click`-to-place with deferred `click`-to-rotate (200ms `setTimeout`) plus `dblclick`-to-place; shared `clickTimer` at `renderGrid()` scope
+7. **`client/main.js: bank click handler`** — Remove rotation from re-click; bank click selects at rotation 0 only
+8. **`client/style.css`** — Add `.grid-cell.inactive` rule; extend `PIECE_COLORS` array to 10 entries
+
+**Unchanged components (explicitly):** `socket.js`, `server.js`, `advanceTurn()`, `returnPiece()`, `placePiece()` logic, `getPublicState()` function body, `renderBank()`, `renderTurnUI()`, `renderWin()`, `renderLeaderboard()`, `startLiveTimer()`, `updateGhostPreview()`, all socket event listeners, `index.html`, lobby flow.
 
 ### Critical Pitfalls
 
-The pitfalls research identified 6 critical, 5 moderate, and 3 minor issues. The critical ones must be addressed in Phase 1 architecture decisions — they cannot be retrofitted.
+1. **`click` fires before `dblclick` — rotation applied on every place action.** Browser event order is `click -> click -> dblclick` for a double-click. Without disambiguation, each double-click unintentionally rotates the piece 90 degrees before placing it, so the placed rotation never matches what the player saw in the ghost preview. Prevention: use `setTimeout(rotate, 200)` in the `click` handler and `clearTimeout` in the `dblclick` handler. The `clickTimer` variable must be declared at `renderGrid()` scope — not inside the per-cell loop — so a double-click spanning two adjacent cells still cancels the pending rotation from the first click.
 
-1. **Solution leaking in state broadcast** — Implement `getPublicState()` on day 1 and use it as the ONLY serialization path from server to client. Never emit the raw game state object. This is an architectural invariant, not a fix.
-2. **Async `socket.join()` race** — `socket.join()` is async in some Socket.IO configurations. Always `await socket.join(roomCode)` before emitting to the room, or emit initial state directly to the joining socket separately.
-3. **Disconnect freezes active turn** — The `disconnect` handler must check if the leaving player held the active turn and call `advanceTurn()` before broadcasting the updated state.
-4. **Async race condition in move handlers** — Keep all game state mutation synchronous. No `await` in the move handler critical path. Synchronous handlers are naturally atomic in Node.js's single-threaded model.
-5. **Turn validation missing** — Every move handler's first line must check `room.activePlayerId === socket.id`. Trusting the client to send moves only on their turn is a correctness bug, not a security concern.
-6. **Optimistic client updates** — Do not update the client grid before server confirmation. Lock the UI on submission, wait for `stateUpdate` ack. For a turn-based game on LAN/localhost, the latency is imperceptible.
+2. **`checkWin()` returns false forever once the sentinel is introduced.** The existing win check branch `if (cell !== null) return false` fires on inactive `{ inactive: true }` sentinels, making every solved puzzle register as unsolved. Prevention: add `if (cell && cell.inactive) continue` before the comparison. This fix must land in the same commit as the sentinel introduction in `buildInitialGrid()`.
+
+3. **Inactive cells accepted as valid placement targets if the sentinel is null.** If inactive cells are stored as `null` in the grid, `placePiece()`'s existing `!== null` guard does not block them. Prevention: always use a non-null sentinel object `{ inactive: true }`. The existing guard then rejects inactive cell placements for free with zero code change to `placePiece()`.
+
+4. **Ghost preview or `getPublicState()` strips the sentinel, causing client-server mismatch.** If `getPublicState()` were to convert inactive sentinels back to `null` for payload compactness, `updateGhostPreview()`'s `=== null` check would treat inactive cells as valid placement targets — the exact opposite of server behavior. Prevention: pass `{ inactive: true }` through `getPublicState()` unchanged. The `=== null` guard in `updateGhostPreview()` already blocks non-null cells, so no change is needed there.
+
+5. **Puzzle loads silently with mismatched piece coverage.** If the 10 movable shapes total fewer or more than 43 active cells (e.g. due to a typo in a shape definition), `validatePuzzleSchema()` currently has no check for this. The server loads the puzzle without error; the game is mathematically unsolvable. Prevention: add a movable-cell-count vs. active-solution-cell-count cross-check in the validator at startup.
 
 ---
 
 ## Implications for Roadmap
 
-Based on the architecture's build order and the feature dependency tree, a 3-phase structure is strongly recommended. Each phase produces a working vertical slice.
+Based on the dependency graph across all four research files, v1.1 naturally divides into four sequential phases. Each phase is independently testable before the next begins.
 
-### Phase 1: Foundation — Server, Lobby, and Security Invariants
+### Phase 1: Schema and Server Data Model
 
-**Rationale:** The `Room` class and `GameManager` must exist before any socket wiring. Solution security and disconnect handling are architectural decisions that, if deferred, require invasive refactoring. Building these first means every subsequent phase builds on a correct foundation.
-**Delivers:** Working multiplayer lobby — players can create rooms, join by code, see the player list, and the host can start the game. Server loads and validates puzzles at startup. Solution never leaves the server from day one.
-**Addresses features from FEATURES.md:** Room creation + join, lobby + player list, host concept, disconnect handling, in-memory game state, puzzle loading with anchor pre-placement.
-**Avoids pitfalls:** Solution leaking (getPublicState invariant), async join race, disconnect-freezes-turn, room cleanup, room code collision, puzzle JSON validation.
-**Architecture components built:** `PuzzleLoader`, `Room` (data schema only, no move logic yet), `GameManager`, `server.js`, `socket.js` (lobby events only), `LobbyView` (client).
+**Rationale:** The sentinel choice (`{ inactive: true }` in `grid[r][c]`) is the foundational decision that every other change depends on. It must be locked, implemented, and tested before any client work begins. Errors here cause silent wrong behavior — no runtime exceptions, just incorrect game state.
 
-### Phase 2: Game Loop — Turn Management, Validation, and Win Detection
+**Delivers:** New puzzle JSON with `inactiveCells`, updated `validatePuzzleSchema()` (with cell-count cross-check), updated `buildInitialGrid()` with sentinel, all 68 existing tests still passing, new tests for sentinel placement and schema validation.
 
-**Rationale:** Once the lobby foundation is solid, the game logic can be implemented in strict dependency order: `Room` move validation first (pure function, unit-testable), then socket wiring for moves, then win detection. This is the highest-complexity phase and must not begin until Phase 1 is tested.
-**Delivers:** A fully playable game — active player indicator, piece placement with server-side solution validation, piece return action, real-time state broadcast after every action, win detection and win screen, invalid move feedback.
-**Uses from STACK.md:** Socket.IO `io.to(roomCode).emit()` for state broadcast; `node:test` for unit tests on `Room.validateMove()`, `Room.checkWin()`, `Room.advanceTurn()`.
-**Implements:** `Room` game logic methods, `socket.js` move event handlers (`game:move`), `GameView` (grid rendering + bank + turn indicator), `WinView`.
-**Avoids pitfalls:** Turn validation missing (first-line guard), async race in move handlers (synchronous only), no optimistic updates, rotation included in move payload, cell-by-cell win comparison (not JSON.stringify).
+**Addresses:** Table stakes — inactive cell sentinel, puzzle JSON schema, cell-count validation
 
-### Phase 3: Polish — Client UI and Differentiators
+**Avoids:** Pitfall 2 (inactive cells accepted as empty), Pitfall 5 (schema change breaks validation silently), Pitfall 11 (cell count mismatch leading to unsolvable puzzle)
 
-**Rationale:** All table stakes are complete after Phase 2. Phase 3 adds the differentiating features that elevate the grade with low risk of breaking existing behavior, since all additions are either client-only or additive server features.
-**Delivers:** Player color coding on the grid, multiple puzzle selection in the lobby, ghost/preview on hover (client-only), move history log (sidebar), move acknowledgment timeout safety net, duplicate listener prevention on reconnect.
-**Addresses features from FEATURES.md:** All "should have" differentiators.
-**Avoids pitfalls:** Duplicate event listeners on reconnect (register handlers once at module load), UI permanently locked (5-second client-side timeout safety net).
+### Phase 2: Server Logic Fixes
+
+**Rationale:** With the sentinel established, `checkWin()` must be updated in the same commit window. The win check and the sentinel are tightly coupled — shipping the sentinel without the `checkWin()` fix creates a game that can never be won. `placePiece()` requires no change (already works).
+
+**Delivers:** Correct win detection for the irregular 5x9 grid. Server correctly rejects placement on inactive cells (automatic via sentinel). New tests: inactive-cell rejection, win detection with an irregular grid, correct behavior when all 43 active cells are filled.
+
+**Addresses:** Table stakes — server validation, win detection
+
+**Avoids:** Pitfall 4 (`checkWin()` broken by sentinel), Pitfall 15 (test coverage gap for inactive cell behavior)
+
+### Phase 3: Client Grid Rendering
+
+**Rationale:** Once the server emits `{ inactive: true }` in the grid payload, the client must render it correctly. This phase is pure rendering — no interaction changes. It can be manually tested by visually inspecting the irregular puzzle in the browser before any click behavior is modified.
+
+**Delivers:** Inactive cells rendered as visual gaps (transparent background, no border, no pointer events). `.grid-cell.inactive` CSS rule added. `renderGrid()` updated with inactive branch that skips event listener attachment. `PIECE_COLORS` extended to 10 distinct entries. Ghost preview remains automatically correct because the sentinel blocks the existing `=== null` check.
+
+**Addresses:** Table stakes — visual inertness of inactive cells, ghost preview correctness, piece bank with 10 pieces without overflow
+
+**Avoids:** Pitfall 6 (ghost marks inactive cells as valid), Pitfall 10 (color collision with 10 pieces), Pitfall 12 (inactive cells look clickable and receive mouse events)
+
+### Phase 4: New Interaction Model
+
+**Rationale:** The click/dblclick interaction change is the highest complexity item and must come last because it modifies the same `renderGrid()` function that was stabilized in Phase 3. The deferred `clickTimer` must live at `renderGrid()` scope, and the bank click handler must lose its rotation behavior simultaneously to avoid two conflicting rotation code paths existing at once.
+
+**Delivers:** Single-click on a grid cell rotates the selected piece (deferred 200ms so dblclick can cancel it). Double-click on a grid cell places the selected piece. Bank click selects a piece at rotation 0 only (no more bank rotation). Ghost preview updates immediately after rotation via cached last-hovered cell. `selectedShapeId` cleared on dblclick placement. `updateBankSelection()` called from the grid click handler so the bank mini-grid reflects the current rotation.
+
+**Addresses:** Table stakes — click disambiguation, rotation persistence, ghost update after rotation
+
+**Avoids:** Pitfall 1 (click fires before dblclick causing unwanted rotation), Pitfall 3 (piece jumps on rotate due to bounding-box shift), Pitfall 7 (bank mini-grid stale after grid-click rotation), Pitfall 8 (document-level click listener interference with dblclick), Pitfall 14 (`selectedShapeId` not cleared on dblclick)
 
 ### Phase Ordering Rationale
 
-- Phase 1 before Phase 2 because `Room`, `GameManager`, and `socket.js` must exist before game moves can be processed. Solution security must be an architectural invariant from the start.
-- Phase 2 before Phase 3 because differentiating features (color coding, ghost preview, history log) depend on the game loop being functional. Adding polish to a broken game is wasted effort.
-- The ARCHITECTURE.md build order (PuzzleLoader → Room → GameManager → socket.js → LobbyView → GameView grid → GameView bank/interaction → turn/feedback → WinView) maps cleanly onto Phases 1–2–3.
-- Anti-features (accounts, database, mobile touch, WebRTC) are explicitly excluded from all phases. Scope creep into these areas is the primary schedule risk.
+- Phases 1 and 2 are pure server changes with zero client impact — safe to ship and independently test before any visual work begins
+- Phase 3 depends on the sentinel flowing through `getPublicState()` (established in Phase 1) so it can be detected in `renderGrid()`
+- Phase 4 depends on Phase 3's `renderGrid()` being stable, since Phase 4 adds new code paths within the same function
+- The 68 existing tests provide a regression floor at every phase boundary
+- New tests for inactive-cell behavior should be added in Phases 1 and 2 (alongside server logic) before any client code is written
 
 ### Research Flags
 
-Phases with standard, well-documented patterns (skip `research-phase`):
-- **Phase 1:** Socket.IO room lifecycle and Node.js server setup are exhaustively documented. In-memory state at this scale is trivially correct.
-- **Phase 2:** Server-authoritative game loop is a standard pattern in multiplayer game development. Move validation logic is pure function design. No external API integration.
-- **Phase 3:** CSS animations and client-side DOM manipulation are standard web development. No novel technology.
+Phases with well-documented patterns (no additional research needed):
+- **Phase 1 (Schema):** Backward-compatible optional JSON field — standard additive schema pattern, fully specified in STACK.md and ARCHITECTURE.md
+- **Phase 2 (Server Logic):** `checkWin()` fix is one line; `placePiece()` requires no change; both documented with exact line references in ARCHITECTURE.md
+- **Phase 3 (Client Rendering):** CSS Grid + `pointer-events: none` is W3C spec behavior; `renderGrid()` change is fully specified in ARCHITECTURE.md
 
-No phases require deeper research. The entire stack is well-documented and the patterns are established.
+Phases requiring a design decision before execution (not a research gap — the options are fully documented):
+- **Phase 4 (Interaction Model):** Two valid disambiguation approaches are documented. FEATURES.md recommends `event.detail` (no artificial delay, but naturally produces one rotation per double-click). STACK.md and ARCHITECTURE.md recommend `setTimeout(200ms)` + `clearTimeout` (200ms latency on single-click, but cleanly separates the two actions and is resilient to OS-level dblclick timing variations). The team must pick one before writing code. See Gaps section for the recommendation.
 
 ---
 
@@ -133,37 +158,47 @@ No phases require deeper research. The entire stack is well-documented and the p
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Technology choices are minimal and proven. Express v4 and Socket.IO v4 are the current stable majors. Exact patch versions should be verified with `npm view <pkg> version` before install. |
-| Features | HIGH | Table stakes derived from project specification and domain analysis. Differentiator list is conservative and scoped to low-complexity items. |
-| Architecture | HIGH | Server-authoritative pattern is the canonical approach for this problem. Component boundaries are clean, testable, and consistent across all research files. |
-| Pitfalls | HIGH | All critical pitfalls have concrete code-level prevention strategies. Most arise from well-known Socket.IO and Node.js event-loop characteristics. |
+| Stack | HIGH | All decisions verified against direct source code inspection; zero new dependencies confirmed by mapping each feature to existing code patterns |
+| Features | HIGH | Table stakes derived from code analysis and MDN DOM spec; `event.detail` and `dblclick` event ordering verified against official documentation |
+| Architecture | HIGH | Full source read of all production files (`game.js` 419 LOC, `socket.js` 237 LOC, `main.js` 589 LOC, `style.css` 362 LOC); change surface precisely quantified to ~50 lines across 4 files |
+| Pitfalls | HIGH | All critical pitfalls derived from direct code analysis with exact line references; browser event order confirmed against MDN; MEDIUM only for UX judgment calls (rotation jump feel, 200ms delay perception) |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Puzzle JSON content:** The research defines the puzzle schema and validation approach, but does not provide pre-built puzzle files. At least 2–3 puzzle JSONs must be authored before Phase 2 testing is possible. The schema is well-defined; authoring is a content task, not a research task.
-- **Piece rotation in puzzles:** Whether piece rotation is used in puzzle solutions determines whether the rotation UI (medium complexity) is required or can be deferred. This decision should be made when authoring the first puzzle JSON, before Phase 2 begins.
-- **`socket.id` reconnect limitation:** Accepted as a known limitation for this scope. If the grader explicitly tests reconnect behavior, additional work is needed. Document clearly in README.
+- **Click disambiguation approach — pick one before Phase 4.** Two valid implementations are fully documented in FEATURES.md (event.detail) and STACK.md / ARCHITECTURE.md (setTimeout/clearTimeout). Recommendation: use `setTimeout(200ms)` + `clearTimeout` from ARCHITECTURE.md. It is more resilient across OS-level dblclick timing variations (300–500ms depending on OS settings), it cleanly separates the two event types regardless of `detail` value edge cases, and the 200ms delay is imperceptible for single-click rotation.
+
+- **Inactive cell visual treatment — pick one before Phase 3.** Both `background: transparent` (STACK.md / ARCHITECTURE.md) and `visibility: hidden` (FEATURES.md) are valid. Recommendation: use `background: transparent` + `border: none` + `pointer-events: none` per ARCHITECTURE.md. It is explicit, unambiguous across all browsers for this use case, and avoids the `visibility: hidden` subtlety where some browsers may still fire pointer events.
+
+- **Click delay constant value.** STACK.md uses 220ms, ARCHITECTURE.md uses 200ms, PITFALLS.md uses 280ms. All are within the safe range below the browser's dblclick threshold (~300–500ms). Recommendation: use 200ms as a named constant `DBLCLICK_DELAY = 200` — it is the most common convention and leaves comfortable margin below 300ms.
+
+- **Puzzle JSON authoring (10 pieces).** Designing 10 custom polyomino shapes that tile exactly 43 cells is a content authoring task, not a code task. The validator (Phase 1) catches total-cell mismatches at startup. This is execution work, not a research gap. The shape-agnosticism of `buildMiniGrid()` and `rotateCells()` is confirmed — any `cells: [[r,c],...]` array works.
 
 ---
 
 ## Sources
 
-### Primary (HIGH confidence)
-- Socket.IO v4 official documentation — room API, `socket.join()` async behavior, event routing
-- Node.js v20 LTS release notes — `node:test` availability, `crypto.randomBytes` API
-- Express 4.18 official documentation — HTTP server setup, static file serving
-- CSS Grid specification — grid layout for game board rendering
+### Primary (HIGH confidence — direct source code analysis)
+- `server/src/game.js` (419 LOC) — full source read; all validation, placement, win-check, and state serialization logic inspected
+- `server/src/socket.js` (237 LOC) — full source read; socket event routing and handler structure
+- `client/main.js` (589 LOC) — full source read; rendering, event handling, ghost preview, state variables
+- `client/style.css` (362 LOC) — full source read; existing cell states, layout rules, color palette
+- `puzzles/puzzle_01.json`, `puzzles/puzzle_02.json` — full read; existing JSON schema structure confirmed
 
-### Secondary (MEDIUM confidence)
-- npm registry metadata — Express v4 vs v5 RC status, Socket.IO v4.7 as current stable, nodemon v3
-- Multiplayer game architecture community patterns — server-authoritative model, full state broadcast over partial patches, synchronous move handlers
-- Browser-based multiplayer game conventions — 6-char room codes (Jackbox, skribbl.io pattern), lobby host model
+### Primary (HIGH confidence — official documentation)
+- MDN — UIEvent.detail: `detail` property is Baseline Widely Available; values 1 and 2 confirmed for click events in double-click sequence
+- MDN — Element dblclick event: browser event firing order `click -> click -> dblclick` confirmed; no known compatibility issues
+- MDN — CSS visibility: `visibility: hidden` preserves CSS Grid layout space; confirmed for irregular grid holes vs. `display: none` which collapses tracks
+- MDN — CSS pointer-events: `pointer-events: none` suppresses all mouse events on targeted elements; confirmed
+- MDN — CSS grid-template-areas: named areas must form rectangles; irregular shapes cannot be expressed this way; confirmed approach of CSS class + transparent styling instead
+- MDN — CSS cursor: `default`, `pointer`, `not-allowed` values confirmed for described use cases
 
-### Tertiary (LOW confidence)
-- Specific version numbers for Express and Socket.IO — verify with `npm view express version` and `npm view socket.io version` before installation; research used last known stable versions
+### Secondary (MEDIUM confidence — established conventions)
+- 200–280ms click disambiguation timeout: widely-used community convention for `setTimeout`/`clearTimeout` dblclick disambiguation; not specified in W3C DOM spec
+- Rotation bounding-box jump / pivot normalization UX: established pattern from browser-based grid and puzzle game development; subjective threshold for "acceptable" jump is judgment
 
 ---
-*Research completed: 2026-03-01*
+*Research completed: 2026-03-15*
+*Covers: v1.1 additions only — irregular grid, 10 custom pieces, click-to-rotate / double-click-to-place interaction*
 *Ready for roadmap: yes*

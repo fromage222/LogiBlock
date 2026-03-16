@@ -1,70 +1,98 @@
 # Roadmap: LogiBlock
 
-## Overview
+## Milestones
 
-LogiBlock wird in drei Phasen gebaut, die den architektonischen Abhängigkeiten des Projekts folgen. Phase 1 legt das Server-Fundament — Lobby-Lifecycle, Puzzle-Loading und die Sicherheitsinvariante (Lösung verlässt nie den Server) — ohne die keine Spielmechanik möglich ist. Phase 2 implementiert den vollständigen Game Loop auf diesem Fundament: Züge, Validierung gegen die versteckte Lösung, Echtzeit-Sync und Gewinnbedingung. Phase 3 fügt Timer und Session-Leaderboard hinzu, die ein abgeschlossenes Spielerlebnis mit messbarem Ergebnis schaffen.
+- ✅ **v1.0 LogiBlock MVP** — Phases 1-3 (shipped 2026-03-10)
+- 🚧 **v1.1 Grid & Pieces Redesign** — Phases 4-7 (in progress)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+<details>
+<summary>✅ v1.0 LogiBlock MVP (Phases 1-3) — SHIPPED 2026-03-10</summary>
 
-Decimal phases appear between their surrounding integers in numeric order.
+- [x] Phase 1: Foundation (3/3 plans) — completed 2026-03-05
+- [x] Phase 2: Game Loop (5/5 plans) — completed 2026-03-05 (human verified)
+- [x] Phase 3: Timer und Leaderboard (3/3 plans) — completed 2026-03-10 (human verified)
 
-- [ ] **Phase 1: Foundation** - Server-Infrastruktur, Lobby-Lifecycle und Puzzle-Loading
-- [ ] **Phase 2: Game Loop** - Züge, Validierung, Echtzeit-Sync und Gewinnbedingung
-- [ ] **Phase 3: Timer und Leaderboard** - Spielzeit-Messung und Session-Rangliste
+Full archive: `.planning/milestones/v1.0-ROADMAP.md`
+
+</details>
+
+### 🚧 v1.1 Grid & Pieces Redesign (In Progress)
+
+**Milestone Goal:** Irregular 5×9 grid (43 active cells, 4 missing corners), 10 custom pieces that tile it exactly, and a new click interaction model (single-click rotates, double-click places).
+
+- [x] **Phase 4: Schema and Server Data Model** - Introduce the irregular grid sentinel and new puzzle JSON; lock the foundational data model all other phases depend on
+- [ ] **Phase 5: Server Logic Fixes** - Propagate the sentinel to win detection and placement rejection so the game plays correctly on the irregular grid
+- [ ] **Phase 6: Client Grid Rendering** - Render inactive cells as visual gaps and extend the color palette to 10 pieces
+- [ ] **Phase 7: New Interaction Model** - Replace click-to-place with single-click rotation and double-click placement
 
 ## Phase Details
 
-### Phase 1: Foundation
-**Goal**: Spieler können Lobbys erstellen und beitreten, Puzzles werden sicher geladen, Disconnects werden sauber behandelt — die Basis für alles Weitere steht.
-**Depends on**: Nothing (first phase)
-**Requirements**: LOBB-01, LOBB-02, LOBB-03, LOBB-04, LOBB-05, PUZZ-01, PUZZ-02, GAME-09, GAME-10
+### Phase 4: Schema and Server Data Model
+**Goal**: The server can load, validate, and represent the new irregular 5×9 puzzle with 10 custom pieces; all existing tests still pass
+**Depends on**: Phase 3 (v1.0 complete)
+**Requirements**: GRID-01, GRID-02, PIEC-01, PIEC-02
 **Success Criteria** (what must be TRUE):
-  1. Ein Spieler kann einen Raum erstellen und erhält einen 6-stelligen Room-Code, den er an andere weitergeben kann.
-  2. Ein zweiter Spieler kann per Room-Code beitreten und sieht sofort alle bereits verbundenen Mitspieler in der Lobby-Ansicht.
-  3. Der Host sieht einen aktiven Start-Button sobald mindestens 2 Spieler verbunden sind, und kann vor dem Start ein Puzzle auswählen.
-  4. Nach dem Spielstart sind die Anker-Formen an ihren fixen Positionen im Grid sichtbar und können nicht bewegt werden.
-  5. Wenn der aktive Spieler die Verbindung verliert, friert das Spiel nicht ein — der nächste Spieler ist automatisch dran; leere Lobbys verschwinden ohne manuellen Eingriff.
-**Plans**: 3 plans
+  1. The server starts without errors when `puzzles/puzzle_v11.json` is present, loading the irregular 5×9 grid definition
+  2. The server grid array contains `{ inactive: true }` sentinel objects at the 2 missing corner positions [4,7] and [4,8], and `null` at all 43 active positions
+  3. The schema validator rejects a puzzle JSON whose total shape cells do not match the non-null solution cell count (when inactiveCells is declared)
+  4. All existing tests pass without modification after the sentinel is introduced
+**Plans**: 2 plans
 
 Plans:
-- [x] 01-01-PLAN.md — Server bootstrap, puzzle loading, game.js LobbyManager + getPublicState()
-- [x] 01-02-PLAN.md — Socket.IO lobby event handlers + disconnect handling (socket.js)
-- [x] 01-03-PLAN.md — Client SPA: start screen, lobby screen, game screen with anchor cells (checkpoint: awaiting human verify)
+- [x] 04-01-PLAN.md — Author `puzzle_v11.json` (5×9, 43 active cells, 10 pieces) and extend `validatePuzzleSchema()` with `inactiveCells` field validation + cell-count cross-check
+- [x] 04-02-PLAN.md — Replace `buildInitialGrid()` with sentinel-aware single-pass implementation; unit tests; human verification
 
-### Phase 2: Game Loop
-**Goal**: Das Spiel ist vollständig spielbar — Züge werden serverseitig gegen die versteckte Lösung validiert, alle Spieler sehen den gleichen Spielstand in Echtzeit, und das Spiel endet mit einem Win-Screen.
-**Depends on**: Phase 1
-**Requirements**: PUZZ-03, GAME-01, GAME-02, GAME-03, GAME-04, GAME-05, GAME-06, GAME-07, GAME-08, WIN-01, WIN-02
+### Phase 5: Server Logic Fixes
+**Goal**: The server correctly rejects piece placement on inactive cells and fires the win condition when all 43 active cells are filled
+**Depends on**: Phase 4
+**Requirements**: GRID-03, GRID-04
 **Success Criteria** (what must be TRUE):
-  1. Der aktive Spieler ist für alle Teilnehmer visuell hervorgehoben; die Zugreihenfolge ist zirkulär und für alle sichtbar.
-  2. Der aktive Spieler kann eine Form aus der Bank auswählen, sie rotieren (0°/90°/180°/270°) und ins Grid legen — der Zug wird serverseitig validiert.
-  3. Eine falsch platzierte Form kann der aktive Spieler aus dem Grid zurück in die Bank legen.
-  4. Nach jedem akzeptierten Zug sehen alle Spieler sofort den aktualisierten Grid-Zustand ohne Seitenreload.
-  5. Bei einem ungültigen Zug sieht nur der aktive Spieler eine Fehlermeldung; bei vollständig korrektem Grid erscheint für alle der Win-Screen.
+  1. Attempting to place a piece on an inactive cell is rejected by the server (no code change to `placePiece()` needed — the existing non-null guard handles this automatically via the sentinel)
+  2. The win condition fires exactly when all 43 active cells are filled, and does not fire when inactive sentinel cells remain untouched
+  3. New server tests cover: inactive-cell rejection, win detection with 43-of-43 active cells filled, no-win when only inactive cells remain unfilled
 **Plans**: TBD
 
-### Phase 3: Timer und Leaderboard
-**Goal**: Das Spielerlebnis ist vollständig — die Lösungszeit wird gemessen und auf dem Win-Screen angezeigt; die Rangliste aller gelösten Puzzles der aktuellen Server-Session ist auf dem Start-Screen sichtbar.
-**Depends on**: Phase 2
-**Requirements**: TIME-01, TIME-02, TIME-03, TIME-04, TIME-05
+Plans:
+- [ ] 05-01: Fix `checkWin()` to skip inactive sentinel cells and add TDD tests for all irregular-grid win scenarios
+
+### Phase 6: Client Grid Rendering
+**Goal**: The client renders the irregular 5×9 grid correctly — inactive cells appear as transparent gaps, and all 10 pieces display with distinct colors
+**Depends on**: Phase 5
+**Requirements**: GRID-05, GRID-06, PIEC-03
 **Success Criteria** (what must be TRUE):
-  1. Ein Timer startet exakt in dem Moment, in dem der Host das Spiel startet, und ist für alle Spieler sichtbar.
-  2. Der Timer stoppt exakt wenn das Puzzle korrekt gelöst wurde — die gemessene Zeit ist präzise.
-  3. Der Win-Screen zeigt die Lösungszeit des Teams an.
-  4. Auf dem Start-Screen ist eine Rangliste aller bisherigen Team-Zeiten der aktuellen Server-Session sichtbar; nach einem Server-Neustart ist sie leer.
+  1. Inactive grid cells are visually invisible (transparent background, no border) and do not respond to hover or click events
+  2. The mouse cursor shows `cursor: default` over inactive cells and `cursor: pointer` over active empty cells
+  3. All 10 pieces in the bank panel display with 10 distinct, non-colliding colors
+  4. The ghost preview correctly treats inactive cells as invalid placement targets (no additional code needed — the sentinel flows through `getPublicState()` and the existing `=== null` guard in `updateGhostPreview()` handles this)
 **Plans**: TBD
+
+Plans:
+- [ ] 06-01: Update `renderGrid()` with inactive branch, add `.grid-cell.inactive` CSS rule, and extend `PIECE_COLORS` to 10 entries
+
+### Phase 7: New Interaction Model
+**Goal**: Players rotate the selected piece with a single click and place it with a double-click; the ghost preview and bank mini-grid stay in sync with the current rotation
+**Depends on**: Phase 6
+**Requirements**: CTRL-01, CTRL-02, CTRL-03, CTRL-04
+**Success Criteria** (what must be TRUE):
+  1. A single left-click on any active grid cell rotates the selected piece 90 degrees clockwise (cycling 0°→90°→180°→270°→0°); the piece remains selected after rotation
+  2. A double-click on any active grid cell places the selected piece at that position without applying an extra rotation
+  3. After a single-click rotation, the ghost preview on the hovered cell immediately reflects the new orientation
+  4. After a single-click rotation, the bank mini-grid for the selected piece immediately reflects the new orientation
+**Plans**: TBD
+
+Plans:
+- [ ] 07-01: Replace click-to-place with `setTimeout`/`clearTimeout` click disambiguation in `renderGrid()` and update the bank click handler
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundation | 3/3 | Checkpoint — human verify | - |
-| 2. Game Loop | 0/TBD | Not started | - |
-| 3. Timer und Leaderboard | 0/TBD | Not started | - |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Foundation | v1.0 | 3/3 | Complete | 2026-03-05 |
+| 2. Game Loop | v1.0 | 5/5 | Complete — human verified | 2026-03-05 |
+| 3. Timer und Leaderboard | v1.0 | 3/3 | Complete — human verified | 2026-03-10 |
+| 4. Schema and Server Data Model | v1.1 | 2/2 | Complete — human verified | 2026-03-16 |
+| 5. Server Logic Fixes | v1.1 | 0/1 | Not started | - |
+| 6. Client Grid Rendering | v1.1 | 0/1 | Not started | - |
+| 7. New Interaction Model | v1.1 | 0/1 | Not started | - |

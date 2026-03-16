@@ -138,3 +138,224 @@ hr { border: none; border-top: 1px solid #eee; margin: 0.5rem 0; }
   color: #1b5e20;
   cursor: pointer;
 }
+
+/* ── Phase 2: Game screen layout ───────────────────────────────────── */
+#game-screen { max-width: 900px; }  /* override Phase 1 700px — room for bank */
+.game-area {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  justify-content: center;
+  margin: 0.5rem 0;
+}
+
+/* ── Phase 2: Turn banner ───────────────────────────────────────────── */
+.turn-banner {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #4a6cf7;
+  min-height: 1.6em;
+  padding: 0.25rem 0;
+}
+
+/* ── Phase 2: Player badges ─────────────────────────────────────────── */
+.player-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  align-self: center;
+}
+.player-badge {
+  padding: 0.4rem 0.75rem;
+  background: #e8e8e8;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s;
+}
+.player-badge.active {
+  background: #e8ecff;
+  border-color: #4a6cf7;
+  color: #2a4ce7;
+  box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.2);
+}
+
+/* ── Phase 2: Piece bank ─────────────────────────────────────────────── */
+.piece-bank {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: #fff;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  padding: 0.75rem;
+  min-width: 90px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+.bank-piece {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  background: #f5f5f5;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: grab;
+  user-select: none;
+  transition: transform 0.1s, box-shadow 0.1s, border-color 0.1s;
+}
+.bank-piece:active { cursor: grabbing; }
+.bank-piece.selected {
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  border-color: #4a6cf7;
+}
+.bank-piece[draggable="false"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.bank-piece span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #555;
+}
+
+/* ── Phase 2: Ghost preview ──────────────────────────────────────────── */
+.grid-cell.ghost-valid {
+  background: rgba(100, 200, 100, 0.55);
+  border: 2px dashed #4caf50;
+}
+.grid-cell.ghost-invalid {
+  background: rgba(200, 80, 80, 0.45);
+  border: 2px dashed #e53935;
+}
+
+/* ── Phase 2: Placed cell — color set by JS via background inline style ── */
+/* .grid-cell.placed background is now overridden per-piece by renderGrid() */
+.grid-cell.placed { cursor: pointer; }  /* keep pointer cursor for return interaction */
+
+/* ── Phase 2: Win overlay ────────────────────────────────────────────── */
+.win-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.win-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 2.5rem 3rem;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  max-width: 360px;
+}
+.win-card h2 {
+  font-size: 2rem;
+  color: #4a6cf7;
+  margin-bottom: 0.75rem;
+}
+.win-card p {
+  color: #555;
+  font-size: 1rem;
+}
+
+/* ── Phase 3: Game timer ─────────────────────────────────────────── */
+.game-timer {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #4a6cf7;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem 0;
+}
+
+/* ── Phase 3: Win card restructure ───────────────────────────────── */
+.win-time {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: #4a6cf7;
+  letter-spacing: 0.04em;
+  margin: 0.25rem 0 0.75rem 0;
+  line-height: 1;
+}
+.win-players {
+  color: #555;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+.btn-primary {
+  padding: 0.6rem 1.2rem;
+  background: #4a6cf7;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover {
+  background: #3a5ce7;
+}
+.win-card .btn-primary {
+  margin-top: 0.5rem;
+}
+
+/* ── Phase 3: Leaderboard ────────────────────────────────────────── */
+.leaderboard-section {
+  width: 100%;
+  max-width: 560px;
+  margin: 1.5rem auto 0;
+  text-align: center;
+}
+.leaderboard-section h2 {
+  font-size: 1.25rem;
+  color: #333;
+  margin-bottom: 0.75rem;
+}
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  font-size: 0.9rem;
+}
+.leaderboard-table thead {
+  background: #4a6cf7;
+  color: #fff;
+}
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+}
+.leaderboard-table th:first-child,
+.leaderboard-table td:first-child {
+  text-align: center;
+  width: 2.5rem;
+}
+.leaderboard-table tbody tr:nth-child(even) {
+  background: #f5f7ff;
+}
+.leaderboard-time {
+  font-weight: 600;
+  color: #4a6cf7;
+  font-variant-numeric: tabular-nums;
+}
+.leaderboard-empty {
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem;
+}

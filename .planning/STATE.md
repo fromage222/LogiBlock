@@ -1,61 +1,67 @@
+---
+gsd_state_version: 1.0
+milestone: v1.1
+milestone_name: Grid & Pieces Redesign
+status: unknown
+last_updated: "2026-03-16T19:00:06.157Z"
+progress:
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 13
+  completed_plans: 13
+---
+
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-01)
+See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 1 — Foundation
+**Current focus:** Phase 4 complete — sentinel-aware grid data model ready for Phase 5 checkWin() fix
 
 ## Current Position
 
-Phase: 1 of 3 (Foundation)
-Plan: 3 of TBD in current phase
-Status: Checkpoint — awaiting human verification (01-03 Task 3)
-Last activity: 2026-03-03 — Completed 01-03 tasks 1+2 (Client SPA: index.html, main.js, style.css)
+Phase: 4 of 7 (Schema and Server Data Model)
+Plan: 2 of 2 complete
+Status: Phase Complete
+Last activity: 2026-03-16 — 04-02 buildInitialGrid() sentinel implementation and tests complete
 
-Progress: [███░░░░░░░] 30%
+Progress: [██████████] 100% (Phase 4 complete)
 
 ## Performance Metrics
 
-**Velocity:**
-- Total plans completed: 3 (01-03 at checkpoint, pending human approval)
-- Average duration: 6.7 min
-- Total execution time: 0.33 hours
+**Velocity (v1.0 baseline):**
+- Total plans completed: 11 (v1.0)
+- v1.0 timeline: 9 days, 3 phases
 
-**By Phase:**
+**By Phase (v1.0):**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01-foundation | 3 | 20 min | 6.7 min |
+| Phase | Plans | Notes |
+|-------|-------|-------|
+| 1. Foundation | 3 | - |
+| 2. Game Loop | 5 | - |
+| 3. Timer und Leaderboard | 3 | - |
 
-**Recent Trend:**
-- Last 5 plans: 01-01 (15 min), 01-02 (2 min), 01-03 (3 min)
-- Trend: -
-
-*Updated after each plan completion*
+*v1.1 metrics will accumulate from Phase 4 onward*
+| Phase 04-schema-and-server-data-model P01 | 3 | 2 tasks | 3 files |
+| Phase 04-schema-and-server-data-model P02 | 20min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
 
-- Lösung nur server-seitig: `getPublicState()` ist der einzige Serialisierungspfad — muss in Phase 1 als Tag-1-Invariante implementiert werden.
-- Vanilla JS (kein Framework): Kein Build-Tooling; Socket.IO-Client kommt per CDN.
-- Puzzles als JSON-Dateien: PuzzleLoader validiert Schema beim Start; Lösung nie an Client übertragen.
-- Socket.IO für Echtzeit: Room-Name = Lobby-Code; kein custom Room-Abstraktionslayer nötig.
-- **CommonJS (require) über ESM** (01-01): Kein Build-Tooling; einfacheres `__dirname`; kein `fileURLToPath`-Workaround nötig.
-- **`getPublicState()` als einziger Serialisierungspfad** (01-01): GAME-06 Invariante von Tag 1 umgesetzt — `solution` wird nie im Outbound-Payload mitgeschickt.
-- **`process.exit(1)` bei null validen Puzzles** (01-01): Server startet nicht in kaputtem Zustand.
-- **`'disconnecting'` statt `'disconnect'`** (01-02): socket.rooms noch befüllt beim disconnecting-Event — zuverlässige Room-Identifikation ohne Extra-State.
-- **Host-Disconnect zerstört Lobby** (01-02): Kein Host-Transfer in Phase 1; `lobby:hostLeft` an verbleibende Spieler; kein Re-Join möglich.
-- **`room:error` als einziger Fehler-Event** (01-02): Konsistentes Client-seitiges Error-Handling; kein separater Popup-Event.
-- **`amIHost` via Namensvergleich** (01-03): socket.id ändert sich bei Reconnect — playerName als stabile Identität im Client-State.
-- **`lobby:update` steuert Start→Lobby-Transition für Joiner** (01-03): Kein separater Event nötig; einfachere Event-Oberfläche.
-- **CSS `.screen`/`.screen.active` Pattern** (01-03): `display:none` via CSS statt JS — showScreen() nur für Klassentoggle.
-- **Anchor-Erkennung via `movable===false`** (01-03): Passt exakt zur `getPublicState()`-Ausgabe-Form — kein zusätzliches Feld nötig.
+v1.1 decisions locked by research:
+- Click disambiguation: `setTimeout(200ms)` + `clearTimeout` (not `event.detail`) — resilient to OS dblclick timing
+- Inactive cell visual: `background: transparent` + `border: none` + `pointer-events: none` (not `visibility: hidden`)
+- Delay constant: `DBLCLICK_DELAY = 200` (named constant, not inline magic number)
+- Sentinel representation: `{ inactive: true }` object (not `null`) — existing `placePiece()` guard rejects it for free
+- [Phase 04-schema-and-server-data-model]: inactiveCells cross-check gated on field presence — backward-compatible with existing puzzles
+- [Phase 04-schema-and-server-data-model]: puzzle_v11.json Corner Cut: 10 pieces (P01-P07 tetrominoes, P08-P10 pentominoes), 43 active cells in 5x9 grid with inactiveCells [[4,7],[4,8]]
+- [04-02]: Single-pass Array.from with Set-based 'r-c' key lookup for inactiveCells — O(1) per cell, single allocation
+- [04-02]: checkWin() sentinel fix explicitly deferred to Phase 5 — documented with inline comment in game.js
 
 ### Pending Todos
 
@@ -63,11 +69,10 @@ None.
 
 ### Blockers/Concerns
 
-- Piece-Rotation: PUZZ-03 ist v1-Requirement und Teil des Phase-2-Move-Payloads; Entscheidung ob Rotation in Puzzle-Lösungen benötigt wird, sollte beim ersten Puzzle-JSON getroffen werden.
-- socket.id Reconnect: Akzeptierte Limitation für diesen Scope; in README dokumentieren.
+None — Phase 4 complete. Phase 5 can proceed: only remaining gap is `checkWin()` needing `!cell.inactive` guard.
 
 ## Session Continuity
 
-Last session: 2026-03-03
-Stopped at: Checkpoint — 01-03-PLAN.md Task 3 (human-verify: end-to-end Phase 1 browser test)
+Last session: 2026-03-16
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None

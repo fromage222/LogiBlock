@@ -3,7 +3,7 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const { loadPuzzles } = require('./game');
+const { loadPuzzles, getLeaderboard } = require('./game');
 const registerSocketHandlers = require('./socket');
 
 const app = express();
@@ -19,6 +19,7 @@ const puzzleMap = loadPuzzles();
 
 // Register socket event handlers
 io.on('connection', (socket) => {
+  socket.emit('leaderboard:update', getLeaderboard()); // TIME-04: greet new socket with current leaderboard
   registerSocketHandlers(io, socket, puzzleMap);
 });
 
