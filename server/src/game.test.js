@@ -17,6 +17,8 @@ const {
   checkWin,
   advanceTurn,
   advanceTurnIfActive,
+  buildInitialGrid,
+  getPuzzleById,
 } = require('./game');
 
 // ─── One-time setup: load puzzles before any test runs ────────────────────────
@@ -513,6 +515,49 @@ describe('validatePuzzleSchema — cell-count cross-check', () => {
   it('skips cross-check when inactiveCells is absent (existing puzzles unaffected)', () => {
     const p = makeFixture(3, 4, false); // mismatched but no inactiveCells
     assert.doesNotThrow(() => validatePuzzleSchema(p));
+  });
+});
+
+// ─── buildInitialGrid — irregular grid with inactiveCells ────────────────────
+
+describe('buildInitialGrid — irregular grid with inactiveCells', () => {
+  // Uses puzzle_v11 which is loaded in the before() hook via loadPuzzles()
+  // puzzle_v11 has inactiveCells: [[4,7],[4,8]]
+
+  it('marks inactive positions with { inactive: true } sentinel', () => {
+    const puzzle = getPuzzleById('puzzle_v11');
+    assert.ok(puzzle, 'puzzle_v11 must be loaded');
+    const grid = buildInitialGrid(puzzle);
+    assert.deepEqual(grid[4][7], { inactive: true });
+    assert.deepEqual(grid[4][8], { inactive: true });
+  });
+
+  it('leaves active positions as null', () => {
+    const puzzle = getPuzzleById('puzzle_v11');
+    const grid = buildInitialGrid(puzzle);
+    // Sample of active cells — should all be null at init
+    assert.strictEqual(grid[0][0], null);
+    assert.strictEqual(grid[4][0], null);
+    assert.strictEqual(grid[4][6], null); // last active cell in row 4
+  });
+
+  it('produces a 5x9 grid', () => {
+    const puzzle = getPuzzleById('puzzle_v11');
+    const grid = buildInitialGrid(puzzle);
+    assert.strictEqual(grid.length, 5);
+    assert.strictEqual(grid[0].length, 9);
+  });
+
+  it('does not affect puzzles without inactiveCells (backward compat)', () => {
+    const puzzle = getPuzzleById('puzzle_01');
+    assert.ok(puzzle, 'puzzle_01 must be loaded');
+    const grid = buildInitialGrid(puzzle);
+    // puzzle_01 has anchor A at position [0,0] occupying rows 0-2, col 0
+    assert.deepEqual(grid[0][0], { shapeId: 'A', movable: false });
+    assert.deepEqual(grid[1][0], { shapeId: 'A', movable: false });
+    assert.deepEqual(grid[2][0], { shapeId: 'A', movable: false });
+    // Non-anchor cells are null
+    assert.strictEqual(grid[0][1], null);
   });
 });
 

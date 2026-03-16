@@ -222,10 +222,25 @@ function getPuzzleListForClient() {
 // ─── Anchor shape pre-placement (PUZZ-02) ────────────────────────────────────
 // Called at game start (Phase 2 will call this; defined here so grid shape is
 // established in Phase 1 for getPublicState to reference the type correctly).
+//
+// NOTE (Phase 5): checkWin() currently treats { inactive: true } as an unexpected
+// piece (cell !== null path). This is intentional — Phase 5 will add the
+// `!cell.inactive` guard. Until then, puzzle_v11 cannot be won, but existing
+// puzzles are unaffected (they have no inactive cells).
 function buildInitialGrid(puzzle) {
-  const grid = Array.from({ length: puzzle.gridSize.rows }, () =>
-    Array(puzzle.gridSize.cols).fill(null)
+  // Build a fast lookup Set from inactiveCells (if present)
+  const inactiveSet = new Set(
+    (puzzle.inactiveCells || []).map(([r, c]) => `${r}-${c}`)
   );
+
+  // Single-pass initialization: sentinel for inactive, null for active
+  const grid = Array.from({ length: puzzle.gridSize.rows }, (_, r) =>
+    Array.from({ length: puzzle.gridSize.cols }, (_, c) =>
+      inactiveSet.has(`${r}-${c}`) ? { inactive: true } : null
+    )
+  );
+
+  // Place anchor shapes (unchanged logic from original)
   for (const shape of puzzle.shapes) {
     if (!shape.movable && Array.isArray(shape.position)) {
       const [originRow, originCol] = shape.position;
@@ -238,6 +253,7 @@ function buildInitialGrid(puzzle) {
       }
     }
   }
+
   return grid;
 }
 
