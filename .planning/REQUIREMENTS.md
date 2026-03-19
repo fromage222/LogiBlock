@@ -17,14 +17,14 @@ Requirements für Milestone v1.1 — Grid & Pieces Redesign. Jedes Requirement w
 - [x] **GRID-02**: Spieler kann ein Puzzle mit unregelm. Grid spielen — Server lädt `inactiveCells`-Feld aus Puzzle-JSON und markiert diese Zellen beim Spielstart mit `{ inactive: true }` Sentinel
 - [x] **GRID-03**: Server lehnt Platzierung von Steinen auf inaktiven Zellen ab (automatisch via non-null Sentinel, kein zusätzlicher Code in `placePiece()` nötig)
 - [x] **GRID-04**: Spieler gewinnt korrekt wenn alle 43 aktiven Felder belegt sind — `checkWin()` ignoriert inaktive Zellen bei der Gewinnprüfung
-- [ ] **GRID-05**: Spieler sieht die Grid-Lücken als transparente Felder ohne Klick-Interaktion — Client rendert inaktive Zellen mit CSS `.grid-cell.inactive` (transparent, kein Border, kein Pointer-Event)
-- [ ] **GRID-06**: Spieler erkennt nicht-klickbare Grid-Felder am Cursor-Feedback — `cursor: default` statt `cursor: pointer` auf inaktiven Zellen
+- [x] **GRID-05**: Spieler sieht die Grid-Lücken als transparente Felder ohne Klick-Interaktion — Client rendert inaktive Zellen mit CSS `.grid-cell.inactive` (transparent, kein Border, kein Pointer-Event)
+- [x] **GRID-06**: Spieler erkennt nicht-klickbare Grid-Felder am Cursor-Feedback — `cursor: default` statt `cursor: pointer` auf inaktiven Zellen
 
 ### Steine (PIEC)
 
 - [x] **PIEC-01**: Spieler kann das neue 5×9-Puzzle mit 10 eigenen Formen spielen — `puzzles/puzzle_v11.json` ist geladen und vom Server beim Start validiert
 - [x] **PIEC-02**: Puzzle ist mathematisch lösbar — Server-Validator prüft beim Start dass Gesamt-Feldanzahl aller beweglichen Steine exakt der Anzahl aktiver Lösung-Zellen entspricht (43 Felder)
-- [ ] **PIEC-03**: Spieler sieht 10 Steine mit 10 verschiedenen Farben im Bank-Panel — `PIECE_COLORS` ist auf 10 Einträge erweitert, kein Farb-Konflikt
+- [x] **PIEC-03**: Spieler sieht 10 Steine mit 10 verschiedenen Farben im Bank-Panel — `PIECE_COLORS` ist auf 10 Einträge erweitert, kein Farb-Konflikt
 
 ### Interaktion (CTRL)
 
@@ -70,9 +70,9 @@ Deferred — kein Scope für v1.1.
 | PIEC-02 | Phase 4 | Complete |
 | GRID-03 | Phase 5 | Complete |
 | GRID-04 | Phase 5 | Complete |
-| GRID-05 | Phase 6 | Pending |
-| GRID-06 | Phase 6 | Pending |
-| PIEC-03 | Phase 6 | Pending |
+| GRID-05 | Phase 6 | Complete |
+| GRID-06 | Phase 6 | Complete |
+| PIEC-03 | Phase 6 | Complete |
 | CTRL-01 | Phase 7 | Pending |
 | CTRL-02 | Phase 7 | Pending |
 | CTRL-03 | Phase 7 | Pending |

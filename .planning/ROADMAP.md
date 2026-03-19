@@ -24,7 +24,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 - [x] **Phase 4: Schema and Server Data Model** - Introduce the irregular grid sentinel and new puzzle JSON; lock the foundational data model all other phases depend on
 - [x] **Phase 5: Server Logic Fixes** - Propagate the sentinel to win detection and placement rejection so the game plays correctly on the irregular grid
-- [ ] **Phase 6: Client Grid Rendering** - Render inactive cells as visual gaps and extend the color palette to 10 pieces
+- [x] **Phase 6: Client Grid Rendering** - Render inactive cells as visual gaps and extend the color palette to 10 pieces (completed 2026-03-19)
 - [ ] **Phase 7: New Interaction Model** - Replace click-to-place with single-click rotation and double-click placement
 
 ## Phase Details
@@ -69,7 +69,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 06-01-PLAN.md — Add inactive cell branch in `renderGrid()`, `.grid-cell.inactive` CSS rule, extend `PIECE_COLORS` to 10 entries, redesign bank panel to 2-column layout with 8px mini-cells
+- [x] 06-01-PLAN.md — Add inactive cell branch in `renderGrid()`, `.grid-cell.inactive` CSS rule, extend `PIECE_COLORS` to 10 entries, redesign bank panel to 2-column layout with 8px mini-cells
 
 ### Phase 7: New Interaction Model
 **Goal**: Players rotate the selected piece with a single click and place it with a double-click; the ghost preview and bank mini-grid stay in sync with the current rotation
@@ -94,5 +94,5 @@ Plans:
 | 3. Timer und Leaderboard | v1.0 | 3/3 | Complete — human verified | 2026-03-10 |
 | 4. Schema and Server Data Model | v1.1 | 2/2 | Complete — human verified | 2026-03-16 |
 | 5. Server Logic Fixes | v1.1 | 1/1 | Complete | 2026-03-19 |
-| 6. Client Grid Rendering | v1.1 | 0/1 | Not started | - |
+| 6. Client Grid Rendering | v1.1 | 1/1 | Complete — human verified | 2026-03-19 |
 | 7. New Interaction Model | v1.1 | 0/1 | Not started | - |
