@@ -66,10 +66,10 @@ Plans:
   2. The mouse cursor shows `cursor: default` over inactive cells and `cursor: pointer` over active empty cells
   3. All 10 pieces in the bank panel display with 10 distinct, non-colliding colors
   4. The ghost preview correctly treats inactive cells as invalid placement targets (no additional code needed — the sentinel flows through `getPublicState()` and the existing `=== null` guard in `updateGhostPreview()` handles this)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 06-01: Update `renderGrid()` with inactive branch, add `.grid-cell.inactive` CSS rule, and extend `PIECE_COLORS` to 10 entries
+- [ ] 06-01-PLAN.md — Add inactive cell branch in `renderGrid()`, `.grid-cell.inactive` CSS rule, extend `PIECE_COLORS` to 10 entries, redesign bank panel to 2-column layout with 8px mini-cells
 
 ### Phase 7: New Interaction Model
 **Goal**: Players rotate the selected piece with a single click and place it with a double-click; the ghost preview and bank mini-grid stay in sync with the current rotation
