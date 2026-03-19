@@ -52,10 +52,10 @@ Plans:
   1. Attempting to place a piece on an inactive cell is rejected by the server (no code change to `placePiece()` needed — the existing non-null guard handles this automatically via the sentinel)
   2. The win condition fires exactly when all 43 active cells are filled, and does not fire when inactive sentinel cells remain untouched
   3. New server tests cover: inactive-cell rejection, win detection with 43-of-43 active cells filled, no-win when only inactive cells remain unfilled
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 05-01: Fix `checkWin()` to skip inactive sentinel cells and add TDD tests for all irregular-grid win scenarios
+- [ ] 05-01-PLAN.md — Fix `checkWin()` sentinel guard (GRID-04) and add TDD tests for win detection + inactive-cell rejection (GRID-03)
 
 ### Phase 6: Client Grid Rendering
 **Goal**: The client renders the irregular 5×9 grid correctly — inactive cells appear as transparent gaps, and all 10 pieces display with distinct colors
