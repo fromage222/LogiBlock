@@ -80,10 +80,11 @@ Plans:
   2. A double-click on any active grid cell places the selected piece at that position without applying an extra rotation
   3. After a single-click rotation, the ghost preview on the hovered cell immediately reflects the new orientation
   4. After a single-click rotation, the bank mini-grid for the selected piece immediately reflects the new orientation
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: Replace click-to-place with `setTimeout`/`clearTimeout` click disambiguation in `renderGrid()` and update the bank click handler
+- [ ] 07-01-PLAN.md — Implement click disambiguator, grid single-click rotate + double-click place/return, lastHoveredRow/Col tracking, bank select-or-deselect only
+- [ ] 07-02-PLAN.md — Human verification of complete interaction model (7 scenarios)
 
 ## Progress
 
@@ -95,4 +96,4 @@ Plans:
 | 4. Schema and Server Data Model | v1.1 | 2/2 | Complete — human verified | 2026-03-16 |
 | 5. Server Logic Fixes | v1.1 | 1/1 | Complete | 2026-03-19 |
 | 6. Client Grid Rendering | v1.1 | 1/1 | Complete — human verified | 2026-03-19 |
-| 7. New Interaction Model | v1.1 | 0/1 | Not started | - |
+| 7. New Interaction Model | v1.1 | 0/2 | Not started | - |
