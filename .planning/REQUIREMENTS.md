@@ -15,8 +15,8 @@ Requirements für Milestone v1.1 — Grid & Pieces Redesign. Jedes Requirement w
 
 - [x] **GRID-01**: Spieler spielt auf einem 5×9-Grid mit fehlenden unteren Ecken (43 aktive Felder) — das neue unregelm. Grid ersetzt das bisherige rechteckige Layout
 - [x] **GRID-02**: Spieler kann ein Puzzle mit unregelm. Grid spielen — Server lädt `inactiveCells`-Feld aus Puzzle-JSON und markiert diese Zellen beim Spielstart mit `{ inactive: true }` Sentinel
-- [ ] **GRID-03**: Server lehnt Platzierung von Steinen auf inaktiven Zellen ab (automatisch via non-null Sentinel, kein zusätzlicher Code in `placePiece()` nötig)
-- [ ] **GRID-04**: Spieler gewinnt korrekt wenn alle 43 aktiven Felder belegt sind — `checkWin()` ignoriert inaktive Zellen bei der Gewinnprüfung
+- [x] **GRID-03**: Server lehnt Platzierung von Steinen auf inaktiven Zellen ab (automatisch via non-null Sentinel, kein zusätzlicher Code in `placePiece()` nötig)
+- [x] **GRID-04**: Spieler gewinnt korrekt wenn alle 43 aktiven Felder belegt sind — `checkWin()` ignoriert inaktive Zellen bei der Gewinnprüfung
 - [ ] **GRID-05**: Spieler sieht die Grid-Lücken als transparente Felder ohne Klick-Interaktion — Client rendert inaktive Zellen mit CSS `.grid-cell.inactive` (transparent, kein Border, kein Pointer-Event)
 - [ ] **GRID-06**: Spieler erkennt nicht-klickbare Grid-Felder am Cursor-Feedback — `cursor: default` statt `cursor: pointer` auf inaktiven Zellen
 
@@ -68,8 +68,8 @@ Deferred — kein Scope für v1.1.
 | GRID-02 | Phase 4 | Complete |
 | PIEC-01 | Phase 4 | Complete |
 | PIEC-02 | Phase 4 | Complete |
-| GRID-03 | Phase 5 | Pending |
-| GRID-04 | Phase 5 | Pending |
+| GRID-03 | Phase 5 | Complete |
+| GRID-04 | Phase 5 | Complete |
 | GRID-05 | Phase 6 | Pending |
 | GRID-06 | Phase 6 | Pending |
 | PIEC-03 | Phase 6 | Pending |

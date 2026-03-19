@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Grid & Pieces Redesign
-status: unknown
-last_updated: "2026-03-16T19:00:06.157Z"
+status: in_progress
+last_updated: "2026-03-19T11:22:00.000Z"
 progress:
-  total_phases: 4
+  total_phases: 7
   completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 14
+  completed_plans: 14
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 4 complete — sentinel-aware grid data model ready for Phase 5 checkWin() fix
+**Current focus:** Phase 5 Plan 01 complete — checkWin() sentinel guard in place, puzzle_v11 fully winnable
 
 ## Current Position
 
-Phase: 4 of 7 (Schema and Server Data Model)
-Plan: 2 of 2 complete
+Phase: 5 of 7 (Server Logic Fixes)
+Plan: 1 of 1 complete
 Status: Phase Complete
-Last activity: 2026-03-16 — 04-02 buildInitialGrid() sentinel implementation and tests complete
+Last activity: 2026-03-19 — 05-01 checkWin() sentinel fix and TDD coverage (GRID-03, GRID-04)
 
-Progress: [██████████] 100% (Phase 4 complete)
+Progress: [██████░░░░] 60% (Phase 5 complete)
 
 ## Performance Metrics
 
@@ -44,8 +44,9 @@ Progress: [██████████] 100% (Phase 4 complete)
 | 3. Timer und Leaderboard | 3 | - |
 
 *v1.1 metrics will accumulate from Phase 4 onward*
-| Phase 04-schema-and-server-data-model P01 | 3 | 2 tasks | 3 files |
+| Phase 04-schema-and-server-data-model P01 | 3min | 2 tasks | 3 files |
 | Phase 04-schema-and-server-data-model P02 | 20min | 2 tasks | 2 files |
+| Phase 05-server-logic-fixes P01 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -61,7 +62,8 @@ v1.1 decisions locked by research:
 - [Phase 04-schema-and-server-data-model]: inactiveCells cross-check gated on field presence — backward-compatible with existing puzzles
 - [Phase 04-schema-and-server-data-model]: puzzle_v11.json Corner Cut: 10 pieces (P01-P07 tetrominoes, P08-P10 pentominoes), 43 active cells in 5x9 grid with inactiveCells [[4,7],[4,8]]
 - [04-02]: Single-pass Array.from with Set-based 'r-c' key lookup for inactiveCells — O(1) per cell, single allocation
-- [04-02]: checkWin() sentinel fix explicitly deferred to Phase 5 — documented with inline comment in game.js
+- [05-01]: Sentinel guard as first statement in checkWin() inner loop — before expectedId lookup — to short-circuit all downstream comparisons
+- [05-01]: Stale NOTE (Phase 5) comment removed from buildInitialGrid() after fix was applied
 
 ### Pending Todos
 
@@ -69,10 +71,10 @@ None.
 
 ### Blockers/Concerns
 
-None — Phase 4 complete. Phase 5 can proceed: only remaining gap is `checkWin()` needing `!cell.inactive` guard.
+None — Phase 5 complete. puzzle_v11 (Corner Cut) is now fully winnable. Ready for Phase 6 client-side UI.
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-03-19
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
