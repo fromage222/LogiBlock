@@ -18,6 +18,12 @@ let currentGrid = null;       // cached grid data for ghost preview (null cells)
 let currentGridSize = null;   // cached { rows, cols }
 let currentBankShapes = [];   // cached bankShapes array for ghost lookup
 
+// Phase 7: click disambiguation state
+const DBLCLICK_DELAY = 300; // ms window to distinguish single-click (rotate) from double-click (place)
+let clickTimer = null;
+let lastHoveredRow = null;  // cached from last mousemove — used to re-trigger ghost after rotation
+let lastHoveredCol = null;
+
 // ─── Rotation helpers (same math as server — duplicated per no-build-tools constraint) ───
 function rotateCells90CW(cells) {
   const rotated = cells.map(([dr, dc]) => [dc, -dr]);
@@ -221,13 +227,30 @@ function renderGrid(state) {
         cell.style.color = '#fff';
       }
 
-      // Mousemove: show ghost preview when piece is selected
+      // Mousemove: track position for ghost re-render after rotation + show ghost if piece selected
       cell.addEventListener('mousemove', () => {
+        lastHoveredRow = r;
+        lastHoveredCol = c;
         if (selectedShapeId) updateGhostPreview(r, c);
       });
 
-      // Click: place selected piece, or return placed piece if none selected
+      // Click: start 300ms timer; double-click cancels it via clearTimeout before it fires
       cell.addEventListener('click', () => {
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => {
+          // Single-click rotate — guard: do nothing if no piece selected (CTRL-01)
+          if (!selectedShapeId) return;
+          selectedRotation = (selectedRotation + 90) % 360;
+          updateBankSelection();  // CTRL-04: bank mini-grid reflects new rotation
+          if (lastHoveredRow !== null && lastHoveredCol !== null) {
+            updateGhostPreview(lastHoveredRow, lastHoveredCol);  // CTRL-03: ghost reflects new rotation
+          }
+        }, DBLCLICK_DELAY);
+      });
+
+      // Double-click: cancel pending rotate, then place or return (CTRL-02)
+      cell.addEventListener('dblclick', () => {
+        clearTimeout(clickTimer);  // MUST be first — cancels rotate from click event
         if (selectedShapeId) {
           socket.emit('game:move', {
             action: 'place',
@@ -409,7 +432,11 @@ function updateGhostPreview(originRow, originCol) {
 }
 
 // Clear ghost when cursor leaves the grid
-gameGrid.addEventListener('mouseleave', () => clearGhostPreview());
+gameGrid.addEventListener('mouseleave', () => {
+  clearGhostPreview();
+  lastHoveredRow = null;
+  lastHoveredCol = null;
+});
 
 // Deselect piece when clicking outside the grid and bank
 document.addEventListener('click', (e) => {
