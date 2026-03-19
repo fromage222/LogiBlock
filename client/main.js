@@ -33,7 +33,18 @@ function rotateCells(cells, rotation) {
 }
 
 // ─── Piece color assignment ───────────────────────────────────────────────────
-const PIECE_COLORS = ['#5c85d6', '#e07b39', '#6ab187', '#c05c7e', '#9b6bb5', '#c8b84a'];
+const PIECE_COLORS = [
+  '#5c85d6',  // blue      (P01)
+  '#e07b39',  // orange    (P02)
+  '#6ab187',  // green     (P03)
+  '#c05c7e',  // pink      (P04)
+  '#9b6bb5',  // purple    (P05)
+  '#c8b84a',  // yellow    (P06)
+  '#3aada8',  // teal      (P07) — distinct from blue/green
+  '#c0583a',  // rust-red  (P08) — distinct from orange/pink
+  '#8a6a3e',  // brown-tan (P09) — distinct from yellow/purple
+  '#7ab83a',  // lime      (P10) — distinct from teal/rust
+];
 function initPieceColors(state) {
   // Collect all movable shape IDs from bank + grid
   const ids = new Set();
@@ -191,7 +202,11 @@ function renderGrid(state) {
       cell.setAttribute('data-col', c);
 
       const content = state.grid[r][c];
-      if (content === null) {
+      if (content?.inactive) {
+        cell.classList.add('inactive');
+        gameGrid.appendChild(cell);
+        continue;  // skip mousemove + click listeners entirely
+      } else if (content === null) {
         cell.classList.add('empty');
       } else if (content.movable === false) {
         // Anchor cell — pre-placed, non-interactive (PUZZ-02)
@@ -271,7 +286,7 @@ function renderBank(state) {
   });
 }
 
-function buildMiniGrid(cells, color, cellSize = 12) {
+function buildMiniGrid(cells, color, cellSize = 8) {
   const maxR = Math.max(...cells.map(([r]) => r));
   const maxC = Math.max(...cells.map(([, c]) => c));
   const container = document.createElement('div');

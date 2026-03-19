@@ -139,6 +139,14 @@ hr { border: none; border-top: 1px solid #eee; margin: 0.5rem 0; }
   cursor: pointer;
 }
 
+/* ── Phase 6: Inactive cells (transparent gaps for irregular grid) ── */
+.grid-cell.inactive {
+  background: transparent;
+  border: none;
+  pointer-events: none;
+  cursor: default;
+}
+
 /* ── Phase 2: Game screen layout ───────────────────────────────────── */
 #game-screen { max-width: 900px; }  /* override Phase 1 700px — room for bank */
 .game-area {
@@ -187,29 +195,27 @@ hr { border: none; border-top: 1px solid #eee; margin: 0.5rem 0; }
 
 /* ── Phase 2: Piece bank ─────────────────────────────────────────────── */
 .piece-bank {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
   background: #fff;
   border: 2px solid #ddd;
   border-radius: 8px;
-  padding: 0.75rem;
-  min-width: 90px;
-  max-height: 500px;
-  overflow-y: auto;
+  padding: 0.5rem;
+  min-width: 120px;
+  align-content: start;
 }
 .bank-piece {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.5rem;
-  background: #f5f5f5;
+  gap: 0.2rem;
+  padding: 0.3rem;
   border: 2px solid transparent;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: grab;
   user-select: none;
-  transition: transform 0.1s, box-shadow 0.1s, border-color 0.1s;
+  transition: border-color 0.1s;
 }
 .bank-piece:active { cursor: grabbing; }
 .bank-piece.selected {
