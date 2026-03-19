@@ -294,12 +294,14 @@ function buildMiniGrid(cells, color, cellSize = 8) {
   container.style.gridTemplateColumns = `repeat(${maxC + 1}, ${cellSize}px)`;
   container.style.gridTemplateRows = `repeat(${maxR + 1}, ${cellSize}px)`;
   container.style.gap = '1px';
+  container.style.pointerEvents = 'none';
   for (let r = 0; r <= maxR; r++) {
     for (let c = 0; c <= maxC; c++) {
       const cell = document.createElement('div');
       cell.style.width = `${cellSize}px`;
       cell.style.height = `${cellSize}px`;
       cell.style.borderRadius = '2px';
+      cell.style.pointerEvents = 'none';
       const filled = cells.some(([dr, dc]) => dr === r && dc === c);
       cell.style.background = filled ? color : 'transparent';
       container.appendChild(cell);
