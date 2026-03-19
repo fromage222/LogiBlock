@@ -19,6 +19,7 @@ const {
   advanceTurnIfActive,
   buildInitialGrid,
   getPuzzleById,
+  setSelectedPuzzle,
 } = require('./game');
 
 // ─── One-time setup: load puzzles before any test runs ────────────────────────
@@ -32,6 +33,16 @@ function makeLobby(roomCode = 'TEST01') {
   lobbies.delete(roomCode);
   createLobby(roomCode, 'host-socket', 'Alice');
   addPlayer(roomCode, 'p2-socket', 'Bob');
+  const result = startGame(roomCode);
+  if (!result.ok) throw new Error('startGame failed: ' + result.error);
+  return lobbies.get(roomCode);
+}
+
+function makeLobbyV11(roomCode) {
+  lobbies.delete(roomCode);
+  createLobby(roomCode, 'host-socket', 'Alice');
+  addPlayer(roomCode, 'p2-socket', 'Bob');
+  setSelectedPuzzle(roomCode, 'puzzle_v11');
   const result = startGame(roomCode);
   if (!result.ok) throw new Error('startGame failed: ' + result.error);
   return lobbies.get(roomCode);
@@ -597,5 +608,77 @@ describe('leaderboard', () => {
     assert.ok(entry30.rank < entry90.rank, '0:30 must rank higher (lower number) than 1:30');
     // Ranks must be 1-indexed
     assert.ok(entries[0].rank === 1, 'first entry must have rank 1');
+  });
+});
+
+// ─── checkWin — irregular grid (puzzle_v11) ───────────────────────────────────
+
+describe('checkWin — irregular grid (puzzle_v11)', () => {
+  it('returns false on fresh puzzle_v11 grid (no pieces placed)', () => {
+    const lobby = makeLobbyV11('V11-WIN-FRESH');
+    const puzzle = getPuzzleById('puzzle_v11');
+    assert.strictEqual(checkWin(lobby, puzzle), false);
+  });
+
+  it('returns true when all 43 active cells filled and sentinels remain at inactive positions', () => {
+    const lobby = makeLobbyV11('V11-WIN-COMPLETE');
+    const puzzle = getPuzzleById('puzzle_v11');
+    const inactiveSet = new Set((puzzle.inactiveCells || []).map(([r, c]) => `${r}-${c}`));
+    const grid = [];
+    for (let r = 0; r < puzzle.gridSize.rows; r++) {
+      grid.push([]);
+      for (let c = 0; c < puzzle.gridSize.cols; c++) {
+        if (inactiveSet.has(`${r}-${c}`)) {
+          grid[r].push({ inactive: true });
+        } else {
+          const sid = puzzle.solution[r][c];
+          grid[r].push(sid ? { shapeId: sid, movable: true } : null);
+        }
+      }
+    }
+    lobby.grid = grid;
+    assert.strictEqual(checkWin(lobby, puzzle), true);
+  });
+
+  it('inactive cells at [4][0] and [4][8] do not prevent win when other cells filled', () => {
+    const lobby = makeLobbyV11('V11-WIN-SENTINELS');
+    const puzzle = getPuzzleById('puzzle_v11');
+    // Verify sentinels are present after startGame
+    assert.deepEqual(lobby.grid[4][0], { inactive: true });
+    assert.deepEqual(lobby.grid[4][8], { inactive: true });
+    // Build complete win-state grid
+    const inactiveSet = new Set((puzzle.inactiveCells || []).map(([r, c]) => `${r}-${c}`));
+    const grid = [];
+    for (let r = 0; r < puzzle.gridSize.rows; r++) {
+      grid.push([]);
+      for (let c = 0; c < puzzle.gridSize.cols; c++) {
+        if (inactiveSet.has(`${r}-${c}`)) {
+          grid[r].push({ inactive: true });
+        } else {
+          const sid = puzzle.solution[r][c];
+          grid[r].push(sid ? { shapeId: sid, movable: true } : null);
+        }
+      }
+    }
+    lobby.grid = grid;
+    assert.strictEqual(checkWin(lobby, puzzle), true);
+  });
+});
+
+// ─── placePiece — inactive cell rejection (puzzle_v11) ────────────────────────
+
+describe('placePiece — inactive cell rejection (puzzle_v11)', () => {
+  it('rejects placement when any piece cell lands on an inactive sentinel', () => {
+    // P01 at rotation 0 has cells [[0,0],[0,1],[0,2]] — placing at origin (4,0)
+    // covers [4,0] which is an inactive sentinel
+    const lobby = makeLobbyV11('V11-PLACE-REJECT');
+    const result = placePiece(lobby, 'P01', 0, 4, 0);
+    assert.deepEqual(result, { ok: false, error: 'Cell occupied' });
+  });
+
+  it('sentinel cells remain intact after rejected placement', () => {
+    const lobby = makeLobbyV11('V11-PLACE-INTACT');
+    placePiece(lobby, 'P01', 0, 4, 0);
+    assert.deepEqual(lobby.grid[4][0], { inactive: true });
   });
 });
