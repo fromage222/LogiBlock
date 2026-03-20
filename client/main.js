@@ -294,12 +294,15 @@ function renderBank(state) {
     const label = document.createElement('span');
     label.textContent = shape.id;
     pieceEl.appendChild(label);
-    // Selection: click once to select; click again to rotate +90°
+    // Selection: click to select (reset rotation to 0°); click same piece again to deselect
     pieceEl.addEventListener('click', () => {
       if (!amIActive) return;
       if (selectedShapeId === shape.id) {
-        selectedRotation = (selectedRotation + 90) % 360;
+        // Deselect
+        selectedShapeId = null;
+        selectedRotation = 0;
       } else {
+        // Select — always reset rotation to 0 on bank selection
         selectedShapeId = shape.id;
         selectedRotation = 0;
       }
