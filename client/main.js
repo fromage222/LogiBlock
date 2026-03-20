@@ -19,7 +19,7 @@ let currentGridSize = null;   // cached { rows, cols }
 let currentBankShapes = [];   // cached bankShapes array for ghost lookup
 
 // Phase 7: click disambiguation state
-const DBLCLICK_DELAY = 300; // ms window to distinguish single-click (rotate) from double-click (place)
+const DBLCLICK_DELAY = 150; // ms window to distinguish single-click (rotate) from double-click (place)
 let clickTimer = null;
 let lastHoveredRow = null;  // cached from last mousemove — used to re-trigger ghost after rotation
 let lastHoveredCol = null;
