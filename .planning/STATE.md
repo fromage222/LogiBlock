@@ -22,10 +22,10 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 ## Current Position
 
-Phase: 6 of 7 (Client Grid Rendering)
-Plan: 1 of 1 complete
-Status: Phase Complete
-Last activity: 2026-03-19 — 06-01 inactive cell rendering, PIECE_COLORS extension, bank panel redesign (human verified)
+Phase: 7 of 7 (New Interaction Model)
+Plan: 1 of 2 complete
+Status: In Progress — awaiting human verification (07-02)
+Last activity: 2026-03-20 — 07-01 click disambiguator, grid/bank handlers, lastHoveredRow/Col tracking
 
 Progress: [████████░░] 75% (Phase 6 complete)
 
