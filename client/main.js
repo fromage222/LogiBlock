@@ -265,12 +265,20 @@ function renderGrid(state) {
       cell.addEventListener('dblclick', () => {
         clearTimeout(clickTimer);  // MUST be first — cancels rotate from click event
         if (selectedShapeId) {
+          const shape = currentBankShapes.find(s => s.id === selectedShapeId);
+          let originRow = r, originCol = c;
+          if (shape) {
+            const cells = rotateCells(shape.cells, selectedRotation);
+            const [pivotDr, pivotDc] = getPivotOffset(cells);
+            originRow = r - pivotDr;
+            originCol = c - pivotDc;
+          }
           socket.emit('game:move', {
             action: 'place',
             shapeId: selectedShapeId,
             rotation: selectedRotation,
-            originRow: r,
-            originCol: c,
+            originRow,
+            originCol,
           });
           selectedShapeId = null;
           selectedRotation = 0;
@@ -427,12 +435,26 @@ function clearGhostPreview() {
     el.classList.remove('ghost-valid', 'ghost-invalid');
   });
 }
-function updateGhostPreview(originRow, originCol) {
+
+// Returns the pivot offset so the piece's center cell sits under the cursor.
+// Ghost and floating piece are both centered → they align regardless of rotation.
+function getPivotOffset(cells) {
+  const maxR = Math.max(...cells.map(([r]) => r));
+  const maxC = Math.max(...cells.map(([, c]) => c));
+  return [Math.floor(maxR / 2), Math.floor(maxC / 2)];
+}
+
+// hoverRow/Col = the grid cell the cursor is over (piece center target).
+// Internally computes [0,0]-based origin via pivot offset.
+function updateGhostPreview(hoverRow, hoverCol) {
   clearGhostPreview();
   if (!selectedShapeId || !currentGridSize) return;
   const shape = currentBankShapes.find(s => s.id === selectedShapeId);
   if (!shape) return;
   const cells = rotateCells(shape.cells, selectedRotation);
+  const [pivotDr, pivotDc] = getPivotOffset(cells);
+  const originRow = hoverRow - pivotDr;
+  const originCol = hoverCol - pivotDc;
   const { rows, cols } = currentGridSize;
   const valid = cells.every(([dr, dc]) => {
     const r = originRow + dr, c = originCol + dc;
