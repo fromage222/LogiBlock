@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Grid & Pieces Redesign
 status: verifying
-stopped_at: Completed 09-random-mode 09-02-PLAN.md
-last_updated: "2026-03-24T20:57:24.827Z"
+stopped_at: Completed 09-random-mode 09-03-PLAN.md
+last_updated: "2026-03-24T21:09:24.678Z"
 last_activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
   percent: 100
 ---
 
@@ -56,6 +56,7 @@ Progress: [██████████] 100% (Phase 8 complete)
 | Phase 08-erstes-richtiges-level-bauen P03 | ~30min | 1 tasks | 3 files |
 | Phase 09-random-mode P01 | 2min | 2 tasks | 2 files |
 | Phase 09-random-mode P02 | 2min | 2 tasks | 3 files |
+| Phase 09-random-mode P03 | 10min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ v1.1 decisions locked by research:
 - [Phase 09-random-mode]: triggerRandomEvent _forceEventType optional param for test overrides — avoids Math.random stubbing; rotate_piece never returns null server-side; skip_turn null for 1 player; remove_piece null if no movable pieces; shuffle_order always fires
 - [Phase 09-random-mode]: Toggle wired once via _randomModeWired property on DOM element — prevents duplicate listeners on repeated lobby:update events
 - [Phase 09-random-mode]: randomMode:event rotate_piece guard requires selectedShapeId !== null — prevents rotation state drift when no piece selected (RESEARCH.md Pitfall 1)
+- [Phase 09-random-mode]: makeRandomModeLobby helper uses puzzle_01 (A/B/C shapes) because default lobby puzzle is level_01 (P01-P10 shapes) — test isolation without changing lobby creation logic
+- [Phase 09-random-mode]: 30% Math.random gate lives in socket.js (not game.js) — socket layer owns the probability policy, game.js owns the event execution logic
 
 ### Roadmap Evolution
 
@@ -101,6 +104,6 @@ None — Phase 8 complete. Level 1 fully playable end-to-end: lobby filtering, a
 
 ## Session Continuity
 
-Last session: 2026-03-24T20:57:24.824Z
-Stopped at: Completed 09-random-mode 09-02-PLAN.md
+Last session: 2026-03-24T21:09:24.675Z
+Stopped at: Completed 09-random-mode 09-03-PLAN.md
 Resume file: None
