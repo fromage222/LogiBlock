@@ -24,6 +24,13 @@ let clickTimer = null;
 let lastHoveredRow = null;  // cached from last mousemove — used to re-trigger ghost after rotation
 let lastHoveredCol = null;
 
+// ─── Difficulty labels (Phase 8) ─────────────────────────────────────────────
+const DIFFICULTY_LABELS = {
+  easy:   'Einfach',
+  medium: 'Mittel',
+  hard:   'Schwer',
+};
+
 // ─── Rotation helpers (same math as server — duplicated per no-build-tools constraint) ───
 function rotateCells90CW(cells) {
   const rotated = cells.map(([dr, dc]) => [dc, -dr]);
@@ -179,7 +186,13 @@ function renderLobbyUpdate(state) {
     waitingMsg.style.display = 'block';
     // Show selected puzzle name to non-hosts (state always includes selectedPuzzleName)
     if (state.selectedPuzzleName) {
-      selectedPuzzleDisplay.textContent = `Selected puzzle: ${state.selectedPuzzleName}`;
+      const diffLabel = state.selectedPuzzleDifficulty
+        ? (DIFFICULTY_LABELS[state.selectedPuzzleDifficulty] ?? state.selectedPuzzleDifficulty)
+        : '';
+      const displayName = diffLabel
+        ? `${state.selectedPuzzleName} — ${diffLabel}`
+        : state.selectedPuzzleName;
+      selectedPuzzleDisplay.textContent = `Ausgewähltes Puzzle: ${displayName}`;
       selectedPuzzleDisplay.style.display = 'block';
     }
   }
@@ -252,12 +265,20 @@ function renderGrid(state) {
       cell.addEventListener('dblclick', () => {
         clearTimeout(clickTimer);  // MUST be first — cancels rotate from click event
         if (selectedShapeId) {
+          const shape = currentBankShapes.find(s => s.id === selectedShapeId);
+          let originRow = r, originCol = c;
+          if (shape) {
+            const cells = rotateCells(shape.cells, selectedRotation);
+            const [pivotDr, pivotDc] = getPivotOffset(cells);
+            originRow = r - pivotDr;
+            originCol = c - pivotDc;
+          }
           socket.emit('game:move', {
             action: 'place',
             shapeId: selectedShapeId,
             rotation: selectedRotation,
-            originRow: r,
-            originCol: c,
+            originRow,
+            originCol,
           });
           selectedShapeId = null;
           selectedRotation = 0;
@@ -414,12 +435,26 @@ function clearGhostPreview() {
     el.classList.remove('ghost-valid', 'ghost-invalid');
   });
 }
-function updateGhostPreview(originRow, originCol) {
+
+// Returns the pivot offset so the piece's center cell sits under the cursor.
+// Ghost and floating piece are both centered → they align regardless of rotation.
+function getPivotOffset(cells) {
+  const maxR = Math.max(...cells.map(([r]) => r));
+  const maxC = Math.max(...cells.map(([, c]) => c));
+  return [Math.floor(maxR / 2), Math.floor(maxC / 2)];
+}
+
+// hoverRow/Col = the grid cell the cursor is over (piece center target).
+// Internally computes [0,0]-based origin via pivot offset.
+function updateGhostPreview(hoverRow, hoverCol) {
   clearGhostPreview();
   if (!selectedShapeId || !currentGridSize) return;
   const shape = currentBankShapes.find(s => s.id === selectedShapeId);
   if (!shape) return;
   const cells = rotateCells(shape.cells, selectedRotation);
+  const [pivotDr, pivotDc] = getPivotOffset(cells);
+  const originRow = hoverRow - pivotDr;
+  const originCol = hoverCol - pivotDc;
   const { rows, cols } = currentGridSize;
   const valid = cells.every(([dr, dc]) => {
     const r = originRow + dr, c = originCol + dc;
@@ -555,7 +590,8 @@ socket.on('puzzle:list', (puzzles) => {
   puzzles.forEach(p => {
     const option = document.createElement('option');
     option.value = p.id;
-    option.textContent = p.name;
+    const diffLabel = p.difficulty ? (DIFFICULTY_LABELS[p.difficulty] ?? p.difficulty) : '';
+    option.textContent = diffLabel ? `${p.name} — ${diffLabel}` : p.name;
     puzzleSelect.appendChild(option);
   });
 });

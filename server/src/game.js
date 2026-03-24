@@ -28,7 +28,8 @@ function generateRoomCode() {
 
 // ─── Lobby operations ────────────────────────────────────────────────────────
 function createLobby(roomCode, hostSocketId, hostName) {
-  const firstPuzzleId = puzzleMap.keys().next().value;
+  const firstPuzzleId = Array.from(puzzleMap.values()).find(p => p.difficulty != null)?.id
+    ?? puzzleMap.keys().next().value;
   lobbies.set(roomCode, {
     roomCode,
     hostId: hostSocketId,
@@ -200,6 +201,7 @@ function getPublicState(roomCode) {
     phase: lobby.phase,
     players: lobby.players.map(p => ({ name: p.name, isHost: p.isHost, socketId: p.socketId })),
     selectedPuzzleName: puzzle ? puzzle.name : null,
+    selectedPuzzleDifficulty: puzzle ? (puzzle.difficulty ?? null) : null,
     selectedPuzzleId: lobby.selectedPuzzleId,
     grid: lobby.grid,         // null in lobby phase; 2D array in playing phase
     gridSize: puzzle ? puzzle.gridSize : null,
@@ -212,12 +214,14 @@ function getPublicState(roomCode) {
 
 // ─── Safe puzzle list for client dropdown ────────────────────────────────────
 function getPuzzleListForClient() {
-  return Array.from(puzzleMap.values()).map(p => ({
-    id: p.id,
-    name: p.name,
-    // gridSize intentionally omitted (name only in dropdown per locked decision)
-    // solution NEVER included
-  }));
+  return Array.from(puzzleMap.values())
+    .filter(p => p.difficulty != null)
+    .map(p => ({
+      id: p.id,
+      name: p.name,
+      difficulty: p.difficulty,
+      // solution NEVER included
+    }));
 }
 
 // ─── Anchor shape pre-placement (PUZZ-02) ────────────────────────────────────
@@ -275,6 +279,9 @@ function validatePuzzleSchema(puzzle) {
   }
   if (!Array.isArray(puzzle.solution))
     throw new Error('Missing "solution" array');
+  if (puzzle.difficulty !== undefined && typeof puzzle.difficulty !== 'string') {
+    throw new Error('"difficulty" must be a string if present');
+  }
   // ── Block 1: inactiveCells format validation (optional field) ──────────────
   if (puzzle.inactiveCells !== undefined) {
     if (!Array.isArray(puzzle.inactiveCells))

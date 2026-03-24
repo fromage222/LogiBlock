@@ -97,3 +97,15 @@ Plans:
 | 5. Server Logic Fixes | v1.1 | 1/1 | Complete | 2026-03-19 |
 | 6. Client Grid Rendering | v1.1 | 1/1 | Complete — human verified | 2026-03-19 |
 | 7. New Interaction Model | v1.1 | 0/2 | Not started | - |
+
+### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
+
+**Goal:** Ship Level 1 — the first real playable puzzle (3 anchor pieces, 7 movable pieces, difficulty "easy") — and activate the puzzle-selection system in the lobby so only tagged puzzles appear in the dropdown
+**Requirements**: LVL-01, LVL-02, LVL-03, LVL-04, LVL-05, LVL-06
+**Depends on:** Phase 7
+**Plans:** 3/3 plans complete
+
+Plans:
+- [ ] 08-01-PLAN.md — Create `puzzles/level_01.json` and make four surgical server edits (filter by difficulty, default lobby selection, expose difficulty in public state, validate difficulty type)
+- [ ] 08-02-PLAN.md — Client changes: DIFFICULTY_LABELS constant, puzzle:list dropdown "Name — Einfach" format, non-host lobby display
+- [ ] 08-03-PLAN.md — Human verification: lobby puzzle selection (5 scenarios) and gameplay end-to-end

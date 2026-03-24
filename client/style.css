@@ -459,7 +459,6 @@ button:disabled {
   background: var(--clr-cell-anchor);
   color: #fff;
   border-color: rgba(0,0,0,0.3);
-  pointer-events: none;
   cursor: default;
 }
 
