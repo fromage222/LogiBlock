@@ -24,6 +24,13 @@ let clickTimer = null;
 let lastHoveredRow = null;  // cached from last mousemove — used to re-trigger ghost after rotation
 let lastHoveredCol = null;
 
+// ─── Difficulty labels (Phase 8) ─────────────────────────────────────────────
+const DIFFICULTY_LABELS = {
+  easy:   'Einfach',
+  medium: 'Mittel',
+  hard:   'Schwer',
+};
+
 // ─── Rotation helpers (same math as server — duplicated per no-build-tools constraint) ───
 function rotateCells90CW(cells) {
   const rotated = cells.map(([dr, dc]) => [dc, -dr]);
@@ -179,7 +186,13 @@ function renderLobbyUpdate(state) {
     waitingMsg.style.display = 'block';
     // Show selected puzzle name to non-hosts (state always includes selectedPuzzleName)
     if (state.selectedPuzzleName) {
-      selectedPuzzleDisplay.textContent = `Selected puzzle: ${state.selectedPuzzleName}`;
+      const diffLabel = state.selectedPuzzleDifficulty
+        ? (DIFFICULTY_LABELS[state.selectedPuzzleDifficulty] ?? state.selectedPuzzleDifficulty)
+        : '';
+      const displayName = diffLabel
+        ? `${state.selectedPuzzleName} — ${diffLabel}`
+        : state.selectedPuzzleName;
+      selectedPuzzleDisplay.textContent = `Ausgewähltes Puzzle: ${displayName}`;
       selectedPuzzleDisplay.style.display = 'block';
     }
   }
@@ -555,7 +568,8 @@ socket.on('puzzle:list', (puzzles) => {
   puzzles.forEach(p => {
     const option = document.createElement('option');
     option.value = p.id;
-    option.textContent = p.name;
+    const diffLabel = p.difficulty ? (DIFFICULTY_LABELS[p.difficulty] ?? p.difficulty) : '';
+    option.textContent = diffLabel ? `${p.name} — ${diffLabel}` : p.name;
     puzzleSelect.appendChild(option);
   });
 });
