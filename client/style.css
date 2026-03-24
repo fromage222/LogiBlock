@@ -652,3 +652,18 @@ button:disabled {
   text-align: center;
   padding: var(--sp-lg);
 }
+
+/* ============================================================
+   RANDOM MODE SLIDER
+   ============================================================ */
+.random-mode-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+input[type="range"]#random-mode-toggle {
+  width: 60px;
+  cursor: pointer;
+  accent-color: var(--clr-accent-dark);
+}

@@ -64,12 +64,18 @@
         <label for="puzzle-select">Puzzle</label>
         <select id="puzzle-select"></select>
 
+        <div class="random-mode-control">
+          <label for="random-mode-toggle">Chaos-Modus</label>
+          <input id="random-mode-toggle" type="range" min="0" max="1" step="1" value="0">
+        </div>
+
         <button id="start-game-btn" disabled>Start Game</button>
         <p id="start-hint" class="hint">Need at least 2 players to start</p>
       </section>
 
       <p id="waiting-msg" class="hint">Waiting for host to start the game...</p>
       <p id="selected-puzzle-display" class="hint" style="display:none;"></p>
+      <p id="random-mode-display" class="hint" style="display:none;"></p>
 
       <p id="lobby-notification" class="notification" aria-live="polite"></p>
     </div>
