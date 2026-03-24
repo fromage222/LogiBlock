@@ -109,3 +109,16 @@ Plans:
 - [ ] 08-01-PLAN.md — Create `puzzles/level_01.json` and make four surgical server edits (filter by difficulty, default lobby selection, expose difficulty in public state, validate difficulty type)
 - [ ] 08-02-PLAN.md — Client changes: DIFFICULTY_LABELS constant, puzzle:list dropdown "Name — Einfach" format, non-host lobby display
 - [ ] 08-03-PLAN.md — Human verification: lobby puzzle selection (5 scenarios) and gameplay end-to-end
+
+### Phase 9: Random Mode
+
+**Goal:** Add a host-controlled "Chaos-Modus" lobby toggle; after each successful piece placement (30% chance), a random disruptive event fires: remove a placed piece, rotate the active player's held piece, skip the active player's turn, or shuffle turn order. All event logic is server-side.
+**Requirements**: TBD (new feature outside v1.1 scope)
+**Depends on:** Phase 8
+**Plans:** 4 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — TDD: extend game.js with setRandomMode, triggerRandomEvent (4 event types + edge cases), createLobby/getPublicState extensions
+- [ ] 09-02-PLAN.md — Client: lobby slider toggle in index.html + style.css; randomMode:event handler + showGameNotification in main.js
+- [ ] 09-03-PLAN.md — TDD: socket.js lobby:randomMode handler + game:move place branch event trigger; socket integration tests
+- [ ] 09-04-PLAN.md — Human verification: lobby toggle (2 scenarios), in-game events (5 scenarios)
