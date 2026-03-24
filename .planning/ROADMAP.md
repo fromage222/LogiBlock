@@ -103,7 +103,7 @@ Plans:
 **Goal:** Ship Level 1 — the first real playable puzzle (3 anchor pieces, 7 movable pieces, difficulty "easy") — and activate the puzzle-selection system in the lobby so only tagged puzzles appear in the dropdown
 **Requirements**: LVL-01, LVL-02, LVL-03, LVL-04, LVL-05, LVL-06
 **Depends on:** Phase 7
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 08-01-PLAN.md — Create `puzzles/level_01.json` and make four surgical server edits (filter by difficulty, default lobby selection, expose difficulty in public state, validate difficulty type)

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Grid & Pieces Redesign
 status: executing
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-24T08:22:34.810Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-24T08:52:39.677Z"
 last_activity: 2026-03-20 — 07-01 click disambiguator, grid/bank handlers, lastHoveredRow/Col tracking
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 9
+  completed_plans: 7
   percent: 75
 ---
 
@@ -51,6 +51,7 @@ Progress: [████████░░] 75% (Phase 6 complete)
 | Phase 04-schema-and-server-data-model P02 | 20min | 2 tasks | 2 files |
 | Phase 05-server-logic-fixes P01 | 2min | 2 tasks | 2 files |
 | Phase 06-client-grid-rendering P01 | 15 | 2 tasks | 2 files |
+| Phase 08-erstes-richtiges-level-bauen P01 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ v1.1 decisions locked by research:
 - [05-01]: Stale NOTE (Phase 5) comment removed from buildInitialGrid() after fix was applied
 - [Phase 06-client-grid-rendering]: pointer-events: none on .grid-cell.inactive satisfies GRID-05 and GRID-06 in a single CSS property without JS event handler changes
 - [Phase 06-client-grid-rendering]: buildMiniGrid pointer-events: none added to container and cells — cursor piece was intercepting bank clicks (auto-fix)
+- [Phase 08-erstes-richtiges-level-bauen]: difficulty field as discriminator: puzzles without difficulty are internal test puzzles, excluded from client puzzle list
+- [Phase 08-erstes-richtiges-level-bauen]: createLobby defaults via find(p => p.difficulty != null) with fallback to first map entry — safe against empty real-puzzle set
 
 ### Roadmap Evolution
 
@@ -85,6 +88,6 @@ None — Phase 6 complete. Inactive cells render as transparent gaps, 10 distinc
 
 ## Session Continuity
 
-Last session: 2026-03-24T08:22:34.802Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-erstes-richtiges-level-bauen-design-und-implementierung-eines-finalen-puzzle-levels-als-echtes-spielerlebnis/08-CONTEXT.md
+Last session: 2026-03-24T08:52:39.675Z
+Stopped at: Completed 08-01-PLAN.md
+Resume file: None
