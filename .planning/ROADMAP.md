@@ -100,10 +100,12 @@ Plans:
 
 ### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Ship Level 1 — the first real playable puzzle (3 anchor pieces, 7 movable pieces, difficulty "easy") — and activate the puzzle-selection system in the lobby so only tagged puzzles appear in the dropdown
+**Requirements**: LVL-01, LVL-02, LVL-03, LVL-04, LVL-05, LVL-06
 **Depends on:** Phase 7
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 8 to break down)
+- [ ] 08-01-PLAN.md — Create `puzzles/level_01.json` and make four surgical server edits (filter by difficulty, default lobby selection, expose difficulty in public state, validate difficulty type)
+- [ ] 08-02-PLAN.md — Client changes: DIFFICULTY_LABELS constant, puzzle:list dropdown "Name — Einfach" format, non-host lobby display
+- [ ] 08-03-PLAN.md — Human verification: lobby puzzle selection (5 scenarios) and gameplay end-to-end
