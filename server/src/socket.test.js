@@ -17,6 +17,7 @@ const {
   createLobby,
   addPlayer,
   startGame,
+  setSelectedPuzzle,
   setRandomMode,
   getLobby,
 } = require('./game');
@@ -38,6 +39,7 @@ function makePlayingLobby(roomCode = 'STEST01') {
   lobbies.delete(roomCode);
   createLobby(roomCode, 'host-socket', 'Alice');
   addPlayer(roomCode, 'p2-socket', 'Bob');
+  setSelectedPuzzle(roomCode, 'puzzle_01');
   const result = startGame(roomCode);
   if (!result.ok) throw new Error('startGame failed: ' + result.error);
   return lobbies.get(roomCode);

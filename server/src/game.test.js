@@ -35,6 +35,7 @@ function makeLobby(roomCode = 'TEST01') {
   lobbies.delete(roomCode);
   createLobby(roomCode, 'host-socket', 'Alice');
   addPlayer(roomCode, 'p2-socket', 'Bob');
+  setSelectedPuzzle(roomCode, 'puzzle_01');
   const result = startGame(roomCode);
   if (!result.ok) throw new Error('startGame failed: ' + result.error);
   return lobbies.get(roomCode);
