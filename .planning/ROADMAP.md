@@ -115,7 +115,7 @@ Plans:
 **Goal:** Add a host-controlled "Chaos-Modus" lobby toggle; after each successful piece placement (30% chance), a random disruptive event fires: remove a placed piece, rotate the active player's held piece, skip the active player's turn, or shuffle turn order. All event logic is server-side.
 **Requirements**: TBD (new feature outside v1.1 scope)
 **Depends on:** Phase 8
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 - [ ] 09-01-PLAN.md — TDD: extend game.js with setRandomMode, triggerRandomEvent (4 event types + edge cases), createLobby/getPublicState extensions
