@@ -4,10 +4,10 @@ milestone: v1.1
 milestone_name: Grid & Pieces Redesign
 status: verifying
 stopped_at: Phase 9 context gathered
-last_updated: "2026-03-24T20:04:07.247Z"
+last_updated: "2026-03-24T20:31:31.612Z"
 last_activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 5
   total_plans: 9
   completed_plans: 9
@@ -84,7 +84,7 @@ v1.1 decisions locked by research:
 ### Roadmap Evolution
 
 - Phase 8 added: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
-- Phase 9 added: zweites level
+- Phase 9 added: Random Mode
 
 ### Pending Todos
 
@@ -96,6 +96,6 @@ None — Phase 8 complete. Level 1 fully playable end-to-end: lobby filtering, a
 
 ## Session Continuity
 
-Last session: 2026-03-24T14:08:24.538Z
+Last session: 2026-03-24T20:31:31.603Z
 Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-zweites-level/09-CONTEXT.md
+Resume file: .planning/phases/09-random-mode/09-CONTEXT.md
