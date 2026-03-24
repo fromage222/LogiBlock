@@ -8,7 +8,7 @@
  * This avoids needing socket.io-client while fully exercising handler logic.
  */
 
-const { describe, it, before, beforeEach } = require('node:test');
+const { describe, it, before, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
@@ -17,6 +17,8 @@ const {
   createLobby,
   addPlayer,
   startGame,
+  setRandomMode,
+  getLobby,
 } = require('./game');
 
 const registerSocketHandlers = require('./socket');
@@ -316,4 +318,193 @@ describe('game:move handler', () => {
       assert.ok(!emitted.room['game:error'], 'game:error NOT broadcast to room');
     });
   });
+});
+
+// ─── lobby:randomMode handler tests ──────────────────────────────────────────
+
+describe('lobby:randomMode handler', () => {
+
+  it('host can enable randomMode — lobby:update broadcasts with randomMode: true', () => {
+    const roomCode = 'SRM01';
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-socket', 'Alice');
+    addPlayer(roomCode, 'p2-socket', 'Bob');
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+
+    trigger(socket, 'lobby:randomMode', { enabled: true });
+
+    assert.ok(emitted.room['lobby:update'], 'lobby:update should be broadcast to room');
+    const lastUpdate = emitted.room['lobby:update'].at(-1).payload;
+    assert.equal(lastUpdate.randomMode, true, 'randomMode should be true in lobby:update payload');
+    assert.ok(!emitted.socket['room:error'], 'No room:error should be emitted to host');
+  });
+
+  it('non-host gets room:error and state is NOT updated', () => {
+    const roomCode = 'SRM02';
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-socket', 'Alice');
+    addPlayer(roomCode, 'p2-socket', 'Bob');
+
+    // Bob is non-host
+    const { socket, emitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
+
+    trigger(socket, 'lobby:randomMode', { enabled: true });
+
+    assert.ok(emitted.socket['room:error'], 'room:error should be emitted to non-host socket');
+    assert.equal(
+      emitted.socket['room:error'][0],
+      'Only the host can change random mode',
+      'Error message must match expected string'
+    );
+    assert.ok(!emitted.room['lobby:update'], 'lobby:update must NOT be broadcast when non-host tries');
+    // Verify state was not mutated
+    const lobby = getLobby(roomCode);
+    assert.equal(lobby.randomModeEnabled, false, 'randomModeEnabled must remain false');
+  });
+
+});
+
+// ─── game:move randomMode:event trigger tests ─────────────────────────────────
+
+describe('game:move randomMode:event trigger', () => {
+  let origRandom;
+
+  afterEach(() => {
+    // Always restore Math.random after each test in this block
+    if (origRandom) {
+      Math.random = origRandom;
+      origRandom = undefined;
+    }
+  });
+
+  it('non-winning place with randomModeEnabled=true emits randomMode:event before game:stateUpdate', () => {
+    const roomCode = 'SRM03';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0;
+    setRandomMode(roomCode, true);
+
+    // Stub Math.random: 0.05 is < 0.30 (event fires) and < 0.35 (picks rotate_piece)
+    origRandom = Math.random;
+    Math.random = () => 0.05;
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+    // Track emission order
+    const emitOrder = [];
+    const origRoomEmit = emitted.room;
+
+    // Intercept room emissions to track ordering — rebuild io with ordering tracking
+    const ioWithOrder = {
+      to: (code) => ({
+        emit: (event, payload) => {
+          emitOrder.push(event);
+          if (!emitted.room[event]) emitted.room[event] = [];
+          emitted.room[event].push({ code, payload });
+        },
+      }),
+      emit: (event, payload) => {
+        emitOrder.push(event);
+        if (!emitted.room[event]) emitted.room[event] = [];
+        emitted.room[event].push({ code: '*', payload });
+      },
+    };
+    // Re-register with order-tracking io
+    const socket2 = {
+      id: 'host-socket',
+      data: { roomCode, playerName: 'Alice' },
+      rooms: new Set(['host-socket', roomCode]),
+      emit: (event, payload) => {
+        if (!emitted.socket[event]) emitted.socket[event] = [];
+        emitted.socket[event].push(payload);
+      },
+      on: (event, handler) => {
+        socket2._handlers = socket2._handlers || {};
+        socket2._handlers[event] = handler;
+      },
+      _handlers: {},
+      to: () => ({ emit: () => {} }),
+    };
+    const registerSocketHandlers = require('./socket');
+    registerSocketHandlers(ioWithOrder, socket2, new Map());
+
+    trigger(socket2, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+
+    assert.ok(emitted.room['randomMode:event'], 'randomMode:event should be emitted');
+    assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate should be emitted');
+
+    const randomModeIdx = emitOrder.indexOf('randomMode:event');
+    const stateUpdateIdx = emitOrder.indexOf('game:stateUpdate');
+    assert.ok(randomModeIdx !== -1, 'randomMode:event must appear in emit order');
+    assert.ok(stateUpdateIdx !== -1, 'game:stateUpdate must appear in emit order');
+    assert.ok(
+      randomModeIdx < stateUpdateIdx,
+      `randomMode:event (${randomModeIdx}) must be emitted BEFORE game:stateUpdate (${stateUpdateIdx})`
+    );
+  });
+
+  it('winning move with randomModeEnabled=true does NOT emit randomMode:event', () => {
+    const roomCode = 'SRM04';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0;
+    setRandomMode(roomCode, true);
+
+    // Stub Math.random so probability would fire if checked
+    origRandom = Math.random;
+    Math.random = () => 0.05;
+
+    // Pre-place B so that placing C wins the game
+    const { placePiece } = require('./game');
+    placePiece(lobby, 'B', 0, 0, 1);
+    lobby.activeTurnIndex = 0; // still Alice's turn
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+
+    // Place C to trigger win
+    trigger(socket, 'game:move', { action: 'place', shapeId: 'C', rotation: 0, originRow: 1, originCol: 1 });
+
+    assert.ok(emitted.room['game:win'], 'game:win should be emitted');
+    assert.ok(!emitted.room['randomMode:event'], 'randomMode:event must NOT be emitted on winning move');
+  });
+
+  it('return action with randomModeEnabled=true does NOT emit randomMode:event', () => {
+    const roomCode = 'SRM05';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0;
+    setRandomMode(roomCode, true);
+
+    // Stub Math.random so probability would fire if checked
+    origRandom = Math.random;
+    Math.random = () => 0.05;
+
+    // Pre-place B so it can be returned
+    const { placePiece } = require('./game');
+    placePiece(lobby, 'B', 0, 0, 1);
+    lobby.activeTurnIndex = 0;
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+
+    trigger(socket, 'game:move', { action: 'return', shapeId: 'B' });
+
+    assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate should be emitted after return');
+    assert.ok(!emitted.room['randomMode:event'], 'randomMode:event must NOT be emitted on return action');
+  });
+
+  it('non-winning place with randomModeEnabled=false does NOT emit randomMode:event', () => {
+    const roomCode = 'SRM06';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0;
+    // randomModeEnabled defaults to false — do not set it
+
+    // Stub Math.random so probability would fire if checked
+    origRandom = Math.random;
+    Math.random = () => 0.05;
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+
+    trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+
+    assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate should be emitted');
+    assert.ok(!emitted.room['randomMode:event'], 'randomMode:event must NOT be emitted when randomModeEnabled=false');
+  });
+
 });
