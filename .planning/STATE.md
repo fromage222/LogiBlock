@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Grid & Pieces Redesign
 status: executing
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-24T08:52:39.677Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-24T08:55:54.909Z"
 last_activity: 2026-03-20 — 07-01 click disambiguator, grid/bank handlers, lastHoveredRow/Col tracking
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
   percent: 75
 ---
 
@@ -52,6 +52,7 @@ Progress: [████████░░] 75% (Phase 6 complete)
 | Phase 05-server-logic-fixes P01 | 2min | 2 tasks | 2 files |
 | Phase 06-client-grid-rendering P01 | 15 | 2 tasks | 2 files |
 | Phase 08-erstes-richtiges-level-bauen P01 | 2 | 2 tasks | 2 files |
+| Phase 08-erstes-richtiges-level-bauen P02 | 1min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ v1.1 decisions locked by research:
 - [Phase 06-client-grid-rendering]: buildMiniGrid pointer-events: none added to container and cells — cursor piece was intercepting bank clicks (auto-fix)
 - [Phase 08-erstes-richtiges-level-bauen]: difficulty field as discriminator: puzzles without difficulty are internal test puzzles, excluded from client puzzle list
 - [Phase 08-erstes-richtiges-level-bauen]: createLobby defaults via find(p => p.difficulty != null) with fallback to first map entry — safe against empty real-puzzle set
+- [Phase 08-erstes-richtiges-level-bauen]: DIFFICULTY_LABELS constant defined once at top-level shared between puzzle:list handler and renderLobbyUpdate non-host branch
+- [Phase 08-erstes-richtiges-level-bauen]: Lobby non-host display switched from English 'Selected puzzle:' to German 'Ausgewähltes Puzzle:' to match game UI convention
 
 ### Roadmap Evolution
 
@@ -88,6 +91,6 @@ None — Phase 6 complete. Inactive cells render as transparent gaps, 10 distinc
 
 ## Session Continuity
 
-Last session: 2026-03-24T08:52:39.675Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-24T08:55:54.906Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
