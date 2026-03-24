@@ -79,8 +79,9 @@ function checkWin(lobby, puzzle) {
   const { rows, cols } = puzzle.gridSize;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const expectedId = puzzle.solution[r][c];
       const cell = lobby.grid[r][c];
+      if (cell && cell.inactive) continue;   // skip inactive sentinel cells (GRID-04)
+      const expectedId = puzzle.solution[r][c];
       if (expectedId === null) {
         if (cell !== null) return false;
       } else {
@@ -222,11 +223,6 @@ function getPuzzleListForClient() {
 // ─── Anchor shape pre-placement (PUZZ-02) ────────────────────────────────────
 // Called at game start (Phase 2 will call this; defined here so grid shape is
 // established in Phase 1 for getPublicState to reference the type correctly).
-//
-// NOTE (Phase 5): checkWin() currently treats { inactive: true } as an unexpected
-// piece (cell !== null path). This is intentional — Phase 5 will add the
-// `!cell.inactive` guard. Until then, puzzle_v11 cannot be won, but existing
-// puzzles are unaffected (they have no inactive cells).
 function buildInitialGrid(puzzle) {
   // Build a fast lookup Set from inactiveCells (if present)
   const inactiveSet = new Set(

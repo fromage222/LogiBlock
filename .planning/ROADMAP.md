@@ -23,8 +23,8 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 **Milestone Goal:** Irregular 5×9 grid (43 active cells, 4 missing corners), 10 custom pieces that tile it exactly, and a new click interaction model (single-click rotates, double-click places).
 
 - [x] **Phase 4: Schema and Server Data Model** - Introduce the irregular grid sentinel and new puzzle JSON; lock the foundational data model all other phases depend on
-- [ ] **Phase 5: Server Logic Fixes** - Propagate the sentinel to win detection and placement rejection so the game plays correctly on the irregular grid
-- [ ] **Phase 6: Client Grid Rendering** - Render inactive cells as visual gaps and extend the color palette to 10 pieces
+- [x] **Phase 5: Server Logic Fixes** - Propagate the sentinel to win detection and placement rejection so the game plays correctly on the irregular grid
+- [x] **Phase 6: Client Grid Rendering** - Render inactive cells as visual gaps and extend the color palette to 10 pieces (completed 2026-03-19)
 - [ ] **Phase 7: New Interaction Model** - Replace click-to-place with single-click rotation and double-click placement
 
 ## Phase Details
@@ -52,10 +52,10 @@ Plans:
   1. Attempting to place a piece on an inactive cell is rejected by the server (no code change to `placePiece()` needed — the existing non-null guard handles this automatically via the sentinel)
   2. The win condition fires exactly when all 43 active cells are filled, and does not fire when inactive sentinel cells remain untouched
   3. New server tests cover: inactive-cell rejection, win detection with 43-of-43 active cells filled, no-win when only inactive cells remain unfilled
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 05-01: Fix `checkWin()` to skip inactive sentinel cells and add TDD tests for all irregular-grid win scenarios
+- [x] 05-01-PLAN.md — Fix `checkWin()` sentinel guard (GRID-04) and add TDD tests for win detection + inactive-cell rejection (GRID-03)
 
 ### Phase 6: Client Grid Rendering
 **Goal**: The client renders the irregular 5×9 grid correctly — inactive cells appear as transparent gaps, and all 10 pieces display with distinct colors
@@ -66,10 +66,10 @@ Plans:
   2. The mouse cursor shows `cursor: default` over inactive cells and `cursor: pointer` over active empty cells
   3. All 10 pieces in the bank panel display with 10 distinct, non-colliding colors
   4. The ghost preview correctly treats inactive cells as invalid placement targets (no additional code needed — the sentinel flows through `getPublicState()` and the existing `=== null` guard in `updateGhostPreview()` handles this)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 06-01: Update `renderGrid()` with inactive branch, add `.grid-cell.inactive` CSS rule, and extend `PIECE_COLORS` to 10 entries
+- [x] 06-01-PLAN.md — Add inactive cell branch in `renderGrid()`, `.grid-cell.inactive` CSS rule, extend `PIECE_COLORS` to 10 entries, redesign bank panel to 2-column layout with 8px mini-cells
 
 ### Phase 7: New Interaction Model
 **Goal**: Players rotate the selected piece with a single click and place it with a double-click; the ghost preview and bank mini-grid stay in sync with the current rotation
@@ -80,10 +80,11 @@ Plans:
   2. A double-click on any active grid cell places the selected piece at that position without applying an extra rotation
   3. After a single-click rotation, the ghost preview on the hovered cell immediately reflects the new orientation
   4. After a single-click rotation, the bank mini-grid for the selected piece immediately reflects the new orientation
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: Replace click-to-place with `setTimeout`/`clearTimeout` click disambiguation in `renderGrid()` and update the bank click handler
+- [ ] 07-01-PLAN.md — Implement click disambiguator, grid single-click rotate + double-click place/return, lastHoveredRow/Col tracking, bank select-or-deselect only
+- [ ] 07-02-PLAN.md — Human verification of complete interaction model (7 scenarios)
 
 ## Progress
 
@@ -93,6 +94,6 @@ Plans:
 | 2. Game Loop | v1.0 | 5/5 | Complete — human verified | 2026-03-05 |
 | 3. Timer und Leaderboard | v1.0 | 3/3 | Complete — human verified | 2026-03-10 |
 | 4. Schema and Server Data Model | v1.1 | 2/2 | Complete — human verified | 2026-03-16 |
-| 5. Server Logic Fixes | v1.1 | 0/1 | Not started | - |
-| 6. Client Grid Rendering | v1.1 | 0/1 | Not started | - |
-| 7. New Interaction Model | v1.1 | 0/1 | Not started | - |
+| 5. Server Logic Fixes | v1.1 | 1/1 | Complete | 2026-03-19 |
+| 6. Client Grid Rendering | v1.1 | 1/1 | Complete — human verified | 2026-03-19 |
+| 7. New Interaction Model | v1.1 | 0/2 | Not started | - |

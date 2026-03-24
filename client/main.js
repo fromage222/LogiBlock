@@ -18,6 +18,12 @@ let currentGrid = null;       // cached grid data for ghost preview (null cells)
 let currentGridSize = null;   // cached { rows, cols }
 let currentBankShapes = [];   // cached bankShapes array for ghost lookup
 
+// Phase 7: click disambiguation state
+const DBLCLICK_DELAY = 150; // ms window to distinguish single-click (rotate) from double-click (place)
+let clickTimer = null;
+let lastHoveredRow = null;  // cached from last mousemove — used to re-trigger ghost after rotation
+let lastHoveredCol = null;
+
 // ─── Rotation helpers (same math as server — duplicated per no-build-tools constraint) ───
 function rotateCells90CW(cells) {
   const rotated = cells.map(([dr, dc]) => [dc, -dr]);
@@ -33,7 +39,18 @@ function rotateCells(cells, rotation) {
 }
 
 // ─── Piece color assignment ───────────────────────────────────────────────────
-const PIECE_COLORS = ['#5c85d6', '#e07b39', '#6ab187', '#c05c7e', '#9b6bb5', '#c8b84a'];
+const PIECE_COLORS = [
+  '#5c85d6',  // blue      (P01)
+  '#e07b39',  // orange    (P02)
+  '#6ab187',  // green     (P03)
+  '#c05c7e',  // pink      (P04)
+  '#9b6bb5',  // purple    (P05)
+  '#c8b84a',  // yellow    (P06)
+  '#3aada8',  // teal      (P07) — distinct from blue/green
+  '#c0583a',  // rust-red  (P08) — distinct from orange/pink
+  '#8a6a3e',  // brown-tan (P09) — distinct from yellow/purple
+  '#7ab83a',  // lime      (P10) — distinct from teal/rust
+];
 function initPieceColors(state) {
   // Collect all movable shape IDs from bank + grid
   const ids = new Set();
@@ -191,7 +208,11 @@ function renderGrid(state) {
       cell.setAttribute('data-col', c);
 
       const content = state.grid[r][c];
-      if (content === null) {
+      if (content?.inactive) {
+        cell.classList.add('inactive');
+        gameGrid.appendChild(cell);
+        continue;  // skip mousemove + click listeners entirely
+      } else if (content === null) {
         cell.classList.add('empty');
       } else if (content.movable === false) {
         // Anchor cell — pre-placed, non-interactive (PUZZ-02)
@@ -206,13 +227,30 @@ function renderGrid(state) {
         cell.style.color = '#fff';
       }
 
-      // Mousemove: show ghost preview when piece is selected
+      // Mousemove: track position for ghost re-render after rotation + show ghost if piece selected
       cell.addEventListener('mousemove', () => {
+        lastHoveredRow = r;
+        lastHoveredCol = c;
         if (selectedShapeId) updateGhostPreview(r, c);
       });
 
-      // Click: place selected piece, or return placed piece if none selected
+      // Click: start 300ms timer; double-click cancels it via clearTimeout before it fires
       cell.addEventListener('click', () => {
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => {
+          // Single-click rotate — guard: do nothing if no piece selected (CTRL-01)
+          if (!selectedShapeId) return;
+          selectedRotation = (selectedRotation + 90) % 360;
+          updateBankSelection();  // CTRL-04: bank mini-grid reflects new rotation
+          if (lastHoveredRow !== null && lastHoveredCol !== null) {
+            updateGhostPreview(lastHoveredRow, lastHoveredCol);  // CTRL-03: ghost reflects new rotation
+          }
+        }, DBLCLICK_DELAY);
+      });
+
+      // Double-click: cancel pending rotate, then place or return (CTRL-02)
+      cell.addEventListener('dblclick', () => {
+        clearTimeout(clickTimer);  // MUST be first — cancels rotate from click event
         if (selectedShapeId) {
           socket.emit('game:move', {
             action: 'place',
@@ -256,12 +294,15 @@ function renderBank(state) {
     const label = document.createElement('span');
     label.textContent = shape.id;
     pieceEl.appendChild(label);
-    // Selection: click once to select; click again to rotate +90°
+    // Selection: click to select (reset rotation to 0°); click same piece again to deselect
     pieceEl.addEventListener('click', () => {
       if (!amIActive) return;
       if (selectedShapeId === shape.id) {
-        selectedRotation = (selectedRotation + 90) % 360;
+        // Deselect
+        selectedShapeId = null;
+        selectedRotation = 0;
       } else {
+        // Select — always reset rotation to 0 on bank selection
         selectedShapeId = shape.id;
         selectedRotation = 0;
       }
@@ -271,7 +312,7 @@ function renderBank(state) {
   });
 }
 
-function buildMiniGrid(cells, color, cellSize = 12) {
+function buildMiniGrid(cells, color, cellSize = 8) {
   const maxR = Math.max(...cells.map(([r]) => r));
   const maxC = Math.max(...cells.map(([, c]) => c));
   const container = document.createElement('div');
@@ -279,12 +320,14 @@ function buildMiniGrid(cells, color, cellSize = 12) {
   container.style.gridTemplateColumns = `repeat(${maxC + 1}, ${cellSize}px)`;
   container.style.gridTemplateRows = `repeat(${maxR + 1}, ${cellSize}px)`;
   container.style.gap = '1px';
+  container.style.pointerEvents = 'none';
   for (let r = 0; r <= maxR; r++) {
     for (let c = 0; c <= maxC; c++) {
       const cell = document.createElement('div');
       cell.style.width = `${cellSize}px`;
       cell.style.height = `${cellSize}px`;
       cell.style.borderRadius = '2px';
+      cell.style.pointerEvents = 'none';
       const filled = cells.some(([dr, dc]) => dr === r && dc === c);
       cell.style.background = filled ? color : 'transparent';
       container.appendChild(cell);
@@ -392,7 +435,11 @@ function updateGhostPreview(originRow, originCol) {
 }
 
 // Clear ghost when cursor leaves the grid
-gameGrid.addEventListener('mouseleave', () => clearGhostPreview());
+gameGrid.addEventListener('mouseleave', () => {
+  clearGhostPreview();
+  lastHoveredRow = null;
+  lastHoveredCol = null;
+});
 
 // Deselect piece when clicking outside the grid and bank
 document.addEventListener('click', (e) => {
