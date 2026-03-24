@@ -68,6 +68,10 @@ v1.1 decisions locked by research:
 - [Phase 06-client-grid-rendering]: pointer-events: none on .grid-cell.inactive satisfies GRID-05 and GRID-06 in a single CSS property without JS event handler changes
 - [Phase 06-client-grid-rendering]: buildMiniGrid pointer-events: none added to container and cells — cursor piece was intercepting bank clicks (auto-fix)
 
+### Roadmap Evolution
+
+- Phase 8 added: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
+
 ### Pending Todos
 
 None.

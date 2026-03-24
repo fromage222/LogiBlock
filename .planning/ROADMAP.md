@@ -97,3 +97,13 @@ Plans:
 | 5. Server Logic Fixes | v1.1 | 1/1 | Complete | 2026-03-19 |
 | 6. Client Grid Rendering | v1.1 | 1/1 | Complete — human verified | 2026-03-19 |
 | 7. New Interaction Model | v1.1 | 0/2 | Not started | - |
+
+### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 8 to break down)
