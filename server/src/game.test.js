@@ -20,6 +20,8 @@ const {
   buildInitialGrid,
   getPuzzleById,
   setSelectedPuzzle,
+  setRandomMode,
+  triggerRandomEvent,
 } = require('./game');
 
 // ─── One-time setup: load puzzles before any test runs ────────────────────────
@@ -680,5 +682,146 @@ describe('placePiece — inactive cell rejection (puzzle_v11)', () => {
     const lobby = makeLobbyV11('V11-PLACE-INTACT');
     placePiece(lobby, 'P01', 0, 4, 0);
     assert.deepEqual(lobby.grid[4][0], { inactive: true });
+  });
+});
+
+// ─── setRandomMode and triggerRandomEvent ─────────────────────────────────────
+
+describe('createLobby + randomModeEnabled init', () => {
+  it('createLobby initializes randomModeEnabled: false', () => {
+    lobbies.delete('RTEST');
+    createLobby('RTEST', 'host-socket', 'Alice');
+    const lobby = lobbies.get('RTEST');
+    assert.strictEqual(lobby.randomModeEnabled, false);
+  });
+});
+
+describe('setRandomMode', () => {
+  it('sets randomModeEnabled to true', () => {
+    lobbies.delete('RM01');
+    createLobby('RM01', 'host-socket', 'Alice');
+    const result = setRandomMode('RM01', true);
+    assert.strictEqual(result, true);
+    assert.strictEqual(lobbies.get('RM01').randomModeEnabled, true);
+  });
+
+  it('sets randomModeEnabled to false', () => {
+    lobbies.delete('RM02');
+    createLobby('RM02', 'host-socket', 'Alice');
+    setRandomMode('RM02', true);
+    const result = setRandomMode('RM02', false);
+    assert.strictEqual(result, true);
+    assert.strictEqual(lobbies.get('RM02').randomModeEnabled, false);
+  });
+
+  it('returns false for unknown room', () => {
+    const result = setRandomMode('NONEXISTENT_ROOM_CODE', true);
+    assert.strictEqual(result, false);
+  });
+});
+
+describe('getPublicState includes randomMode', () => {
+  it('randomMode is false by default', () => {
+    lobbies.delete('GPS-RM01');
+    createLobby('GPS-RM01', 'host-socket', 'Alice');
+    const state = getPublicState('GPS-RM01');
+    assert.strictEqual(state.randomMode, false);
+  });
+
+  it('randomMode is true after setRandomMode(true)', () => {
+    lobbies.delete('GPS-RM02');
+    createLobby('GPS-RM02', 'host-socket', 'Alice');
+    setRandomMode('GPS-RM02', true);
+    const state = getPublicState('GPS-RM02');
+    assert.strictEqual(state.randomMode, true);
+  });
+});
+
+describe('triggerRandomEvent - remove_piece', () => {
+  it('returns { type: "remove_piece", description: string } and removes piece from grid', () => {
+    const lobby = makeLobbyV11('TRE-RP01');
+    // Place a movable piece (P01) on the grid
+    const placeResult = placePiece(lobby, 'P01', 0, 0, 0);
+    assert.strictEqual(placeResult.ok, true, 'placePiece should succeed');
+    // Confirm P01 is on the grid (movable)
+    const hasP01Before = lobby.grid.some(row => row.some(cell => cell && cell.movable && cell.shapeId === 'P01'));
+    assert.strictEqual(hasP01Before, true, 'P01 should be on grid before trigger');
+    // Trigger remove_piece event
+    const result = triggerRandomEvent(lobby, 'remove_piece');
+    assert.ok(result !== null, 'should not return null when movable pieces exist');
+    assert.strictEqual(result.type, 'remove_piece');
+    assert.strictEqual(typeof result.description, 'string');
+    assert.ok(result.description.length > 0);
+    // Piece should be gone from grid
+    const hasP01After = lobby.grid.some(row => row.some(cell => cell && cell.movable && cell.shapeId === 'P01'));
+    assert.strictEqual(hasP01After, false, 'P01 should be removed from grid after event');
+  });
+
+  it('returns null when no movable pieces are placed on the grid', () => {
+    const lobby = makeLobbyV11('TRE-RP02');
+    // No movable pieces placed — only anchor pieces exist (not movable)
+    const result = triggerRandomEvent(lobby, 'remove_piece');
+    assert.strictEqual(result, null);
+  });
+});
+
+describe('triggerRandomEvent - skip_turn', () => {
+  it('returns { type: "skip_turn", description: string } and advances turn index extra step', () => {
+    const lobby = makeLobbyV11('TRE-ST01');
+    // lobby has 2 players; activeTurnIndex starts at 0
+    const beforeIndex = lobby.activeTurnIndex;
+    const result = triggerRandomEvent(lobby, 'skip_turn');
+    assert.ok(result !== null, 'should not return null with 2 players');
+    assert.strictEqual(result.type, 'skip_turn');
+    assert.strictEqual(typeof result.description, 'string');
+    assert.ok(result.description.length > 0);
+    // triggerRandomEvent(skip_turn) calls advanceTurn once extra inside
+    // so after the event, index should be 1 step further than beforeIndex+1
+    // Actually: advanceTurn is called inside triggerRandomEvent, so index = (beforeIndex + 1) % 2 = 1
+    assert.strictEqual(lobby.activeTurnIndex, (beforeIndex + 1) % lobby.players.length);
+  });
+
+  it('returns null when only 1 player', () => {
+    lobbies.delete('TRE-ST02');
+    createLobby('TRE-ST02', 'host-socket', 'SoloAlice');
+    addPlayer('TRE-ST02', 'p2-socket', 'Bob');
+    setSelectedPuzzle('TRE-ST02', 'puzzle_v11');
+    const startResult = startGame('TRE-ST02');
+    assert.strictEqual(startResult.ok, true);
+    const lobby = lobbies.get('TRE-ST02');
+    // Reduce to 1 player for the test
+    lobby.players = [lobby.players[0]];
+    const result = triggerRandomEvent(lobby, 'skip_turn');
+    assert.strictEqual(result, null);
+  });
+});
+
+describe('triggerRandomEvent - shuffle_order', () => {
+  it('returns { type: "shuffle_order", description: string } and resets activeTurnIndex to 0', () => {
+    const lobby = makeLobbyV11('TRE-SO01');
+    // Set activeTurnIndex to something non-zero to verify reset
+    lobby.activeTurnIndex = 1;
+    const result = triggerRandomEvent(lobby, 'shuffle_order');
+    assert.ok(result !== null, 'shuffle_order should never return null');
+    assert.strictEqual(result.type, 'shuffle_order');
+    assert.strictEqual(typeof result.description, 'string');
+    assert.ok(result.description.length > 0);
+    assert.strictEqual(lobby.activeTurnIndex, 0, 'activeTurnIndex must be reset to 0 after shuffle');
+  });
+});
+
+describe('triggerRandomEvent - rotate_piece', () => {
+  it('returns { type: "rotate_piece", description: string } without mutating state', () => {
+    const lobby = makeLobbyV11('TRE-ROT01');
+    const indexBefore = lobby.activeTurnIndex;
+    const playersBefore = JSON.stringify(lobby.players);
+    const result = triggerRandomEvent(lobby, 'rotate_piece');
+    assert.ok(result !== null, 'rotate_piece should never return null');
+    assert.strictEqual(result.type, 'rotate_piece');
+    assert.strictEqual(typeof result.description, 'string');
+    assert.ok(result.description.length > 0);
+    // State must not change
+    assert.strictEqual(lobby.activeTurnIndex, indexBefore, 'activeTurnIndex must not change');
+    assert.strictEqual(JSON.stringify(lobby.players), playersBefore, 'players must not change');
   });
 });
