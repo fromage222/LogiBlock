@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Grid & Pieces Redesign
 status: verifying
-stopped_at: Phase 9 context gathered
-last_updated: "2026-03-24T20:31:31.612Z"
+stopped_at: Completed 09-random-mode 09-01-PLAN.md
+last_updated: "2026-03-24T20:53:02.442Z"
 last_activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 13
+  completed_plans: 10
   percent: 100
 ---
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100% (Phase 8 complete)
 | Phase 08-erstes-richtiges-level-bauen P01 | 2 | 2 tasks | 2 files |
 | Phase 08-erstes-richtiges-level-bauen P02 | 1min | 1 tasks | 1 files |
 | Phase 08-erstes-richtiges-level-bauen P03 | ~30min | 1 tasks | 3 files |
+| Phase 09-random-mode P01 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,7 @@ v1.1 decisions locked by research:
 - [08-03]: Ghost preview uses pivot-offset centering so floating piece and ghost both track cursor center, not top-left corner
 - [08-03]: Anchor cells must not have pointer-events: none — hover/ghost requires events to pass through to grid handlers
 - [08-03]: puzzle_v11.json gets difficulty: medium so Corner Cut appears in lobby; consistent with 08-01 filtering convention
+- [Phase 09-random-mode]: triggerRandomEvent _forceEventType optional param for test overrides — avoids Math.random stubbing; rotate_piece never returns null server-side; skip_turn null for 1 player; remove_piece null if no movable pieces; shuffle_order always fires
 
 ### Roadmap Evolution
 
@@ -96,6 +98,6 @@ None — Phase 8 complete. Level 1 fully playable end-to-end: lobby filtering, a
 
 ## Session Continuity
 
-Last session: 2026-03-24T20:31:31.603Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-random-mode/09-CONTEXT.md
+Last session: 2026-03-24T20:53:02.439Z
+Stopped at: Completed 09-random-mode 09-01-PLAN.md
+Resume file: None
