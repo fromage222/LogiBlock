@@ -366,6 +366,28 @@ describe('lobby:randomMode handler', () => {
 });
 
 // ─── game:move randomMode:event trigger tests ─────────────────────────────────
+//
+// Uses puzzle_01 (L-Maze: shapes A anchor, B movable, C movable, 4x4 grid)
+// because it has a simple win scenario and predictable shape IDs.
+// makePlayingLobby uses the default puzzle (level_01 with difficulty), so we
+// build a dedicated helper that forces puzzle_01 for these integration tests.
+
+/**
+ * Create a playing lobby using puzzle_01 (L-Maze) which has shapes A, B, C.
+ * Puzzle_01 has no difficulty so it won't conflict with the default lobby puzzle.
+ * Solution: A at position, B at (0,1), C at (1,1).
+ */
+function makeRandomModeLobby(roomCode) {
+  const { setSelectedPuzzle } = require('./game');
+  lobbies.delete(roomCode);
+  createLobby(roomCode, 'host-socket', 'Alice');
+  addPlayer(roomCode, 'p2-socket', 'Bob');
+  // Override puzzle to puzzle_01 before starting (host can change puzzle)
+  setSelectedPuzzle(roomCode, 'puzzle_01');
+  const result = startGame(roomCode);
+  if (!result.ok) throw new Error('startGame failed in makeRandomModeLobby: ' + result.error);
+  return lobbies.get(roomCode);
+}
 
 describe('game:move randomMode:event trigger', () => {
   let origRandom;
@@ -380,20 +402,17 @@ describe('game:move randomMode:event trigger', () => {
 
   it('non-winning place with randomModeEnabled=true emits randomMode:event before game:stateUpdate', () => {
     const roomCode = 'SRM03';
-    const lobby = makePlayingLobby(roomCode);
-    lobby.activeTurnIndex = 0;
+    makeRandomModeLobby(roomCode);
     setRandomMode(roomCode, true);
 
     // Stub Math.random: 0.05 is < 0.30 (event fires) and < 0.35 (picks rotate_piece)
     origRandom = Math.random;
     Math.random = () => 0.05;
 
-    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
-    // Track emission order
+    // Track emission order via a custom io wrapper
+    const emitted = { room: {}, socket: {} };
     const emitOrder = [];
-    const origRoomEmit = emitted.room;
 
-    // Intercept room emissions to track ordering — rebuild io with ordering tracking
     const ioWithOrder = {
       to: (code) => ({
         emit: (event, payload) => {
@@ -408,7 +427,7 @@ describe('game:move randomMode:event trigger', () => {
         emitted.room[event].push({ code: '*', payload });
       },
     };
-    // Re-register with order-tracking io
+
     const socket2 = {
       id: 'host-socket',
       data: { roomCode, playerName: 'Alice' },
@@ -424,9 +443,10 @@ describe('game:move randomMode:event trigger', () => {
       _handlers: {},
       to: () => ({ emit: () => {} }),
     };
-    const registerSocketHandlers = require('./socket');
     registerSocketHandlers(ioWithOrder, socket2, new Map());
 
+    // B cells: [[0,0],[0,1],[1,1]] — place at originRow=0, originCol=1
+    // This fills (0,1),(0,2),(1,2) — valid non-winning placement in puzzle_01
     trigger(socket2, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
 
     assert.ok(emitted.room['randomMode:event'], 'randomMode:event should be emitted');
@@ -444,7 +464,7 @@ describe('game:move randomMode:event trigger', () => {
 
   it('winning move with randomModeEnabled=true does NOT emit randomMode:event', () => {
     const roomCode = 'SRM04';
-    const lobby = makePlayingLobby(roomCode);
+    const lobby = makeRandomModeLobby(roomCode);
     lobby.activeTurnIndex = 0;
     setRandomMode(roomCode, true);
 
@@ -453,13 +473,14 @@ describe('game:move randomMode:event trigger', () => {
     Math.random = () => 0.05;
 
     // Pre-place B so that placing C wins the game
+    // puzzle_01 solution: A at anchor, B at (0,1), C at (1,1)
     const { placePiece } = require('./game');
     placePiece(lobby, 'B', 0, 0, 1);
     lobby.activeTurnIndex = 0; // still Alice's turn
 
     const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-    // Place C to trigger win
+    // Place C to trigger win (C cells [[0,0],[1,0],[1,1]] at originRow=1, originCol=1)
     trigger(socket, 'game:move', { action: 'place', shapeId: 'C', rotation: 0, originRow: 1, originCol: 1 });
 
     assert.ok(emitted.room['game:win'], 'game:win should be emitted');
@@ -468,7 +489,7 @@ describe('game:move randomMode:event trigger', () => {
 
   it('return action with randomModeEnabled=true does NOT emit randomMode:event', () => {
     const roomCode = 'SRM05';
-    const lobby = makePlayingLobby(roomCode);
+    const lobby = makeRandomModeLobby(roomCode);
     lobby.activeTurnIndex = 0;
     setRandomMode(roomCode, true);
 
@@ -491,8 +512,7 @@ describe('game:move randomMode:event trigger', () => {
 
   it('non-winning place with randomModeEnabled=false does NOT emit randomMode:event', () => {
     const roomCode = 'SRM06';
-    const lobby = makePlayingLobby(roomCode);
-    lobby.activeTurnIndex = 0;
+    makeRandomModeLobby(roomCode);
     // randomModeEnabled defaults to false — do not set it
 
     // Stub Math.random so probability would fire if checked
