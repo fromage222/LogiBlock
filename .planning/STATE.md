@@ -4,10 +4,10 @@ milestone: v1.1
 milestone_name: Grid & Pieces Redesign
 status: verifying
 stopped_at: Phase 9 context gathered
-last_updated: "2026-03-24T14:08:24.548Z"
+last_updated: "2026-03-24T20:04:07.247Z"
 last_activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
 progress:
-  total_phases: 6
+  total_phases: 5
   completed_phases: 5
   total_plans: 9
   completed_plans: 9
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 ## Current Position
 
-Phase: 8 of 8 (Erstes richtiges Level bauen)
+Phase: 8 of 7 (Erstes richtiges Level bauen)
 Plan: 3 of 3 complete
 Status: Complete — Phase 8 fully verified and closed
 Last activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
