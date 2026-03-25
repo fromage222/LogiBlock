@@ -181,6 +181,18 @@ function renderLobbyUpdate(state) {
     if (state.selectedPuzzleId && puzzleSelect.options.length > 0) {
       puzzleSelect.value = state.selectedPuzzleId;
     }
+    // Sync random mode toggle and wire input listener once
+    const randomToggle = document.getElementById('random-mode-toggle');
+    if (randomToggle) {
+      randomToggle.value = state.randomMode ? 1 : 0;
+      if (!randomToggle._randomModeWired) {
+        randomToggle._randomModeWired = true;
+        randomToggle.addEventListener('input', () => {
+          if (!amIHost) return;
+          socket.emit('lobby:randomMode', { enabled: randomToggle.value === '1' });
+        });
+      }
+    }
   } else {
     hostControls.style.display = 'none';
     waitingMsg.style.display = 'block';
@@ -194,6 +206,17 @@ function renderLobbyUpdate(state) {
         : state.selectedPuzzleName;
       selectedPuzzleDisplay.textContent = `Ausgewähltes Puzzle: ${displayName}`;
       selectedPuzzleDisplay.style.display = 'block';
+    }
+    // Show random mode status to non-hosts
+    const randomDisplay = document.getElementById('random-mode-display');
+    if (randomDisplay) {
+      if (state.randomMode) {
+        randomDisplay.textContent = 'Chaos-Modus: Aktiv';
+        randomDisplay.style.display = 'block';
+      } else {
+        randomDisplay.textContent = '';
+        randomDisplay.style.display = 'none';
+      }
     }
   }
 }
@@ -556,6 +579,11 @@ function showGameError(message) {
   el.textContent = `Move rejected: ${message}`;
   setTimeout(() => { el.textContent = ''; }, 3500);
 }
+function showGameNotification(message) {
+  const el = ensureGameNotification();
+  el.textContent = message;
+  setTimeout(() => { el.textContent = ''; }, 3000);
+}
 
 // ─── Leaderboard render ────────────────────────────────────────────────────
 function renderLeaderboard(entries) {
@@ -644,6 +672,22 @@ socket.on('game:stateUpdate', (state) => {
 
 socket.on('game:error', (message) => {
   showGameError(message);
+});
+
+socket.on('randomMode:event', ({ type, description } = {}) => {
+  showGameNotification(description);
+
+  if (type === 'rotate_piece') {
+    setTimeout(() => {
+      if (selectedShapeId !== null) {
+        selectedRotation = (selectedRotation + 90) % 360;
+        updateBankSelection();
+        if (lastHoveredRow !== null && lastHoveredCol !== null) {
+          updateGhostPreview(lastHoveredRow, lastHoveredCol);
+        }
+      }
+    }, 1200);
+  }
 });
 
 // Game won — render final state and show win overlay

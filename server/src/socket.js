@@ -17,6 +17,9 @@ const {
   // NEW from Plan 03-01:
   recordLeaderboardEntry,
   getLeaderboard,
+  // NEW from Plan 09-03 (Random Mode socket layer):
+  setRandomMode,
+  triggerRandomEvent,
 } = require('./game');
 
 /**
@@ -110,6 +113,24 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
   });
 
+  // ── lobby:randomMode ───────────────────────────────────────────────────────
+  // Client emits: { enabled: bool }  (host only)
+  // Server responds:
+  //   socket.emit('room:error', message)               — if not host
+  //   io.to(roomCode).emit('lobby:update', state)      — to all on success
+  socket.on('lobby:randomMode', ({ enabled } = {}) => {
+    const roomCode = socket.data.roomCode;
+    if (!roomCode) return;
+    const lobby = getLobby(roomCode);
+    if (!lobby) return;
+    if (lobby.hostId !== socket.id) {
+      return socket.emit('room:error', 'Only the host can change random mode');
+    }
+    if (lobby.phase !== 'lobby') return;
+    setRandomMode(roomCode, !!enabled);
+    io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
+  });
+
   // ── startGame ──────────────────────────────────────────────────────────────
   // Client emits: {}  (host only; requires >=2 players)
   // Server responds:
@@ -173,6 +194,14 @@ function registerSocketHandlers(io, socket, puzzleMap) {
         io.emit('leaderboard:update', getLeaderboard()); // TIME-04: broadcast to ALL sockets
       } else {
         advanceTurn(lobby);
+        // Random Mode: 30% chance of chaos event after each successful place (CONTEXT.md locked)
+        if (lobby.randomModeEnabled && Math.random() < 0.30) {
+          const event = triggerRandomEvent(lobby);
+          if (event) {
+            // Broadcast event BEFORE stateUpdate so clients see description before grid change
+            io.to(roomCode).emit('randomMode:event', event);
+          }
+        }
         io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
       }
     } else if (action === 'return') {

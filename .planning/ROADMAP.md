@@ -2,17 +2,17 @@
 
 ## Milestones
 
-- ✅ **v1.0 LogiBlock MVP** — Phases 1-3 (shipped 2026-03-10)
+- ✅ **v1.0 LogiBlock MVP** — Phases 1-3 (shipped 2009-03-10)
 - 🚧 **v1.1 Grid & Pieces Redesign** — Phases 4-7 (in progress)
 
 ## Phases
 
 <details>
-<summary>✅ v1.0 LogiBlock MVP (Phases 1-3) — SHIPPED 2026-03-10</summary>
+<summary>✅ v1.0 LogiBlock MVP (Phases 1-3) — SHIPPED 2009-03-10</summary>
 
-- [x] Phase 1: Foundation (3/3 plans) — completed 2026-03-05
-- [x] Phase 2: Game Loop (5/5 plans) — completed 2026-03-05 (human verified)
-- [x] Phase 3: Timer und Leaderboard (3/3 plans) — completed 2026-03-10 (human verified)
+- [x] Phase 1: Foundation (3/3 plans) — completed 2009-03-05
+- [x] Phase 2: Game Loop (5/5 plans) — completed 2009-03-05 (human verified)
+- [x] Phase 3: Timer und Leaderboard (3/3 plans) — completed 2009-03-10 (human verified)
 
 Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
@@ -24,7 +24,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 - [x] **Phase 4: Schema and Server Data Model** - Introduce the irregular grid sentinel and new puzzle JSON; lock the foundational data model all other phases depend on
 - [x] **Phase 5: Server Logic Fixes** - Propagate the sentinel to win detection and placement rejection so the game plays correctly on the irregular grid
-- [x] **Phase 6: Client Grid Rendering** - Render inactive cells as visual gaps and extend the color palette to 10 pieces (completed 2026-03-19)
+- [x] **Phase 6: Client Grid Rendering** - Render inactive cells as visual gaps and extend the color palette to 10 pieces (completed 2009-03-19)
 - [ ] **Phase 7: New Interaction Model** - Replace click-to-place with single-click rotation and double-click placement
 
 ## Phase Details
@@ -90,12 +90,12 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Foundation | v1.0 | 3/3 | Complete | 2026-03-05 |
-| 2. Game Loop | v1.0 | 5/5 | Complete — human verified | 2026-03-05 |
-| 3. Timer und Leaderboard | v1.0 | 3/3 | Complete — human verified | 2026-03-10 |
-| 4. Schema and Server Data Model | v1.1 | 2/2 | Complete — human verified | 2026-03-16 |
-| 5. Server Logic Fixes | v1.1 | 1/1 | Complete | 2026-03-19 |
-| 6. Client Grid Rendering | v1.1 | 1/1 | Complete — human verified | 2026-03-19 |
+| 1. Foundation | v1.0 | 3/3 | Complete | 2009-03-05 |
+| 2. Game Loop | v1.0 | 5/5 | Complete — human verified | 2009-03-05 |
+| 3. Timer und Leaderboard | v1.0 | 3/3 | Complete — human verified | 2009-03-10 |
+| 4. Schema and Server Data Model | v1.1 | 2/2 | Complete — human verified | 2009-03-16 |
+| 5. Server Logic Fixes | v1.1 | 1/1 | Complete | 2009-03-19 |
+| 6. Client Grid Rendering | v1.1 | 1/1 | Complete — human verified | 2009-03-19 |
 | 7. New Interaction Model | v1.1 | 0/2 | Not started | - |
 
 ### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
@@ -109,3 +109,16 @@ Plans:
 - [ ] 08-01-PLAN.md — Create `puzzles/level_01.json` and make four surgical server edits (filter by difficulty, default lobby selection, expose difficulty in public state, validate difficulty type)
 - [ ] 08-02-PLAN.md — Client changes: DIFFICULTY_LABELS constant, puzzle:list dropdown "Name — Einfach" format, non-host lobby display
 - [ ] 08-03-PLAN.md — Human verification: lobby puzzle selection (5 scenarios) and gameplay end-to-end
+
+### Phase 9: Random Mode
+
+**Goal:** Add a host-controlled "Chaos-Modus" lobby toggle; after each successful piece placement (30% chance), a random disruptive event fires: remove a placed piece, rotate the active player's held piece, skip the active player's turn, or shuffle turn order. All event logic is server-side.
+**Requirements**: TBD (new feature outside v1.1 scope)
+**Depends on:** Phase 8
+**Plans:** 3/4 plans executed
+
+Plans:
+- [ ] 09-01-PLAN.md — TDD: extend game.js with setRandomMode, triggerRandomEvent (4 event types + edge cases), createLobby/getPublicState extensions
+- [ ] 09-02-PLAN.md — Client: lobby slider toggle in index.html + style.css; randomMode:event handler + showGameNotification in main.js
+- [ ] 09-03-PLAN.md — TDD: socket.js lobby:randomMode handler + game:move place branch event trigger; socket integration tests
+- [ ] 09-04-PLAN.md — Human verification: lobby toggle (2 scenarios), in-game events (5 scenarios)

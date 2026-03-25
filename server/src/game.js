@@ -37,6 +37,7 @@ function createLobby(roomCode, hostSocketId, hostName) {
     phase: 'lobby',
     players: [{ socketId: hostSocketId, name: hostName, isHost: true }],
     grid: null,
+    randomModeEnabled: false,
   });
 }
 
@@ -208,6 +209,7 @@ function getPublicState(roomCode) {
     activePlayerName: activePlayer ? activePlayer.name : null,
     activeTurnIndex,
     bankShapes,
+    randomMode: lobby.randomModeEnabled ?? false,
     // solution: intentionally NEVER included — GAME-06 invariant
   };
 }
@@ -364,6 +366,84 @@ function setSelectedPuzzle(roomCode, puzzleId) {
   return true;
 }
 
+function setRandomMode(roomCode, enabled) {
+  const lobby = lobbies.get(roomCode);
+  if (!lobby) return false;
+  lobby.randomModeEnabled = !!enabled;
+  return true;
+}
+
+// ─── Random event helpers (private) ──────────────────────────────────────────
+
+function pickRandomEvent() {
+  const r = Math.random();
+  if (r < 0.30) return 'rotate_piece';
+  if (r < 0.60) return 'skip_turn';
+  if (r < 0.80) return 'remove_piece';
+  return 'shuffle_order';
+}
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// ─── Random event dispatcher (RAND-01) ───────────────────────────────────────
+// _forceEventType is only for test overrides; production calls pass one arg.
+
+function triggerRandomEvent(lobby, _forceEventType) {
+  const eventType = _forceEventType ?? pickRandomEvent();
+  const activePlayerName = lobby.players[lobby.activeTurnIndex]?.name ?? 'Unbekannt';
+
+  if (eventType === 'rotate_piece') {
+    return {
+      type: 'rotate_piece',
+      description: `Chaos! ${activePlayerName}'s Stein wurde rotiert!`,
+    };
+  }
+
+  if (eventType === 'skip_turn') {
+    if (lobby.players.length <= 1) return null;
+    advanceTurn(lobby);
+    return {
+      type: 'skip_turn',
+      description: `Chaos! ${activePlayerName} verliert seinen Zug!`,
+    };
+  }
+
+  if (eventType === 'remove_piece') {
+    const { rows, cols } = getPuzzleById(lobby.selectedPuzzleId)?.gridSize ?? { rows: 0, cols: 0 };
+    const movableShapeIds = new Set();
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = lobby.grid[r][c];
+        if (cell && cell.movable === true) movableShapeIds.add(cell.shapeId);
+      }
+    }
+    if (movableShapeIds.size === 0) return null;
+    const ids = Array.from(movableShapeIds);
+    const shapeId = ids[Math.floor(Math.random() * ids.length)];
+    returnPiece(lobby, shapeId);
+    return {
+      type: 'remove_piece',
+      description: `Chaos! ${shapeId} wurde vom Spielfeld entfernt!`,
+    };
+  }
+
+  if (eventType === 'shuffle_order') {
+    shuffleArray(lobby.players);
+    lobby.activeTurnIndex = 0;
+    return {
+      type: 'shuffle_order',
+      description: 'Chaos! Die Spielerreihenfolge wurde durchgemischt!',
+    };
+  }
+
+  return null;
+}
+
 function startGame(roomCode) {
   const lobby = lobbies.get(roomCode);
   if (!lobby) return { ok: false, error: 'Room not found' };
@@ -457,4 +537,7 @@ module.exports = {
   // Phase 3 exports:
   recordLeaderboardEntry,
   getLeaderboard,
+  // Phase 9 exports (Random Mode):
+  setRandomMode,
+  triggerRandomEvent,
 };

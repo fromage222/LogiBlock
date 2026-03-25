@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Grid & Pieces Redesign
 status: verifying
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-03-24T09:49:35.995Z"
+stopped_at: Completed 09-random-mode 09-03-PLAN.md
+last_updated: "2026-03-25T08:34:55.585Z"
 last_activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 13
+  completed_plans: 13
   percent: 100
 ---
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 ## Current Position
 
-Phase: 8 of 8 (Erstes richtiges Level bauen)
+Phase: 8 of 7 (Erstes richtiges Level bauen)
 Plan: 3 of 3 complete
 Status: Complete — Phase 8 fully verified and closed
 Last activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
@@ -54,6 +54,9 @@ Progress: [██████████] 100% (Phase 8 complete)
 | Phase 08-erstes-richtiges-level-bauen P01 | 2 | 2 tasks | 2 files |
 | Phase 08-erstes-richtiges-level-bauen P02 | 1min | 1 tasks | 1 files |
 | Phase 08-erstes-richtiges-level-bauen P03 | ~30min | 1 tasks | 3 files |
+| Phase 09-random-mode P01 | 2min | 2 tasks | 2 files |
+| Phase 09-random-mode P02 | 2min | 2 tasks | 3 files |
+| Phase 09-random-mode P03 | 10min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -80,10 +83,16 @@ v1.1 decisions locked by research:
 - [08-03]: Ghost preview uses pivot-offset centering so floating piece and ghost both track cursor center, not top-left corner
 - [08-03]: Anchor cells must not have pointer-events: none — hover/ghost requires events to pass through to grid handlers
 - [08-03]: puzzle_v11.json gets difficulty: medium so Corner Cut appears in lobby; consistent with 08-01 filtering convention
+- [Phase 09-random-mode]: triggerRandomEvent _forceEventType optional param for test overrides — avoids Math.random stubbing; rotate_piece never returns null server-side; skip_turn null for 1 player; remove_piece null if no movable pieces; shuffle_order always fires
+- [Phase 09-random-mode]: Toggle wired once via _randomModeWired property on DOM element — prevents duplicate listeners on repeated lobby:update events
+- [Phase 09-random-mode]: randomMode:event rotate_piece guard requires selectedShapeId !== null — prevents rotation state drift when no piece selected (RESEARCH.md Pitfall 1)
+- [Phase 09-random-mode]: makeRandomModeLobby helper uses puzzle_01 (A/B/C shapes) because default lobby puzzle is level_01 (P01-P10 shapes) — test isolation without changing lobby creation logic
+- [Phase 09-random-mode]: 30% Math.random gate lives in socket.js (not game.js) — socket layer owns the probability policy, game.js owns the event execution logic
 
 ### Roadmap Evolution
 
 - Phase 8 added: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
+- Phase 9 added: Random Mode
 
 ### Pending Todos
 
@@ -95,6 +104,6 @@ None — Phase 8 complete. Level 1 fully playable end-to-end: lobby filtering, a
 
 ## Session Continuity
 
-Last session: 2026-03-24T00:00:00.000Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-03-24T21:09:24.675Z
+Stopped at: Completed 09-random-mode 09-03-PLAN.md
 Resume file: None
