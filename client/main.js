@@ -677,12 +677,16 @@ socket.on('game:error', (message) => {
 socket.on('randomMode:event', ({ type, description } = {}) => {
   showGameNotification(description);
 
-  if (type === 'rotate_piece' && selectedShapeId !== null) {
-    selectedRotation = (selectedRotation + 90) % 360;
-    updateBankSelection();
-    if (lastHoveredRow !== null && lastHoveredCol !== null) {
-      updateGhostPreview(lastHoveredRow, lastHoveredCol);
-    }
+  if (type === 'rotate_piece') {
+    setTimeout(() => {
+      if (selectedShapeId !== null) {
+        selectedRotation = (selectedRotation + 90) % 360;
+        updateBankSelection();
+        if (lastHoveredRow !== null && lastHoveredCol !== null) {
+          updateGhostPreview(lastHoveredRow, lastHoveredCol);
+        }
+      }
+    }, 1200);
   }
 });
 

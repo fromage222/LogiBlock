@@ -377,9 +377,9 @@ function setRandomMode(roomCode, enabled) {
 
 function pickRandomEvent() {
   const r = Math.random();
-  if (r < 0.35) return 'rotate_piece';
-  if (r < 0.70) return 'skip_turn';
-  if (r < 0.85) return 'remove_piece';
+  if (r < 0.30) return 'rotate_piece';
+  if (r < 0.60) return 'skip_turn';
+  if (r < 0.80) return 'remove_piece';
   return 'shuffle_order';
 }
 
