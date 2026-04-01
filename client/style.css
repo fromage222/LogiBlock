@@ -52,6 +52,9 @@
   --sp-xl:  2rem;
   --sp-2xl: 3rem;
 
+  /* --- Grid cell auto-scale --- */
+  --cell-size: min(calc((100vw - 240px) / 9), 60px);
+
   /* --- Radii --- */
   --r-sm: 4px;
   --r-md: 8px;
@@ -149,7 +152,7 @@ h3 {
 .screen.active { display: block; }
 
 /* Game screen needs more width for grid + bank side-by-side */
-#game-screen { max-width: 960px; text-align: center; }
+#game-screen { max-width: min(calc(100vw - 2rem), 1200px); text-align: center; }
 
 /* ============================================================
    CARD
@@ -438,13 +441,13 @@ button:disabled {
   margin: 1rem auto;
 }
 .grid-cell {
-  width: 40px;
-  height: 40px;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  font-size: calc(var(--cell-size) * 0.22);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
-  font-size: 0.85rem;
   font-weight: 600;
   border-radius: var(--r-sm);
   border: 2px solid transparent;
@@ -536,6 +539,91 @@ button:disabled {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--clr-text-muted);
+}
+
+/* ============================================================
+   ROTATION CONTROLS
+   ============================================================ */
+.rotation-controls {
+  display: flex;
+  gap: var(--sp-sm);
+  justify-content: center;
+  margin-top: var(--sp-sm);
+}
+
+.rotation-controls button {
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--sp-xs) var(--sp-sm);
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 700;
+  background: var(--clr-surface-alt);
+  color: var(--clr-text);
+  border: 2px solid var(--clr-border);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-sm);
+  cursor: pointer;
+  transition: transform var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+}
+
+.rotation-controls button:hover:not(:disabled) {
+  background: var(--clr-primary);
+  color: #fff;
+  transform: translate(-1px, -1px);
+  box-shadow: var(--sh-md);
+}
+
+.rotation-controls button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.rotation-controls button:disabled {
+  background: var(--clr-surface-alt);
+  color: var(--clr-text-faint);
+  box-shadow: var(--sh-xs);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ============================================================
+   PORTRAIT OVERLAY
+   ============================================================ */
+.portrait-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--clr-bg);
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--sp-lg);
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 700;
+  text-align: center;
+  padding: var(--sp-xl);
+  color: var(--clr-text);
+}
+
+@media (orientation: portrait) {
+  .portrait-overlay {
+    display: flex;
+  }
+}
+
+.portrait-overlay__icon {
+  font-size: 3rem;
+  line-height: 1;
+  color: var(--clr-primary);
+}
+
+.portrait-overlay__message {
+  margin: 0;
+  max-width: 280px;
 }
 
 /* ============================================================
@@ -672,7 +760,8 @@ body.dark-mode {
 /* Keep grid and piece bank always in light/original colours */
 body.dark-mode .grid,
 body.dark-mode .piece-bank,
-body.dark-mode .bank-piece {
+body.dark-mode .bank-piece,
+body.dark-mode .rotation-controls button {
   --clr-surface:     #ffffff;
   --clr-surface-alt: #f2ece0;
   --clr-border:      #1c1c1c;
