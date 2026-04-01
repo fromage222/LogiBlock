@@ -76,7 +76,7 @@ Plans:
 **Depends on**: Phase 6
 **Requirements**: CTRL-01, CTRL-02, CTRL-03, CTRL-04
 **Success Criteria** (what must be TRUE):
-  1. A single left-click on any active grid cell rotates the selected piece 90 degrees clockwise (cycling 0°→90°→180°→270°→0°); the piece remains selected after rotation
+  1. A single left-click on any active grid cell rotates the selected piece 90 degrees clockwise (cycling 0->90->180->270->0); the piece remains selected after rotation
   2. A double-click on any active grid cell places the selected piece at that position without applying an extra rotation
   3. After a single-click rotation, the ghost preview on the hovered cell immediately reflects the new orientation
   4. After a single-click rotation, the bank mini-grid for the selected piece immediately reflects the new orientation
@@ -122,3 +122,15 @@ Plans:
 - [ ] 09-02-PLAN.md — Client: lobby slider toggle in index.html + style.css; randomMode:event handler + showGameNotification in main.js
 - [ ] 09-03-PLAN.md — TDD: socket.js lobby:randomMode handler + game:move place branch event trigger; socket integration tests
 - [ ] 09-04-PLAN.md — Human verification: lobby toggle (2 scenarios), in-game events (5 scenarios)
+
+### Phase 10: Steuerung überarbeiten und Tablet Integration
+
+**Goal:** Rework the control model for both desktop and tablet: replace double-click-to-place with single-click-to-place + rotation buttons, add touch drag-to-preview for tablet gameplay, and make the grid auto-scale to available screen space. Landscape tablet (1024x768+) is the tablet target.
+**Requirements**: CTRL-single-click-place, CTRL-return-click, CTRL-rotation-buttons, EXT-01-R-key, TOUCH-drag-preview, TOUCH-ghost-confirm, TOUCH-long-press, CSS-auto-scale, CSS-portrait-overlay
+**Depends on:** Phase 9
+**Plans:** 3 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Desktop interaction refactor + rotation buttons + R key + responsive CSS auto-scaling + portrait overlay
+- [ ] 10-02-PLAN.md — Touch event support: bank drag-to-preview, ghost-stays-on-touchend, long-press return
+- [ ] 10-03-PLAN.md — Human verification of complete interaction model (23 scenarios)
