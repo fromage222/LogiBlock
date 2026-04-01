@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Grid & Pieces Redesign
-status: verifying
-stopped_at: Phase 10 context gathered
-last_updated: "2026-04-01T15:03:24.625Z"
-last_activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
+status: unknown
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-04-01T19:27:00.408Z"
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  total_plans: 16
+  completed_plans: 14
 ---
 
 # Project State
@@ -21,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 6 Plan 01 complete — inactive cell rendering, 10-color palette, 2-column bank panel (GRID-05, GRID-06, PIEC-03)
+**Current focus:** Phase 10 — steuerung-berarbeiten-und-tablet-integration
 
 ## Current Position
 
-Phase: 8 of 7 (Erstes richtiges Level bauen)
-Plan: 3 of 3 complete
-Status: Complete — Phase 8 fully verified and closed
-Last activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
-
-Progress: [██████████] 100% (Phase 8 complete)
+Phase: 10 (steuerung-berarbeiten-und-tablet-integration) — EXECUTING
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -58,6 +52,7 @@ Progress: [██████████] 100% (Phase 8 complete)
 | Phase 09-random-mode P01 | 2min | 2 tasks | 2 files |
 | Phase 09-random-mode P02 | 2min | 2 tasks | 3 files |
 | Phase 09-random-mode P03 | 10min | 2 tasks | 2 files |
+| Phase 10 P01 | 15min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -90,6 +85,9 @@ v1.1 decisions locked by research:
 - [Phase 09-random-mode]: randomMode:event rotate_piece guard requires selectedShapeId !== null — prevents rotation state drift when no piece selected (RESEARCH.md Pitfall 1)
 - [Phase 09-random-mode]: makeRandomModeLobby helper uses puzzle_01 (A/B/C shapes) because default lobby puzzle is level_01 (P01-P10 shapes) — test isolation without changing lobby creation logic
 - [Phase 09-random-mode]: 30% Math.random gate lives in socket.js (not game.js) — socket layer owns the probability policy, game.js owns the event execution logic
+- [Phase 10]: Rotation buttons wired once outside renderGrid to prevent duplicate listeners on re-render; e.stopPropagation() prevents deselect cascade
+- [Phase 10]: Single click handler in renderGrid directly emits game:move (no setTimeout); dblclick/DBLCLICK_DELAY/clickTimer interaction model fully removed
+- [Phase 10]: --cell-size uses min(calc((100vw - 240px) / 9), 60px) so grid fills viewport minus bank width, capped at 60px; #game-screen max-width relaxed to 1200px
 
 ### Roadmap Evolution
 
@@ -107,6 +105,6 @@ None — Phase 8 complete. Level 1 fully playable end-to-end: lobby filtering, a
 
 ## Session Continuity
 
-Last session: 2026-04-01T15:03:24.622Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-steuerung-berarbeiten-und-tablet-integration/10-CONTEXT.md
+Last session: 2026-04-01T19:27:00.405Z
+Stopped at: Completed 10-01-PLAN.md
+Resume file: None
