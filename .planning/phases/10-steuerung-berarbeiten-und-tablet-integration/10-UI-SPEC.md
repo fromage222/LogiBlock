@@ -59,17 +59,18 @@ All roles map directly to the existing type scale. No new type sizes are introdu
 | Role | Size | CSS Var | Font Family | Weight | Line Height | Usage |
 |------|------|---------|-------------|--------|-------------|-------|
 | Body | 16px (1rem) | — | Nunito (`--font-body`) | 400 | 1.5 | General text, game notifications |
-| Label | 12px (0.75rem) | — | Nunito (`--font-body`) | 700 | 1.4 | Form labels, bank piece labels, button sub-labels |
-| Heading | ~30px (1.9rem) | — | Fredoka (`--font-display`) | 700 | 1.2 | Section headings (`h2`) |
+| Label | 12px (0.75rem) | — | Nunito (`--font-body`) | 700 | 1.4 | Form labels, bank piece labels |
+| Heading | ~30px (1.9rem) | — | Fredoka (`--font-display`) | 700 | 1.2 | Section headings (`h2`), rotation button glyphs, portrait overlay message |
 | Display | 48px (3rem) | — | Fredoka (`--font-display`) | 700 | 1.1 | Page title (`h1`) |
 
 Source: `client/style.css` lines 98–137 (`h1`, `h2`, `h3` rules)
 
 New element specifics for this phase:
 
-- **Rotation button labels** (`↺` / `↻`): font-size `1.4rem`, font-family `--font-display` (Fredoka), weight 600. Matches the `--font-display` pattern used on all interactive game elements.
-- **Rotation button sub-label** (optional accessible label rendered visually): font-size `0.7rem`, weight 600, `--font-display`, uppercase, letter-spacing 0.06em, color `--clr-text-muted`. Same style as `.bank-piece span` (line 535–539).
-- **Portrait overlay message** "Bitte Querformat verwenden": font-size `1.4rem`, weight 600, `--font-display`. Matches the RESEARCH.md Pattern 7 `font-size: 1.4rem; font-weight: 600` recommendation.
+- **Rotation button labels** (`↺` / `↻`): font-size `1.9rem`, font-family `--font-display` (Fredoka), weight `700`. Uses the existing Heading size — glyphs are large enough to tap comfortably and visually consistent with section headings.
+- **Portrait overlay message** "Bitte Querformat verwenden": font-size `1.9rem`, weight `700`, `--font-display`. Matches the Heading role to establish a clear, prominent orientation instruction.
+
+Type scale summary for this phase: **4 sizes** (0.75rem, 1rem, 1.9rem, 3rem), **2 weights** (400 regular, 700 bold).
 
 ---
 
@@ -131,8 +132,8 @@ New components introduced in this phase. Executor must implement exactly these.
   min-height: 44px;            /* touch target — accessibility exception */
   padding: var(--sp-xs) var(--sp-sm);  /* 4px 8px */
   font-family: var(--font-display);
-  font-size: 1.4rem;
-  font-weight: 600;
+  font-size: 1.9rem;
+  font-weight: 700;
   background: var(--clr-surface-alt);
   color: var(--clr-text);
   border: 2px solid var(--clr-border);
@@ -196,8 +197,8 @@ Note: The `&#8635;` is the rotation arrow symbol (U+21BB ↻). Do not use an emo
   flex-direction: column;
   gap: var(--sp-lg);            /* 24px between icon and message */
   font-family: var(--font-display);
-  font-size: 1.4rem;
-  font-weight: 600;
+  font-size: 1.9rem;
+  font-weight: 700;
   text-align: center;
   padding: var(--sp-xl);        /* 32px all sides */
   color: var(--clr-text);
@@ -371,3 +372,4 @@ No registries. All components are hand-written vanilla HTML/CSS/JS. No vetting r
 | `REQUIREMENTS.md` | CTRL-01–CTRL-04 (superseded by Phase 10 unified model), Out of Scope list (no drag-and-drop, no rechtsklick-rotation) |
 | Defaults (accessibility) | 44px minimum touch target for rotation buttons |
 | Claude's discretion | Rotation button default color (`--clr-surface-alt`), disabled opacity (0.5), portrait overlay icon choice (↻ Unicode, not emoji), `portrait-overlay__icon` color (`--clr-primary`) |
+| Checker revision (2026-04-01) | Collapsed rotation button and portrait overlay font-size from `1.4rem` to `1.9rem` (Heading); removed `0.7rem` sub-label size; replaced all `font-weight: 600` with `font-weight: 700` — now 4 sizes, 2 weights |
