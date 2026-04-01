@@ -34,9 +34,7 @@ let currentGrid = null;       // cached grid data for ghost preview (null cells)
 let currentGridSize = null;   // cached { rows, cols }
 let currentBankShapes = [];   // cached bankShapes array for ghost lookup
 
-// Phase 7: click disambiguation state
-const DBLCLICK_DELAY = 150; // ms window to distinguish single-click (rotate) from double-click (place)
-let clickTimer = null;
+// Phase 10: interaction state
 let lastHoveredRow = null;  // cached from last mousemove — used to re-trigger ghost after rotation
 let lastHoveredCol = null;
 
@@ -249,8 +247,8 @@ function renderGrid(state) {
   currentBankShapes = state.bankShapes || [];
 
   const { rows, cols } = state.gridSize;
-  gameGrid.style.gridTemplateColumns = `repeat(${cols}, 40px)`;
-  gameGrid.style.gridTemplateRows    = `repeat(${rows}, 40px)`;
+  gameGrid.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+  gameGrid.style.gridTemplateRows    = `repeat(${rows}, var(--cell-size))`;
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -286,24 +284,10 @@ function renderGrid(state) {
         if (selectedShapeId) updateGhostPreview(r, c);
       });
 
-      // Click: start 300ms timer; double-click cancels it via clearTimeout before it fires
+      // Single click: place selected piece OR return placed movable piece
       cell.addEventListener('click', () => {
-        clearTimeout(clickTimer);
-        clickTimer = setTimeout(() => {
-          // Single-click rotate — guard: do nothing if no piece selected (CTRL-01)
-          if (!selectedShapeId) return;
-          selectedRotation = (selectedRotation + 90) % 360;
-          updateBankSelection();  // CTRL-04: bank mini-grid reflects new rotation
-          if (lastHoveredRow !== null && lastHoveredCol !== null) {
-            updateGhostPreview(lastHoveredRow, lastHoveredCol);  // CTRL-03: ghost reflects new rotation
-          }
-        }, DBLCLICK_DELAY);
-      });
-
-      // Double-click: cancel pending rotate, then place or return (CTRL-02)
-      cell.addEventListener('dblclick', () => {
-        clearTimeout(clickTimer);  // MUST be first — cancels rotate from click event
         if (selectedShapeId) {
+          // Place the selected piece at this cell
           const shape = currentBankShapes.find(s => s.id === selectedShapeId);
           let originRow = r, originCol = c;
           if (shape) {
@@ -324,7 +308,9 @@ function renderGrid(state) {
           clearGhostPreview();
           refreshCursorPiece();
           updateBankSelection();
+          updateRotationButtons();
         } else if (content && content.movable !== false) {
+          // Return placed movable piece to bank
           handleReturnClick(content.shapeId);
         }
       });
@@ -367,6 +353,7 @@ function renderBank(state) {
         selectedRotation = 0;
       }
       updateBankSelection();
+      updateRotationButtons();
     });
     bank.appendChild(pieceEl);
   });
@@ -515,15 +502,60 @@ gameGrid.addEventListener('mouseleave', () => {
   lastHoveredCol = null;
 });
 
-// Deselect piece when clicking outside the grid and bank
+// Deselect piece when clicking outside the grid, bank, and rotation controls
 document.addEventListener('click', (e) => {
   if (!selectedShapeId) return;
-  if (!e.target.closest('#game-grid') && !e.target.closest('#piece-bank')) {
+  if (!e.target.closest('#game-grid') && !e.target.closest('#piece-bank') && !e.target.closest('#rotation-controls')) {
     selectedShapeId = null;
     selectedRotation = 0;
     clearGhostPreview();
     refreshCursorPiece();
     updateBankSelection();
+    updateRotationButtons();
+  }
+});
+
+// ── Rotation button state ────────────────────────────────────────────────────
+function updateRotationButtons() {
+  const ccwBtn = document.getElementById('rotate-ccw-btn');
+  const cwBtn = document.getElementById('rotate-cw-btn');
+  if (ccwBtn) ccwBtn.disabled = !selectedShapeId;
+  if (cwBtn) cwBtn.disabled = !selectedShapeId;
+}
+
+// ── Rotation button handlers (wired once) ────────────────────────────────────
+document.getElementById('rotate-cw-btn').addEventListener('click', (e) => {
+  e.stopPropagation(); // prevent document deselect handler
+  if (!selectedShapeId) return;
+  selectedRotation = (selectedRotation + 90) % 360;
+  updateBankSelection();
+  updateRotationButtons();
+  if (lastHoveredRow !== null && lastHoveredCol !== null) {
+    updateGhostPreview(lastHoveredRow, lastHoveredCol);
+  }
+});
+
+document.getElementById('rotate-ccw-btn').addEventListener('click', (e) => {
+  e.stopPropagation(); // prevent document deselect handler
+  if (!selectedShapeId) return;
+  selectedRotation = (selectedRotation + 270) % 360; // +270 = -90 mod 360
+  updateBankSelection();
+  updateRotationButtons();
+  if (lastHoveredRow !== null && lastHoveredCol !== null) {
+    updateGhostPreview(lastHoveredRow, lastHoveredCol);
+  }
+});
+
+// ── R key rotation shortcut (EXT-01) ─────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'r' && e.key !== 'R') return;
+  if (!selectedShapeId) return;
+  if (!gameScreen.classList.contains('active')) return;
+  selectedRotation = (selectedRotation + 90) % 360;
+  updateBankSelection();
+  updateRotationButtons();
+  if (lastHoveredRow !== null && lastHoveredCol !== null) {
+    updateGhostPreview(lastHoveredRow, lastHoveredCol);
   }
 });
 
@@ -673,6 +705,7 @@ socket.on('game:start', (state) => {
   renderGrid(state);
   renderBank(state);
   renderTurnUI(state);
+  updateRotationButtons();
   startLiveTimer(state.startTime);   // TIME-01
 });
 
@@ -681,6 +714,7 @@ socket.on('game:stateUpdate', (state) => {
   selectedShapeId = null;
   selectedRotation = 0;
   refreshCursorPiece();
+  updateRotationButtons();
   renderGrid(state);
   renderBank(state);
   renderTurnUI(state);
@@ -698,6 +732,7 @@ socket.on('randomMode:event', ({ type, description } = {}) => {
       if (selectedShapeId !== null) {
         selectedRotation = (selectedRotation + 90) % 360;
         updateBankSelection();
+        updateRotationButtons();
         if (lastHoveredRow !== null && lastHoveredCol !== null) {
           updateGhostPreview(lastHoveredRow, lastHoveredCol);
         }
