@@ -4,6 +4,22 @@
 
 const socket = io();
 
+// ─── Theme (dark / light mode) ────────────────────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+
+function applyTheme(dark) {
+  document.body.classList.toggle('dark-mode', dark);
+  themeToggleBtn.textContent = dark ? '🌙' : '☀️';
+}
+
+applyTheme(localStorage.getItem('logiblock-theme') === 'dark');
+
+themeToggleBtn.addEventListener('click', () => {
+  const isDark = document.body.classList.contains('dark-mode');
+  localStorage.setItem('logiblock-theme', isDark ? 'light' : 'dark');
+  applyTheme(!isDark);
+});
+
 // ─── State ────────────────────────────────────────────────────────────────────
 let myRoomCode = null;
 let amIHost = false;
