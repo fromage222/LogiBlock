@@ -251,7 +251,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.btn-primary { /* inherits button styles */ }
+/*.btn-primary { inherits primary styles from base button *}
 
 /* ============================================================
    MESSAGES
