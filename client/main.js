@@ -38,6 +38,10 @@ let currentBankShapes = [];   // cached bankShapes array for ghost lookup
 let lastHoveredRow = null;  // cached from last mousemove — used to re-trigger ghost after rotation
 let lastHoveredCol = null;
 
+// Phase 10: touch interaction state
+let touchDragging = false;
+let longPressTimer = null;
+
 // ─── Difficulty labels (Phase 8) ─────────────────────────────────────────────
 const DIFFICULTY_LABELS = {
   easy:   'Einfach',
@@ -315,6 +319,29 @@ function renderGrid(state) {
         }
       });
 
+      // Touch: long-press return for placed movable pieces
+      if (content && content.movable !== false && !content.inactive) {
+        cell.addEventListener('touchstart', () => {
+          if (selectedShapeId) return; // only long-press return when no piece selected
+          clearTimeout(longPressTimer);
+          longPressTimer = setTimeout(() => {
+            handleReturnClick(content.shapeId);
+            longPressTimer = null;
+          }, 500);
+        }, { passive: true });
+
+        cell.addEventListener('touchend', () => {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        });
+
+        cell.addEventListener('touchmove', () => {
+          // Finger moved — cancel long press (it became a drag)
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        });
+      }
+
       gameGrid.appendChild(cell);
     }
   }
@@ -355,6 +382,24 @@ function renderBank(state) {
       updateBankSelection();
       updateRotationButtons();
     });
+
+    // Touch: select piece and begin drag mode
+    pieceEl.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // prevent scroll during piece selection
+      if (!amIActive) return;
+      if (selectedShapeId === shape.id) {
+        // Deselect on second touch
+        selectedShapeId = null;
+        selectedRotation = 0;
+      } else {
+        selectedShapeId = shape.id;
+        selectedRotation = 0;
+      }
+      updateBankSelection();
+      updateRotationButtons();
+      refreshCursorPiece();
+    }, { passive: false });
+
     bank.appendChild(pieceEl);
   });
 }
@@ -557,6 +602,41 @@ document.addEventListener('keydown', (e) => {
   if (lastHoveredRow !== null && lastHoveredCol !== null) {
     updateGhostPreview(lastHoveredRow, lastHoveredCol);
   }
+});
+
+// ── Touch: drag-to-preview (document-level, wired once) ─────────────────────
+document.addEventListener('touchmove', (e) => {
+  if (!selectedShapeId) return;
+  if (!gameScreen.classList.contains('active')) return;
+  const touch = e.touches[0];
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (!el) return;
+
+  // Hide cursor piece during touch drag (finger covers it)
+  const cursorEl = getCursorEl();
+  if (cursorEl) cursorEl.style.display = 'none';
+
+  const row = parseInt(el.dataset.row);
+  const col = parseInt(el.dataset.col);
+  if (isNaN(row) || isNaN(col)) {
+    // Finger moved off grid — clear ghost
+    clearGhostPreview();
+    touchDragging = false;
+    return;
+  }
+  if (el.classList.contains('inactive')) return; // Pitfall 4: skip inactive cells
+  touchDragging = true;
+  lastHoveredRow = row;
+  lastHoveredCol = col;
+  updateGhostPreview(row, col);
+}, { passive: true });
+
+document.addEventListener('touchend', () => {
+  if (!touchDragging) return;
+  touchDragging = false;
+  // Ghost stays in place — user taps ghost cell to confirm placement
+  // The browser-synthesized click event on the ghost cell fires the existing
+  // single-click-place handler from Plan 01. No extra code needed.
 });
 
 // ─── Return piece click handler ───────────────────────────────────────────────
