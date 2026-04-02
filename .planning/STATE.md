@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Grid & Pieces Redesign
 status: unknown
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-04-01T19:27:00.408Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-04-02T19:15:10.913Z"
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -53,6 +53,7 @@ Plan: 1 of 3
 | Phase 09-random-mode P02 | 2min | 2 tasks | 3 files |
 | Phase 09-random-mode P03 | 10min | 2 tasks | 2 files |
 | Phase 10 P01 | 15min | 2 tasks | 3 files |
+| Phase 10 P02 | 40min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,9 @@ v1.1 decisions locked by research:
 - [Phase 10]: Rotation buttons wired once outside renderGrid to prevent duplicate listeners on re-render; e.stopPropagation() prevents deselect cascade
 - [Phase 10]: Single click handler in renderGrid directly emits game:move (no setTimeout); dblclick/DBLCLICK_DELAY/clickTimer interaction model fully removed
 - [Phase 10]: --cell-size uses min(calc((100vw - 240px) / 9), 60px) so grid fills viewport minus bank width, capped at 60px; #game-screen max-width relaxed to 1200px
+- [Phase 10]: Touch placement confirmation uses synthesized click (not touchend handler) — avoids double-fire and reuses existing click handler for both desktop and touch
+- [Phase 10]: Document-level touchmove wired once outside renderGrid; elementFromPoint for reliable grid cell lookup under finger (Pitfall 2 avoidance)
+- [Phase 10]: longPressTimer is module-level (not per-cell) — renderGrid rebuilds DOM on every game:stateUpdate; per-cell variable would leak stale timers
 
 ### Roadmap Evolution
 
@@ -105,6 +109,6 @@ None — Phase 8 complete. Level 1 fully playable end-to-end: lobby filtering, a
 
 ## Session Continuity
 
-Last session: 2026-04-01T19:27:00.405Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-04-02T19:15:10.911Z
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None

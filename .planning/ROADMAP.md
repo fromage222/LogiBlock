@@ -128,7 +128,7 @@ Plans:
 **Goal:** Rework the control model for both desktop and tablet: replace double-click-to-place with single-click-to-place + rotation buttons, add touch drag-to-preview for tablet gameplay, and make the grid auto-scale to available screen space. Landscape tablet (1024x768+) is the tablet target.
 **Requirements**: CTRL-single-click-place, CTRL-return-click, CTRL-rotation-buttons, EXT-01-R-key, TOUCH-drag-preview, TOUCH-ghost-confirm, TOUCH-long-press, CSS-auto-scale, CSS-portrait-overlay
 **Depends on:** Phase 9
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 10-01-PLAN.md — Desktop interaction refactor + rotation buttons + R key + responsive CSS auto-scaling + portrait overlay
