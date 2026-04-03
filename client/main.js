@@ -41,6 +41,7 @@ let lastHoveredCol = null;
 // Phase 10: touch interaction state
 let touchDragging = false;
 let longPressTimer = null;
+let lastTouchTime = 0; // suppresses synthesized mousemove events after touch
 
 // ─── Difficulty labels (Phase 8) ─────────────────────────────────────────────
 const DIFFICULTY_LABELS = {
@@ -454,7 +455,15 @@ function refreshCursorPiece() {
   el.appendChild(buildMiniGrid(rotateCells(shape.cells, selectedRotation), color, 22));
   el.style.display = 'block';
 }
+// Track last touch time so we can suppress synthesized mousemove from iOS
+document.addEventListener('touchstart', () => {
+  lastTouchTime = Date.now();
+}, { passive: true });
+
 document.addEventListener('mousemove', (e) => {
+  // iOS fires a fake mousemove right before synthesized click events.
+  // Ignore it for 500ms after any touch so the cursor piece doesn't jump to tap targets.
+  if (Date.now() - lastTouchTime < 500) return;
   const el = getCursorEl();
   el.style.left = e.clientX + 'px';
   el.style.top = e.clientY + 'px';
@@ -638,34 +647,11 @@ document.addEventListener('touchmove', (e) => {
 }, { passive: false }); // non-passive so e.preventDefault() is effective
 
 document.addEventListener('touchend', () => {
-  if (!selectedShapeId || !touchDragging) return;
+  if (!touchDragging) return;
   touchDragging = false;
-  if (lastHoveredRow === null || lastHoveredCol === null) return;
-
-  // Place directly on finger-lift — no second tap required
-  const shape = currentBankShapes.find(s => s.id === selectedShapeId);
-  let originRow = lastHoveredRow, originCol = lastHoveredCol;
-  if (shape) {
-    const cells = rotateCells(shape.cells, selectedRotation);
-    const [pivotDr, pivotDc] = getPivotOffset(cells);
-    originRow = lastHoveredRow - pivotDr;
-    originCol = lastHoveredCol - pivotDc;
-  }
-  socket.emit('game:move', {
-    action: 'place',
-    shapeId: selectedShapeId,
-    rotation: selectedRotation,
-    originRow,
-    originCol,
-  });
-  selectedShapeId = null;
-  selectedRotation = 0;
-  clearGhostPreview();
-  refreshCursorPiece();
-  updateBankSelection();
-  updateRotationButtons();
-  lastHoveredRow = null;
-  lastHoveredCol = null;
+  // Ghost stays — user taps the ghost cell to confirm placement.
+  // e.preventDefault() in touchmove blocks the synthesized click after a drag,
+  // so the ghost stays visible and a deliberate tap is required to place the piece.
 });
 
 // ─── Return piece click handler ───────────────────────────────────────────────
