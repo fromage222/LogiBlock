@@ -608,35 +608,64 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('touchmove', (e) => {
   if (!selectedShapeId) return;
   if (!gameScreen.classList.contains('active')) return;
+  e.preventDefault(); // block page scroll while dragging a piece — requires passive: false
+
   const touch = e.touches[0];
   const el = document.elementFromPoint(touch.clientX, touch.clientY);
-  if (!el) return;
 
   // Hide cursor piece during touch drag (finger covers it)
   const cursorEl = getCursorEl();
   if (cursorEl) cursorEl.style.display = 'none';
 
+  if (!el) {
+    if (touchDragging) { clearGhostPreview(); touchDragging = false; }
+    return;
+  }
+
   const row = parseInt(el.dataset.row);
   const col = parseInt(el.dataset.col);
   if (isNaN(row) || isNaN(col)) {
-    // Finger moved off grid — clear ghost
-    clearGhostPreview();
-    touchDragging = false;
+    // Finger off grid — only clear ghost if we were actively dragging on the grid.
+    // Tapping rotation buttons (off-grid) must not wipe the ghost.
+    if (touchDragging) { clearGhostPreview(); touchDragging = false; }
     return;
   }
-  if (el.classList.contains('inactive')) return; // Pitfall 4: skip inactive cells
+  if (el.classList.contains('inactive')) return;
   touchDragging = true;
   lastHoveredRow = row;
   lastHoveredCol = col;
   updateGhostPreview(row, col);
-}, { passive: true });
+}, { passive: false }); // non-passive so e.preventDefault() is effective
 
 document.addEventListener('touchend', () => {
-  if (!touchDragging) return;
+  if (!selectedShapeId || !touchDragging) return;
   touchDragging = false;
-  // Ghost stays in place — user taps ghost cell to confirm placement
-  // The browser-synthesized click event on the ghost cell fires the existing
-  // single-click-place handler from Plan 01. No extra code needed.
+  if (lastHoveredRow === null || lastHoveredCol === null) return;
+
+  // Place directly on finger-lift — no second tap required
+  const shape = currentBankShapes.find(s => s.id === selectedShapeId);
+  let originRow = lastHoveredRow, originCol = lastHoveredCol;
+  if (shape) {
+    const cells = rotateCells(shape.cells, selectedRotation);
+    const [pivotDr, pivotDc] = getPivotOffset(cells);
+    originRow = lastHoveredRow - pivotDr;
+    originCol = lastHoveredCol - pivotDc;
+  }
+  socket.emit('game:move', {
+    action: 'place',
+    shapeId: selectedShapeId,
+    rotation: selectedRotation,
+    originRow,
+    originCol,
+  });
+  selectedShapeId = null;
+  selectedRotation = 0;
+  clearGhostPreview();
+  refreshCursorPiece();
+  updateBankSelection();
+  updateRotationButtons();
+  lastHoveredRow = null;
+  lastHoveredCol = null;
 });
 
 // ─── Return piece click handler ───────────────────────────────────────────────
