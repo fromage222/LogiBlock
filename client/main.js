@@ -41,8 +41,11 @@ let lastHoveredCol = null;
 // Phase 10: touch interaction state
 let touchDragging = false;
 let longPressTimer = null;
-let lastTouchTime = 0;        // suppresses synthesized mousemove events after touch
+let lastTouchTime = 0;         // suppresses synthesized mousemove events after touch
 let suppressNextGridClick = false; // blocks synthesized click after drag-lift
+let touchStartX = 0;           // finger position at touch begin — used for drag threshold
+let touchStartY = 0;
+const TOUCH_DRAG_THRESHOLD = 12; // px — below = tap, above = drag
 
 // ─── Difficulty labels (Phase 8) ─────────────────────────────────────────────
 const DIFFICULTY_LABELS = {
@@ -464,9 +467,13 @@ function refreshCursorPiece() {
   el.appendChild(buildMiniGrid(rotateCells(shape.cells, selectedRotation), color, 22));
   el.style.display = 'block';
 }
-// Track last touch time so we can suppress synthesized mousemove from iOS
-document.addEventListener('touchstart', () => {
+// Track touch origin for drag threshold + suppress synthesized mousemove from iOS
+document.addEventListener('touchstart', (e) => {
   lastTouchTime = Date.now();
+  if (e.touches[0]) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }
 }, { passive: true });
 
 document.addEventListener('mousemove', (e) => {
@@ -626,12 +633,11 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('touchmove', (e) => {
   if (!selectedShapeId) return;
   if (!gameScreen.classList.contains('active')) return;
-  e.preventDefault(); // block page scroll while dragging a piece — requires passive: false
+  e.preventDefault(); // block page scroll — requires passive: false
 
   const touch = e.touches[0];
-  const el = document.elementFromPoint(touch.clientX, touch.clientY);
 
-  // Move cursor piece above the finger so the user can see the piece while dragging
+  // Move cursor piece above finger during drag
   const cursorEl = getCursorEl();
   if (cursorEl) {
     cursorEl.style.left = touch.clientX + 'px';
@@ -639,16 +645,21 @@ document.addEventListener('touchmove', (e) => {
     refreshCursorPiece();
   }
 
+  // Only enter drag mode once finger moves past threshold.
+  // Tiny wobbles during a confirmation tap stay below threshold → not treated as drag.
+  const dx = touch.clientX - touchStartX;
+  const dy = touch.clientY - touchStartY;
+  if (Math.sqrt(dx * dx + dy * dy) <= TOUCH_DRAG_THRESHOLD) return;
+
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
   if (!el) {
     if (touchDragging) { clearGhostPreview(); touchDragging = false; }
     return;
   }
-
   const row = parseInt(el.dataset.row);
   const col = parseInt(el.dataset.col);
   if (isNaN(row) || isNaN(col)) {
-    // Finger off grid — only clear ghost if we were actively dragging on the grid.
-    // Tapping rotation buttons (off-grid) must not wipe the ghost.
+    // Off grid — only clear ghost when we were actively dragging (tapping rotation buttons must not wipe ghost)
     if (touchDragging) { clearGhostPreview(); touchDragging = false; }
     return;
   }
@@ -657,16 +668,44 @@ document.addEventListener('touchmove', (e) => {
   lastHoveredRow = row;
   lastHoveredCol = col;
   updateGhostPreview(row, col);
-}, { passive: false }); // non-passive so e.preventDefault() is effective
+}, { passive: false });
 
-document.addEventListener('touchend', () => {
-  if (!touchDragging) return;
-  touchDragging = false;
-  // Ghost stays — user taps the ghost cell to confirm placement.
-  // iOS fires a synthesized click at the lift position even after touchmove preventDefault.
-  // Suppress it so only the deliberate confirmation tap places the piece.
-  suppressNextGridClick = true;
-  setTimeout(() => { suppressNextGridClick = false; }, 350);
+document.addEventListener('touchend', (e) => {
+  if (!selectedShapeId) return;
+
+  if (touchDragging) {
+    // Real drag ended — ghost stays, suppress the synthesized click iOS fires after lift
+    touchDragging = false;
+    suppressNextGridClick = true;
+    setTimeout(() => { suppressNextGridClick = false; }, 350);
+    return;
+  }
+
+  // Tap (movement below threshold) — place piece if ghost is visible and finger is on grid
+  if (lastHoveredRow === null || lastHoveredCol === null) return;
+  const touch = e.changedTouches[0];
+  if (!touch) return;
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (!el || isNaN(parseInt(el.dataset.row)) || isNaN(parseInt(el.dataset.col))) return;
+  if (el.classList.contains('inactive')) return;
+
+  const shape = currentBankShapes.find(s => s.id === selectedShapeId);
+  let originRow = lastHoveredRow, originCol = lastHoveredCol;
+  if (shape) {
+    const cells = rotateCells(shape.cells, selectedRotation);
+    const [pivotDr, pivotDc] = getPivotOffset(cells);
+    originRow = lastHoveredRow - pivotDr;
+    originCol = lastHoveredCol - pivotDc;
+  }
+  socket.emit('game:move', { action: 'place', shapeId: selectedShapeId, rotation: selectedRotation, originRow, originCol });
+  selectedShapeId = null;
+  selectedRotation = 0;
+  clearGhostPreview();
+  refreshCursorPiece();
+  updateBankSelection();
+  updateRotationButtons();
+  lastHoveredRow = null;
+  lastHoveredCol = null;
 });
 
 // ─── Return piece click handler ───────────────────────────────────────────────
