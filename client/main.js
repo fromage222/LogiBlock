@@ -41,7 +41,8 @@ let lastHoveredCol = null;
 // Phase 10: touch interaction state
 let touchDragging = false;
 let longPressTimer = null;
-let lastTouchTime = 0; // suppresses synthesized mousemove events after touch
+let lastTouchTime = 0;        // suppresses synthesized mousemove events after touch
+let suppressNextGridClick = false; // blocks synthesized click after drag-lift
 
 // ─── Difficulty labels (Phase 8) ─────────────────────────────────────────────
 const DIFFICULTY_LABELS = {
@@ -291,6 +292,8 @@ function renderGrid(state) {
 
       // Single click: place selected piece OR return placed movable piece
       cell.addEventListener('click', () => {
+        // Suppress the synthesized click that iOS fires right after a drag-lift
+        if (suppressNextGridClick) { suppressNextGridClick = false; return; }
         if (selectedShapeId) {
           // Place the selected piece at this cell
           const shape = currentBankShapes.find(s => s.id === selectedShapeId);
@@ -389,7 +392,6 @@ function renderBank(state) {
       e.preventDefault(); // prevent scroll during piece selection
       if (!amIActive) return;
       if (selectedShapeId === shape.id) {
-        // Deselect on second touch
         selectedShapeId = null;
         selectedRotation = 0;
       } else {
@@ -399,6 +401,13 @@ function renderBank(state) {
       updateBankSelection();
       updateRotationButtons();
       refreshCursorPiece();
+      // Position cursor piece above the bank element immediately on selection
+      if (selectedShapeId) {
+        const rect = pieceEl.getBoundingClientRect();
+        const cursorEl = getCursorEl();
+        cursorEl.style.left = (rect.left + rect.width / 2) + 'px';
+        cursorEl.style.top  = (rect.top  - 10) + 'px';
+      }
     }, { passive: false });
 
     bank.appendChild(pieceEl);
@@ -622,9 +631,13 @@ document.addEventListener('touchmove', (e) => {
   const touch = e.touches[0];
   const el = document.elementFromPoint(touch.clientX, touch.clientY);
 
-  // Hide cursor piece during touch drag (finger covers it)
+  // Move cursor piece above the finger so the user can see the piece while dragging
   const cursorEl = getCursorEl();
-  if (cursorEl) cursorEl.style.display = 'none';
+  if (cursorEl) {
+    cursorEl.style.left = touch.clientX + 'px';
+    cursorEl.style.top  = (touch.clientY - 70) + 'px';
+    refreshCursorPiece();
+  }
 
   if (!el) {
     if (touchDragging) { clearGhostPreview(); touchDragging = false; }
@@ -650,8 +663,10 @@ document.addEventListener('touchend', () => {
   if (!touchDragging) return;
   touchDragging = false;
   // Ghost stays — user taps the ghost cell to confirm placement.
-  // e.preventDefault() in touchmove blocks the synthesized click after a drag,
-  // so the ghost stays visible and a deliberate tap is required to place the piece.
+  // iOS fires a synthesized click at the lift position even after touchmove preventDefault.
+  // Suppress it so only the deliberate confirmation tap places the piece.
+  suppressNextGridClick = true;
+  setTimeout(() => { suppressNextGridClick = false; }, 350);
 });
 
 // ─── Return piece click handler ───────────────────────────────────────────────
