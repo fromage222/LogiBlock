@@ -97,6 +97,9 @@ Plans:
 | 5. Server Logic Fixes | v1.1 | 1/1 | Complete | 2009-03-19 |
 | 6. Client Grid Rendering | v1.1 | 1/1 | Complete — human verified | 2009-03-19 |
 | 7. New Interaction Model | v1.1 | 0/2 | Not started | - |
+| 8. Erstes richtiges Level bauen | v1.1 | 3/3 | Complete — human verified | 2026-03-xx |
+| 9. Random Mode | v1.1 | 3/3 | Complete | 2026-04-xx |
+| 10. Steuerung und Tablet Integration | 3/3 | Complete   | 2026-04-06 | 2026-04-06 |
 
 ### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
 
@@ -128,9 +131,9 @@ Plans:
 **Goal:** Rework the control model for both desktop and tablet: replace double-click-to-place with single-click-to-place + rotation buttons, add touch drag-to-preview for tablet gameplay, and make the grid auto-scale to available screen space. Landscape tablet (1024x768+) is the tablet target.
 **Requirements**: CTRL-single-click-place, CTRL-return-click, CTRL-rotation-buttons, EXT-01-R-key, TOUCH-drag-preview, TOUCH-ghost-confirm, TOUCH-long-press, CSS-auto-scale, CSS-portrait-overlay
 **Depends on:** Phase 9
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 10-01-PLAN.md — Desktop interaction refactor + rotation buttons + R key + responsive CSS auto-scaling + portrait overlay
-- [ ] 10-02-PLAN.md — Touch event support: bank drag-to-preview, ghost-stays-on-touchend, long-press return
-- [ ] 10-03-PLAN.md — Human verification of complete interaction model (23 scenarios)
+- [x] 10-01-PLAN.md — Desktop interaction refactor + rotation buttons + R key + responsive CSS auto-scaling + portrait overlay
+- [x] 10-02-PLAN.md — Touch event support: bank drag-to-preview, ghost-stays-on-touchend, long-press return
+- [x] 10-03-PLAN.md — Human verification of complete interaction model (23 scenarios)
