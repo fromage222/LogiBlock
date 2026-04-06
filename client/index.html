@@ -84,6 +84,7 @@
   <!-- ── Game Screen ──────────────────────────────────────────────────── -->
   <div id="game-screen" class="screen">
     <h2 id="game-title">LogiBlock</h2>
+    <button id="controls-info-btn" class="controls-info-btn" aria-label="Steuerung anzeigen">?</button>
     <p id="turn-banner" class="turn-banner"></p>
     <p id="game-timer" class="game-timer">00:00</p>
     <div class="game-area">
@@ -96,6 +97,36 @@
       </div>
     </div>
   </div>
+
+  <!-- Controls help modal -->
+  <dialog id="controls-modal" class="controls-modal">
+    <div class="controls-modal__content">
+      <button id="controls-modal-close" class="controls-modal__close" aria-label="Schließen">&times;</button>
+      <h2>Steuerung</h2>
+
+      <section class="controls-section">
+        <h3>Tastatur &amp; Maus</h3>
+        <ul class="controls-list">
+          <li><strong>Klick auf Stein in der Bank:</strong> Stein auswählen</li>
+          <li><strong>Klick auf freie Zelle:</strong> Platziert den ausgewählten Stein an dieser Position</li>
+          <li><strong>Klick auf platzierten Stein (kein Stein ausgewählt):</strong> Gibt den Stein zurück in die Bank</li>
+          <li><strong>Taste R / Rotation-Buttons &#8634; &#8635;:</strong> Dreht den ausgewählten Stein</li>
+        </ul>
+      </section>
+
+      <section class="controls-section">
+        <h3>Touch</h3>
+        <ul class="controls-list">
+          <li><strong>Tippen auf Stein in der Bank:</strong> Stein auswählen</li>
+          <li><strong>Finger auf Bank-Stein halten + über Grid ziehen:</strong> Ghost-Vorschau folgt dem Finger</li>
+          <li><strong>Finger heben:</strong> Ghost bleibt stehen (Stein noch nicht platziert)</li>
+          <li><strong>Tippen auf Ghost-Zelle:</strong> Stein platzieren</li>
+          <li><strong>Langer Druck (~500ms) auf platzierten Stein:</strong> Stein zurück in die Bank</li>
+          <li><strong>Finger vom Grid ziehen:</strong> Stein abwählen</li>
+        </ul>
+      </section>
+    </div>
+  </dialog>
 
   <!-- Win overlay — outside game-screen, shown by JS on win -->
   <div id="win-overlay" class="win-overlay" style="display:none;">
