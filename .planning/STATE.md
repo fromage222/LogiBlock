@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Spielqualität & Features
-status: discussing
-stopped_at: Phase 11 context gathered
-last_updated: "2026-04-06T16:47:23.834Z"
-last_activity: 2026-04-06 — v1.2 roadmap phases created (11-15)
+status: unknown
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-04-06T17:02:13.100Z"
 progress:
   total_phases: 12
-  completed_phases: 7
-  total_plans: 16
-  completed_plans: 16
+  completed_phases: 8
+  total_plans: 17
+  completed_plans: 17
 ---
 
 # Project State
@@ -20,14 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Milestone v1.2 started — defining requirements
+**Current focus:** Phase 11 — profanity-filter
 
 ## Current Position
 
-Phase: Phase 11 — Profanity Filter (not started)
-Plan: —
-Status: Active — discussing Phase 11
-Last activity: 2026-04-06 — v1.2 roadmap phases created (11-15)
+Phase: 11 (profanity-filter) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -58,6 +55,7 @@ Last activity: 2026-04-06 — v1.2 roadmap phases created (11-15)
 | Phase 10 P01 | 15min | 2 tasks | 3 files |
 | Phase 10 P02 | 40min | 1 tasks | 1 files |
 | Phase 10 P03 | ~5min | 1 tasks | 0 files |
+| Phase 11-profanity-filter P01 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -96,6 +94,8 @@ v1.1 decisions locked by research:
 - [Phase 10]: Touch placement confirmation uses synthesized click (not touchend handler) — avoids double-fire and reuses existing click handler for both desktop and touch
 - [Phase 10]: Document-level touchmove wired once outside renderGrid; elementFromPoint for reliable grid cell lookup under finger (Pitfall 2 avoidance)
 - [Phase 10]: longPressTimer is module-level (not per-cell) — renderGrid rebuilds DOM on every game:stateUpdate; per-cell variable would leak stale timers
+- [Phase 11-profanity-filter]: bad-words@3.0.4 over v4.0.0: v4 type:module breaks require() on Node 24; v3.0.4 is pure CJS
+- [Phase 11-profanity-filter]: joinRoom profanity check placed before getLobby — profane names rejected before room lookup per CONTEXT.md locked decision
 
 ### Roadmap Evolution
 
@@ -113,6 +113,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-06T16:47:23.831Z
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-profanity-filter/11-CONTEXT.md
+Last session: 2026-04-06T17:02:13.097Z
+Stopped at: Completed 11-01-PLAN.md
+Resume file: None
