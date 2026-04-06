@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
 stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-04-06T17:02:13.100Z"
+last_updated: "2026-04-06T17:06:25.178Z"
 progress:
   total_phases: 12
   completed_phases: 8

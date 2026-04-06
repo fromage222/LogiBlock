@@ -101,7 +101,7 @@ Plans:
 | 8. Erstes richtiges Level bauen | v1.1 | 3/3 | Complete — human verified | 2026-03-xx |
 | 9. Random Mode | v1.1 | 3/3 | Complete | 2026-04-xx |
 | 10. Steuerung und Tablet Integration | v1.1 | 3/3 | Complete — human verified | 2026-04-06 |
-| 11. Profanity Filter | 1/1 | Complete   | 2026-04-06 | - |
+| 11. Profanity Filter | 1/1 | Complete    | 2026-04-06 | - |
 | 12. Controls Modal | v1.2 | 0/1 | Not started | - |
 | 13. Per-Level Leaderboard | v1.2 | 0/1 | Not started | - |
 | 14. Random Mode Overhaul | v1.2 | 0/2 | Not started | - |
