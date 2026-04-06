@@ -802,21 +802,65 @@ function showGameNotification(message) {
 }
 
 // ─── Leaderboard render ────────────────────────────────────────────────────
+let activeLeaderboardTab = null;
+
 function renderLeaderboard(entries) {
   const tbody = document.getElementById('leaderboard-body');
+  const tabsContainer = document.getElementById('leaderboard-tabs');
+  const thead = document.querySelector('.leaderboard-table thead tr');
   if (!tbody) return;
+
   if (!entries || entries.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="leaderboard-empty">No games completed yet</td></tr>';
+    if (tabsContainer) tabsContainer.innerHTML = '';
+    if (thead) thead.innerHTML = '<th>#</th><th>Puzzle</th><th>Zeit</th><th>Spieler</th>';
+    tbody.innerHTML = '<tr><td colspan="4" class="leaderboard-empty">Noch keine Spiele abgeschlossen</td></tr>';
+    activeLeaderboardTab = null;
     return;
   }
-  tbody.innerHTML = entries.map(e =>
-    `<tr>
-      <td>${e.rank}</td>
-      <td>${e.puzzleName}</td>
-      <td class="leaderboard-time">${e.time}</td>
-      <td>${e.playerNames.join(', ')}</td>
-    </tr>`
-  ).join('');
+
+  // Derive unique puzzle names (preserving insertion order)
+  const puzzleNames = [...new Set(entries.map(e => e.puzzleName))];
+
+  // Default to puzzle with most recent entry; preserve selection across re-renders
+  if (!activeLeaderboardTab || !puzzleNames.includes(activeLeaderboardTab)) {
+    activeLeaderboardTab = entries[0].puzzleName;
+  }
+
+  // Render tab buttons
+  if (tabsContainer) {
+    tabsContainer.innerHTML = puzzleNames.map(name =>
+      `<button class="leaderboard-tab${name === activeLeaderboardTab ? ' active' : ''}" data-puzzle="${name}">${name}</button>`
+    ).join('');
+
+    // Wire tab click handlers (event delegation on container)
+    tabsContainer.onclick = (e) => {
+      const btn = e.target.closest('.leaderboard-tab');
+      if (!btn) return;
+      activeLeaderboardTab = btn.dataset.puzzle;
+      renderLeaderboard(entries);
+    };
+  }
+
+  // Filter entries for active tab and re-rank
+  const filtered = entries
+    .filter(e => e.puzzleName === activeLeaderboardTab)
+    .map((e, i) => ({ ...e, rank: i + 1 }));
+
+  // Update thead to 3 columns (hide Puzzle column)
+  if (thead) thead.innerHTML = '<th>#</th><th>Zeit</th><th>Spieler</th>';
+
+  // Render filtered rows (3 columns, no puzzleName)
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="leaderboard-empty">Keine Eintraege</td></tr>';
+  } else {
+    tbody.innerHTML = filtered.map(e =>
+      `<tr>
+        <td>${e.rank}</td>
+        <td class="leaderboard-time">${e.time}</td>
+        <td>${e.playerNames.join(', ')}</td>
+      </tr>`
+    ).join('');
+  }
 }
 
 // ─── Socket event listeners ───────────────────────────────────────────────────
