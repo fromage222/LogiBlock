@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
 stopped_at: Completed 12-controls-modal 12-01-PLAN.md
-last_updated: "2026-04-06T17:27:33.209Z"
+last_updated: "2026-04-06T17:35:43.482Z"
 progress:
   total_phases: 12
   completed_phases: 9
