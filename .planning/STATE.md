@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
-stopped_at: Phase 13 context gathered
-last_updated: "2026-04-06T17:41:28.704Z"
+stopped_at: Completed 13-per-level-leaderboard-01-PLAN.md
+last_updated: "2026-04-06T17:51:45.274Z"
 progress:
   total_phases: 12
-  completed_phases: 9
-  total_plans: 18
-  completed_plans: 18
+  completed_phases: 10
+  total_plans: 19
+  completed_plans: 19
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 12 — controls-modal
+**Current focus:** Phase 13 — per-level-leaderboard
 
 ## Current Position
 
-Phase: 12 (controls-modal) — EXECUTING
+Phase: 13 (per-level-leaderboard) — EXECUTING
 Plan: 1 of 1
 
 ## Performance Metrics
@@ -57,6 +57,7 @@ Plan: 1 of 1
 | Phase 10 P03 | ~5min | 1 tasks | 0 files |
 | Phase 11-profanity-filter P01 | 3min | 2 tasks | 4 files |
 | Phase 12-controls-modal P01 | 2min | 2 tasks | 3 files |
+| Phase 13-per-level-leaderboard P01 | 2min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,8 @@ v1.1 decisions locked by research:
 - [Phase 11-profanity-filter]: joinRoom profanity check placed before getLobby — profane names rejected before room lookup per CONTEXT.md locked decision
 - [Phase 12-controls-modal]: Native <dialog>.showModal() for controls modal — Escape key handled for free; backdrop click via e.target === controlsModal guard
 - [Phase 12-controls-modal]: ? button positioned absolutely inside #game-screen (position: relative) — avoids overlap with fixed theme-toggle; modal CSS uses only var(--clr-*) tokens for automatic dark/light mode
+- [Phase 13-per-level-leaderboard]: activeLeaderboardTab module-level so tab selection persists across leaderboard:update re-renders; default tab = entries[0].puzzleName (most recent winner)
+- [Phase 13-per-level-leaderboard]: Tab bar active indicator uses border-bottom 3px with clr-primary (underline convention); empty-all restores 4-col thead; filtered view uses 3-col thead (Puzzle column hidden)
 
 ### Roadmap Evolution
 
@@ -116,6 +119,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-06T17:41:28.701Z
-Stopped at: Phase 13 context gathered
-Resume file: .planning/phases/13-per-level-leaderboard/13-CONTEXT.md
+Last session: 2026-04-06T17:51:45.272Z
+Stopped at: Completed 13-per-level-leaderboard-01-PLAN.md
+Resume file: None
