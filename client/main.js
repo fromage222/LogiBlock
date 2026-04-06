@@ -115,6 +115,9 @@ const lobbyNotification = document.getElementById('lobby-notification');
 const selectedPuzzleDisplay = document.getElementById('selected-puzzle-display');
 
 const gameGrid         = document.getElementById('game-grid');
+const controlsInfoBtn  = document.getElementById('controls-info-btn');
+const controlsModal    = document.getElementById('controls-modal');
+const controlsModalClose = document.getElementById('controls-modal-close');
 
 // ─── Screen switching ─────────────────────────────────────────────────────────
 function showScreen(screenId) {
@@ -626,6 +629,22 @@ document.addEventListener('keydown', (e) => {
   updateRotationButtons();
   if (lastHoveredRow !== null && lastHoveredCol !== null) {
     updateGhostPreview(lastHoveredRow, lastHoveredCol);
+  }
+});
+
+// ── Controls Modal (HLP-01) ──────────────────────────────────────────────────
+controlsInfoBtn.addEventListener('click', () => {
+  controlsModal.showModal();
+});
+
+controlsModalClose.addEventListener('click', () => {
+  controlsModal.close();
+});
+
+// Close on backdrop click (click on dialog element itself, not on content inside)
+controlsModal.addEventListener('click', (e) => {
+  if (e.target === controlsModal) {
+    controlsModal.close();
   }
 });
 
