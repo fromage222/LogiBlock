@@ -50,7 +50,7 @@ Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig
 - [ ] Steuerungserklärung per Info-Button im Game-Screen abrufbar — v1.2 (HLP-*)
 - [ ] Leaderboard-Screen mit je einer Bestenliste pro Puzzle — v1.2 (LDR-*)
 - [ ] Spieler können nach Verbindungsabbruch (30s Fenster) zur Lobby zurückkehren — v1.2 (RECON-*)
-- [ ] Spielernamen werden server-seitig auf Profanity geprüft — v1.2 (PROF-*)
+- [x] Spielernamen werden server-seitig auf Profanity geprüft — v1.2 (PROF-*) — Validated in Phase 11: profanity-filter
 
 ### Out of Scope
 
@@ -88,4 +88,4 @@ Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig
 | advanceTurnIfActive vor removePlayer | Turn-Index ist noch valide solange Player noch im Array | ✓ Gut — 5 TDD-Tests bestätigen alle Disconnect-Szenarien |
 
 ---
-*Last updated: 2026-04-06 after v1.2 milestone start*
+*Last updated: 2026-04-06 after Phase 11 complete — profanity filter shipped*
