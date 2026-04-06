@@ -1,13 +1,15 @@
 # LogiBlock
 
-## Current Milestone: v1.1 Grid & Pieces Redesign
+## Current Milestone: v1.2 Spielqualität & Features
 
-**Goal:** Grid-Form auf unregelm. 5×9 umstellen, 10 eigene Puzzle-Steine definieren, und die Interaktion (Rotation per Klick, Platzierung per Doppelklick) intuitiver gestalten.
+**Goal:** Spielerfahrung verbessern: Random-Mode verrückter machen, Steuerungserklärung, Level-spezifische Ranglisten, Reconnect nach Disconnect und Profanity-Filter.
 
 **Target features:**
-- Unregelm. Grid-Form (5×9, untere Ecken fehlen, 43 aktive Felder) als feste Puzzle-Basis
-- 10 eigene Steine (3–5 Felder) die zusammen exakt 43 Felder belegen
-- Neue Interaktion: Linksklick = rotieren, Doppelklick = platzieren
+- Random-Mode Overhaul: mehr Event-Typen, besseres Balancing, wildere Effekte
+- Steuerungserklärung: Info-Button im Game-Screen öffnet Modal
+- Level-Ranglisten: eigener Leaderboard-Screen mit Bestenliste pro Puzzle
+- Reconnect: Spieler können bei Verbindungsabbruch (30s) zur Lobby zurückkehren
+- Profanity-Filter: npm-Paket blockiert unerwünschte Spielernamen
 
 ## What This Is
 
@@ -33,17 +35,27 @@ Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig
 - ✓ Live-Timer misst Teamlösungszeit (startet bei Spielstart, stoppt bei Sieg) — v1.0 (TIME-01, TIME-02, TIME-03)
 - ✓ Session-Rangliste auf dem Start-Screen zeigt alle Bestzeiten; leer nach Server-Neustart — v1.0 (TIME-04, TIME-05)
 
+### Validated (v1.1)
+
+- ✓ Unregelm. Grid-Form (5×9, untere Ecken fehlen) serverseitig und clientseitig unterstützt — v1.1 (GRID-*)
+- ✓ 10 eigene Steine mit 3–5 Feldern in Puzzle-JSON definiert und validiert — v1.1 (PIEC-*)
+- ✓ Single-Click platziert, Rotation per Buttons/R-Taste, Ghost-Preview — v1.1 (CTRL-*)
+- ✓ Random-Mode: Chaos-Events während des Spiels (Stein rotieren, Zug überspringen, etc.) — v1.1 (RND-*)
+- ✓ CSS Auto-Scaling + Portrait-Overlay für responsive Layout — v1.1 (CSS-*)
+- ✓ Touch/Tablet-Support: Drag-Preview, Ghost-Confirm, Long-Press Return — v1.1 (TOUCH-*)
+
 ### Active
 
-- [ ] Unregelm. Grid-Form (5×9, untere Ecken fehlen) serversseitig und client-seitig unterstützt — v1.1 (GRID-*)
-- [ ] 10 eigene Steine mit 3–5 Feldern in Puzzle-JSON definiert und validiert — v1.1 (PIEC-*)
-- [ ] Linksklick auf Grid rotiert ausgewählten Stein; Doppelklick platziert ihn — v1.1 (CTRL-*)
+- [ ] Random-Mode erhält ≥4 neue Event-Typen und überarbeitetes Balancing — v1.2 (RAND-*)
+- [ ] Steuerungserklärung per Info-Button im Game-Screen abrufbar — v1.2 (HLP-*)
+- [ ] Leaderboard-Screen mit je einer Bestenliste pro Puzzle — v1.2 (LDR-*)
+- [ ] Spieler können nach Verbindungsabbruch (30s Fenster) zur Lobby zurückkehren — v1.2 (RECON-*)
+- [ ] Spielernamen werden server-seitig auf Profanity geprüft — v1.2 (PROF-*)
 
 ### Out of Scope
 
 - Accounts / Login — nicht nötig für Uni-Abgabe
 - Persistente Datenbank / Rangliste — in-memory Session-Leaderboard reicht; kein Persistenz-Requirement
-- Mobile-Optimierung — Desktop-Browser reicht für Abgabe
 - Puzzle-Editor in-game — Puzzles werden manuell als JSON erstellt
 - WebRTC / Peer-to-Peer — würde Server-Authoritative-Validierung aushebeln (Kernkonzept)
 
@@ -76,4 +88,4 @@ Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig
 | advanceTurnIfActive vor removePlayer | Turn-Index ist noch valide solange Player noch im Array | ✓ Gut — 5 TDD-Tests bestätigen alle Disconnect-Szenarien |
 
 ---
-*Last updated: 2026-03-15 after v1.1 milestone start*
+*Last updated: 2026-04-06 after v1.2 milestone start*

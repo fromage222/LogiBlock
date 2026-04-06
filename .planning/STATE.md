@@ -1,30 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Grid & Pieces Redesign
-status: complete
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-04-06T09:22:46.661Z"
+milestone: v1.2
+milestone_name: Spielqualität & Features
+status: defining_requirements
+stopped_at: —
+last_updated: "2026-04-06"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 16
-  completed_plans: 16
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-15)
+See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 10 complete — all phases done
+**Current focus:** Milestone v1.2 started — defining requirements
 
 ## Current Position
 
-Phase: 10 (steuerung-berarbeiten-und-tablet-integration) — COMPLETE
-Plan: 3 of 3 (all plans complete)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-06 — Milestone v1.2 started
 
 ## Performance Metrics
 
