@@ -47,7 +47,7 @@ Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig
 ### Active
 
 - [ ] Random-Mode erhält ≥4 neue Event-Typen und überarbeitetes Balancing — v1.2 (RAND-*)
-- [ ] Steuerungserklärung per Info-Button im Game-Screen abrufbar — v1.2 (HLP-*)
+- [x] Steuerungserklärung per Info-Button im Game-Screen abrufbar — v1.2 (HLP-*) — Validated in Phase 12: controls-modal
 - [ ] Leaderboard-Screen mit je einer Bestenliste pro Puzzle — v1.2 (LDR-*)
 - [ ] Spieler können nach Verbindungsabbruch (30s Fenster) zur Lobby zurückkehren — v1.2 (RECON-*)
 - [x] Spielernamen werden server-seitig auf Profanity geprüft — v1.2 (PROF-*) — Validated in Phase 11: profanity-filter
@@ -88,4 +88,4 @@ Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig
 | advanceTurnIfActive vor removePlayer | Turn-Index ist noch valide solange Player noch im Array | ✓ Gut — 5 TDD-Tests bestätigen alle Disconnect-Szenarien |
 
 ---
-*Last updated: 2026-04-06 after Phase 11 complete — profanity filter shipped*
+*Last updated: 2026-04-06 after Phase 12 complete — controls modal shipped*
