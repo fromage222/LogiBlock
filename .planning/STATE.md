@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
-stopped_at: Phase 12 context gathered
-last_updated: "2026-04-06T17:13:38.617Z"
+stopped_at: Completed 12-controls-modal 12-01-PLAN.md
+last_updated: "2026-04-06T17:27:33.209Z"
 progress:
   total_phases: 12
-  completed_phases: 8
-  total_plans: 17
-  completed_plans: 17
+  completed_phases: 9
+  total_plans: 18
+  completed_plans: 18
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 11 — profanity-filter
+**Current focus:** Phase 12 — controls-modal
 
 ## Current Position
 
-Phase: 11 (profanity-filter) — EXECUTING
+Phase: 12 (controls-modal) — EXECUTING
 Plan: 1 of 1
 
 ## Performance Metrics
@@ -56,6 +56,7 @@ Plan: 1 of 1
 | Phase 10 P02 | 40min | 1 tasks | 1 files |
 | Phase 10 P03 | ~5min | 1 tasks | 0 files |
 | Phase 11-profanity-filter P01 | 3min | 2 tasks | 4 files |
+| Phase 12-controls-modal P01 | 2min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,8 @@ v1.1 decisions locked by research:
 - [Phase 10]: longPressTimer is module-level (not per-cell) — renderGrid rebuilds DOM on every game:stateUpdate; per-cell variable would leak stale timers
 - [Phase 11-profanity-filter]: bad-words@3.0.4 over v4.0.0: v4 type:module breaks require() on Node 24; v3.0.4 is pure CJS
 - [Phase 11-profanity-filter]: joinRoom profanity check placed before getLobby — profane names rejected before room lookup per CONTEXT.md locked decision
+- [Phase 12-controls-modal]: Native <dialog>.showModal() for controls modal — Escape key handled for free; backdrop click via e.target === controlsModal guard
+- [Phase 12-controls-modal]: ? button positioned absolutely inside #game-screen (position: relative) — avoids overlap with fixed theme-toggle; modal CSS uses only var(--clr-*) tokens for automatic dark/light mode
 
 ### Roadmap Evolution
 
@@ -113,6 +116,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-06T17:13:38.614Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-controls-modal/12-CONTEXT.md
+Last session: 2026-04-06T17:27:33.207Z
+Stopped at: Completed 12-controls-modal 12-01-PLAN.md
+Resume file: None

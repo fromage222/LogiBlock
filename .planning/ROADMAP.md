@@ -102,7 +102,7 @@ Plans:
 | 9. Random Mode | v1.1 | 3/3 | Complete | 2026-04-xx |
 | 10. Steuerung und Tablet Integration | v1.1 | 3/3 | Complete — human verified | 2026-04-06 |
 | 11. Profanity Filter | 1/1 | Complete    | 2026-04-06 | - |
-| 12. Controls Modal | v1.2 | 0/1 | Not started | - |
+| 12. Controls Modal | 1/1 | Complete   | 2026-04-06 | - |
 | 13. Per-Level Leaderboard | v1.2 | 0/1 | Not started | - |
 | 14. Random Mode Overhaul | v1.2 | 0/2 | Not started | - |
 | 15. Reconnect After Disconnect | v1.2 | 0/3 | Not started | - |
@@ -149,7 +149,7 @@ Plans:
 **Milestone Goal:** Spielerfahrung verbessern durch 5 orthogonale Erweiterungen auf dem stabilen v1.1-Spiel: Profanity-Filter, Steuerungsmodal, Level-Rangliste, Random-Mode-Overhaul, Reconnect nach Disconnect.
 
 - [x] **Phase 11: Profanity Filter** - Server-side name validation in createRoom/joinRoom handlers via npm package (completed 2026-04-06)
-- [ ] **Phase 12: Controls Modal** - Client-side info button and `<dialog>` modal with desktop/touch control reference
+- [x] **Phase 12: Controls Modal** - Client-side info button and `<dialog>` modal with desktop/touch control reference (completed 2026-04-06)
 - [ ] **Phase 13: Per-Level Leaderboard** - Client-side tab UI filtering leaderboard entries by puzzleName
 - [ ] **Phase 14: Random Mode Overhaul** - Add double_turn + reverse_order + blind_bank events; rebalance trigger weights
 - [ ] **Phase 15: Reconnect After Disconnect** - 30-second reconnect window for mid-game disconnects with socket ID re-association
