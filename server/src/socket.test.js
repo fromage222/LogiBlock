@@ -78,6 +78,7 @@ function makeMocks(roomCode, socketId, playerName) {
       socket._handlers = socket._handlers || {};
       socket._handlers[event] = handler;
     },
+    join: () => {},
     _handlers: {},
     to: () => ({ emit: () => {} }),
   };
@@ -529,4 +530,46 @@ describe('game:move randomMode:event trigger', () => {
     assert.ok(!emitted.room['randomMode:event'], 'randomMode:event must NOT be emitted when randomModeEnabled=false');
   });
 
+});
+
+// ── Profanity filter tests ──────────────────────────────────────────────────
+
+describe('createRoom profanity filter', () => {
+  it('rejects profane name with room:error "Player name is not allowed"', () => {
+    const { socket, emitted } = makeMocks(undefined, 'cr-prof-1', undefined);
+    trigger(socket, 'createRoom', { playerName: 'ass' });
+    assert.ok(emitted.socket['room:error'], 'room:error should be emitted');
+    assert.equal(emitted.socket['room:error'][0], 'Player name is not allowed');
+    assert.ok(!emitted.socket['room:created'], 'room:created must NOT be emitted for profane name');
+  });
+
+  it('accepts clean name — emits room:created, no room:error', () => {
+    const { socket, emitted } = makeMocks(undefined, 'cr-clean-1', undefined);
+    trigger(socket, 'createRoom', { playerName: 'Alice' });
+    assert.ok(!emitted.socket['room:error'], 'room:error must NOT be emitted for clean name');
+    assert.ok(emitted.socket['room:created'], 'room:created should be emitted');
+  });
+});
+
+describe('joinRoom profanity filter', () => {
+  it('rejects profane name with room:error "Player name is not allowed"', () => {
+    const { socket, emitted } = makeMocks('ANYCODE', 'jr-prof-1', undefined);
+    trigger(socket, 'joinRoom', { roomCode: 'ANYCODE', playerName: 'ass' });
+    assert.ok(emitted.socket['room:error'], 'room:error should be emitted');
+    assert.equal(emitted.socket['room:error'][0], 'Player name is not allowed');
+  });
+
+  it('accepts clean name past profanity filter (room may or may not exist)', () => {
+    const roomCode = 'JRCLEAN1';
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-sock', 'Host');
+    addPlayer(roomCode, 'jr-clean-extra', 'Extra');
+
+    const { socket, emitted } = makeMocks(roomCode, 'jr-clean-1', undefined);
+    trigger(socket, 'joinRoom', { roomCode, playerName: 'Alice' });
+
+    const errors = emitted.socket['room:error'] || [];
+    const hasProfanityError = errors.some(e => e === 'Player name is not allowed');
+    assert.ok(!hasProfanityError, 'Clean name must not trigger profanity rejection');
+  });
 });
