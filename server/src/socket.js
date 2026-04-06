@@ -22,6 +22,9 @@ const {
   triggerRandomEvent,
 } = require('./game');
 
+const BadWordsFilter = require('bad-words');
+const profanityFilter = new BadWordsFilter();
+
 /**
  * Registers all Socket.IO event handlers for one connected socket.
  * Called from server.js inside io.on('connection', ...).
@@ -43,6 +46,9 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       return socket.emit('room:error', 'Player name is required');
     }
     const name = playerName.trim().slice(0, 20);
+    if (profanityFilter.isProfane(name)) {
+      return socket.emit('room:error', 'Player name is not allowed');
+    }
     const roomCode = generateRoomCode();
 
     createLobby(roomCode, socket.id, name);
@@ -69,6 +75,9 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     }
 
     const name = playerName.trim().slice(0, 20);
+    if (profanityFilter.isProfane(name)) {
+      return socket.emit('room:error', 'Player name is not allowed');
+    }
     const lobby = getLobby(roomCode);
 
     if (!lobby) {
