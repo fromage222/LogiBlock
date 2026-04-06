@@ -103,7 +103,7 @@ Plans:
 | 10. Steuerung und Tablet Integration | v1.1 | 3/3 | Complete — human verified | 2026-04-06 |
 | 11. Profanity Filter | 1/1 | Complete    | 2026-04-06 | - |
 | 12. Controls Modal | 1/1 | Complete    | 2026-04-06 | - |
-| 13. Per-Level Leaderboard | 1/1 | Complete   | 2026-04-06 | - |
+| 13. Per-Level Leaderboard | 1/1 | Complete    | 2026-04-06 | - |
 | 14. Random Mode Overhaul | v1.2 | 0/2 | Not started | - |
 | 15. Reconnect After Disconnect | v1.2 | 0/3 | Not started | - |
 

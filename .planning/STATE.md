@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
 stopped_at: Completed 13-per-level-leaderboard-01-PLAN.md
-last_updated: "2026-04-06T17:51:45.274Z"
+last_updated: "2026-04-06T18:26:23.710Z"
 progress:
   total_phases: 12
   completed_phases: 10
