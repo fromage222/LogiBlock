@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
-stopped_at: Phase 14 context gathered
-last_updated: "2026-04-07T16:57:42.715Z"
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-04-07T21:27:33.363Z"
 progress:
   total_phases: 12
   completed_phases: 10
-  total_plans: 19
-  completed_plans: 19
+  total_plans: 21
+  completed_plans: 20
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 13 — per-level-leaderboard
+**Current focus:** Phase 14 — random-mode-overhaul
 
 ## Current Position
 
-Phase: 13 (per-level-leaderboard) — EXECUTING
-Plan: 1 of 1
+Phase: 14 (random-mode-overhaul) — EXECUTING
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Plan: 1 of 1
 | Phase 11-profanity-filter P01 | 3min | 2 tasks | 4 files |
 | Phase 12-controls-modal P01 | 2min | 2 tasks | 3 files |
 | Phase 13-per-level-leaderboard P01 | 2min | 2 tasks | 3 files |
+| Phase 14-random-mode-overhaul P01 | 20min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,8 @@ v1.1 decisions locked by research:
 - [Phase 12-controls-modal]: ? button positioned absolutely inside #game-screen (position: relative) — avoids overlap with fixed theme-toggle; modal CSS uses only var(--clr-*) tokens for automatic dark/light mode
 - [Phase 13-per-level-leaderboard]: activeLeaderboardTab module-level so tab selection persists across leaderboard:update re-renders; default tab = entries[0].puzzleName (most recent winner)
 - [Phase 13-per-level-leaderboard]: Tab bar active indicator uses border-bottom 3px with clr-primary (underline convention); empty-all restores 4-col thead; filtered view uses 3-col thead (Puzzle column hidden)
+- [Phase 14-random-mode-overhaul]: Phase 14 pickRandomEvent uses 7-event cumulative threshold table: rotate_piece 10%, skip_turn 15%, remove_piece 20%, shuffle_order 15%, double_turn 15%, reverse_order 15%, blind_bank 10%
+- [Phase 14-random-mode-overhaul]: extraTurns gate in socket.js game:move place-branch: decrement when > 0 instead of advanceTurn, no random event during extra turn (socket layer owns turn-flow policy)
 
 ### Roadmap Evolution
 
@@ -119,6 +122,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-07T16:57:42.712Z
-Stopped at: Phase 14 context gathered
-Resume file: .planning/phases/14-random-mode-overhaul/14-CONTEXT.md
+Last session: 2026-04-07T21:27:33.361Z
+Stopped at: Completed 14-01-PLAN.md
+Resume file: None

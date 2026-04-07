@@ -104,7 +104,7 @@ Plans:
 | 11. Profanity Filter | 1/1 | Complete    | 2026-04-06 | - |
 | 12. Controls Modal | 1/1 | Complete    | 2026-04-06 | - |
 | 13. Per-Level Leaderboard | 1/1 | Complete    | 2026-04-06 | - |
-| 14. Random Mode Overhaul | v1.2 | 0/2 | Not started | - |
+| 14. Random Mode Overhaul | 1/2 | In Progress|  | - |
 | 15. Reconnect After Disconnect | v1.2 | 0/3 | Not started | - |
 
 ### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
