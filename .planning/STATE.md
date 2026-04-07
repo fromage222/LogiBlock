@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-04-07T21:27:33.363Z"
+stopped_at: "Checkpoint: 14-02 Task 3 human-verify"
+last_updated: "2026-04-07T21:46:30.753Z"
 progress:
   total_phases: 12
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
@@ -59,6 +59,7 @@ Plan: 1 of 2
 | Phase 12-controls-modal P01 | 2min | 2 tasks | 3 files |
 | Phase 13-per-level-leaderboard P01 | 2min | 2 tasks | 3 files |
 | Phase 14-random-mode-overhaul P01 | 20min | 2 tasks | 4 files |
+| Phase 14-random-mode-overhaul P02 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,8 @@ v1.1 decisions locked by research:
 - [Phase 13-per-level-leaderboard]: Tab bar active indicator uses border-bottom 3px with clr-primary (underline convention); empty-all restores 4-col thead; filtered view uses 3-col thead (Puzzle column hidden)
 - [Phase 14-random-mode-overhaul]: Phase 14 pickRandomEvent uses 7-event cumulative threshold table: rotate_piece 10%, skip_turn 15%, remove_piece 20%, shuffle_order 15%, double_turn 15%, reverse_order 15%, blind_bank 10%
 - [Phase 14-random-mode-overhaul]: extraTurns gate in socket.js game:move place-branch: decrement when > 0 instead of advanceTurn, no random event during extra turn (socket layer owns turn-flow policy)
+- [Phase 14-random-mode-overhaul]: pendingRotate guard uses selectedShapeId !== null to prevent deselect from triggering delayed rotation trap (single-use, fires on null→value transition only)
+- [Phase 14-random-mode-overhaul]: blindTimer and blindInterval module-level guards cleared before re-arm on repeated blind_bank events — prevents stacking and stale timer reveal
 
 ### Roadmap Evolution
 
@@ -122,6 +125,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-07T21:27:33.361Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-04-07T21:46:30.751Z
+Stopped at: Checkpoint: 14-02 Task 3 human-verify
 Resume file: None

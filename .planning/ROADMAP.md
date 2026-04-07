@@ -104,7 +104,7 @@ Plans:
 | 11. Profanity Filter | 1/1 | Complete    | 2026-04-06 | - |
 | 12. Controls Modal | 1/1 | Complete    | 2026-04-06 | - |
 | 13. Per-Level Leaderboard | 1/1 | Complete    | 2026-04-06 | - |
-| 14. Random Mode Overhaul | 1/2 | In Progress|  | - |
+| 14. Random Mode Overhaul | 2/2 | Complete   | 2026-04-07 | - |
 | 15. Reconnect After Disconnect | v1.2 | 0/3 | Not started | - |
 
 ### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
@@ -151,7 +151,7 @@ Plans:
 - [x] **Phase 11: Profanity Filter** - Server-side name validation in createRoom/joinRoom handlers via npm package (completed 2026-04-06)
 - [x] **Phase 12: Controls Modal** - Client-side info button and `<dialog>` modal with desktop/touch control reference (completed 2026-04-06)
 - [x] **Phase 13: Per-Level Leaderboard** - Client-side tab UI filtering leaderboard entries by puzzleName (completed 2026-04-06)
-- [ ] **Phase 14: Random Mode Overhaul** - Add double_turn + reverse_order + blind_bank events; rebalance trigger weights
+- [x] **Phase 14: Random Mode Overhaul** - Add double_turn + reverse_order + blind_bank events; rebalance trigger weights (completed 2026-04-07)
 - [ ] **Phase 15: Reconnect After Disconnect** - 30-second reconnect window for mid-game disconnects with socket ID re-association
 
 ### Phase 11: Profanity Filter
