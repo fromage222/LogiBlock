@@ -38,6 +38,11 @@ let currentBankShapes = [];   // cached bankShapes array for ghost lookup
 let lastHoveredRow = null;  // cached from last mousemove — used to re-trigger ghost after rotation
 let lastHoveredCol = null;
 
+// Phase 14: random mode state
+let pendingRotate = false;
+let blindTimer = null;
+let blindInterval = null;
+
 // Phase 10: touch interaction state
 let touchDragging = false;
 let longPressTimer = null;
@@ -388,6 +393,18 @@ function renderBank(state) {
         // Select — always reset rotation to 0 on bank selection
         selectedShapeId = shape.id;
         selectedRotation = 0;
+        // Phase 14: rotate_piece delayed trap — fires only on null → value transition
+        if (pendingRotate && selectedShapeId !== null) {
+          pendingRotate = false;
+          setTimeout(() => {
+            selectedRotation = (selectedRotation + 90) % 360;
+            updateBankSelection();
+            if (typeof updateRotationButtons === 'function') updateRotationButtons();
+            if (lastHoveredRow !== null && lastHoveredCol !== null) {
+              updateGhostPreview(lastHoveredRow, lastHoveredCol);
+            }
+          }, 2000);
+        }
       }
       updateBankSelection();
       updateRotationButtons();
@@ -522,8 +539,10 @@ function renderTurnUI(state) {
   (state.players || []).forEach(player => {
     const badge = document.createElement('div');
     badge.classList.add('player-badge');
-    badge.textContent = player.name;
-    if (player.name === state.activePlayerName) badge.classList.add('active');
+    const isActive = player.name === state.activePlayerName;
+    const showBolt = isActive && (state.extraTurns ?? 0) > 0;
+    badge.textContent = player.name + (showBolt ? ' ⚡' : '');
+    if (isActive) badge.classList.add('active');
     badgesContainer.appendChild(badge);
   });
 }
@@ -796,9 +815,19 @@ function showGameError(message) {
   setTimeout(() => { el.textContent = ''; }, 3500);
 }
 function showGameNotification(message) {
-  const el = ensureGameNotification();
-  el.textContent = message;
-  setTimeout(() => { el.textContent = ''; }, 3000);
+  const existing = document.getElementById('event-banner');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'event-banner';
+  banner.className = 'event-banner';
+  banner.textContent = message;
+  const host = document.getElementById('game-screen');
+  host.appendChild(banner);
+
+  setTimeout(() => {
+    if (banner.isConnected) banner.remove();
+  }, 2500);
 }
 
 // ─── Leaderboard render ────────────────────────────────────────────────────
@@ -940,16 +969,44 @@ socket.on('randomMode:event', ({ type, description } = {}) => {
   showGameNotification(description);
 
   if (type === 'rotate_piece') {
-    setTimeout(() => {
-      if (selectedShapeId !== null) {
-        selectedRotation = (selectedRotation + 90) % 360;
-        updateBankSelection();
-        updateRotationButtons();
-        if (lastHoveredRow !== null && lastHoveredCol !== null) {
-          updateGhostPreview(lastHoveredRow, lastHoveredCol);
-        }
+    pendingRotate = true;
+    return;
+  }
+
+  if (type === 'blind_bank') {
+    const bank = document.getElementById('piece-bank');
+    if (!bank) return;
+
+    // Cancel any in-flight blind timers to avoid stacking (Pitfall 4)
+    if (blindTimer) { clearTimeout(blindTimer); blindTimer = null; }
+    if (blindInterval) { clearInterval(blindInterval); blindInterval = null; }
+    const oldCountdown = document.getElementById('blind-countdown');
+    if (oldCountdown) oldCountdown.remove();
+
+    bank.classList.add('blind');
+
+    let remaining = 5;
+    const countdownEl = document.createElement('div');
+    countdownEl.id = 'blind-countdown';
+    countdownEl.className = 'blind-countdown';
+    countdownEl.textContent = `Blind! ${remaining}s`;
+    bank.appendChild(countdownEl);
+
+    blindInterval = setInterval(() => {
+      remaining--;
+      countdownEl.textContent = `Blind! ${remaining}s`;
+      if (remaining <= 0) {
+        clearInterval(blindInterval);
+        blindInterval = null;
       }
-    }, 1200);
+    }, 1000);
+
+    blindTimer = setTimeout(() => {
+      bank.classList.remove('blind');
+      if (countdownEl.isConnected) countdownEl.remove();
+      if (blindInterval) { clearInterval(blindInterval); blindInterval = null; }
+      blindTimer = null;
+    }, 5000);
   }
 });
 
