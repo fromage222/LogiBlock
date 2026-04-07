@@ -573,3 +573,59 @@ describe('joinRoom profanity filter', () => {
     assert.ok(!hasProfanityError, 'Clean name must not trigger profanity rejection');
   });
 });
+
+// ─── game:move - double_turn extra-turn gate (Phase 14) ───────────────────────
+
+describe('game:move - double_turn extra-turn gate', () => {
+  it('when lobby.extraTurns > 0, a successful placement decrements extraTurns and does NOT call advanceTurn', () => {
+    const roomCode = 'DT-GATE01';
+    const lobby = makePlayingLobby(roomCode);
+    // Force puzzle_01 since makePlayingLobby might use a different puzzle
+    setSelectedPuzzle(roomCode, 'puzzle_01');
+    // Restart game with puzzle_01
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-socket', 'Alice');
+    addPlayer(roomCode, 'p2-socket', 'Bob');
+    setSelectedPuzzle(roomCode, 'puzzle_01');
+    const result = startGame(roomCode);
+    if (!result.ok) throw new Error('startGame failed: ' + result.error);
+    const freshLobby = lobbies.get(roomCode);
+    freshLobby.activeTurnIndex = 0;
+    freshLobby.extraTurns = 1; // simulate double_turn grant
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+
+    // Place shape B at valid position — non-winning
+    trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+
+    assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
+    assert.strictEqual(freshLobby.extraTurns, 0, 'extraTurns must be decremented to 0');
+    // Turn must NOT advance — same player (index 0) should still be active
+    assert.strictEqual(freshLobby.activeTurnIndex, 0, 'activeTurnIndex must remain 0 (same player goes again)');
+    // No randomMode:event should fire during extra turn
+    assert.ok(!emitted.room['randomMode:event'], 'randomMode:event must NOT be emitted during extra turn');
+    // stateUpdate should still be broadcast
+    assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate must still be broadcast');
+  });
+
+  it('when lobby.extraTurns === 0, a successful placement calls advanceTurn as before', () => {
+    const roomCode = 'DT-GATE02';
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-socket', 'Alice');
+    addPlayer(roomCode, 'p2-socket', 'Bob');
+    setSelectedPuzzle(roomCode, 'puzzle_01');
+    const result = startGame(roomCode);
+    if (!result.ok) throw new Error('startGame failed: ' + result.error);
+    const freshLobby = lobbies.get(roomCode);
+    freshLobby.activeTurnIndex = 0;
+    freshLobby.extraTurns = 0; // normal turn
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+
+    trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+
+    assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
+    // Turn MUST advance
+    assert.strictEqual(freshLobby.activeTurnIndex, 1, 'activeTurnIndex must advance to 1 when extraTurns === 0');
+  });
+});
