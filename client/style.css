@@ -991,3 +991,59 @@ input[type="range"]#random-mode-toggle {
   cursor: pointer;
   accent-color: var(--clr-accent-dark);
 }
+
+/* ============================================================
+   PHASE 14: blind_bank overlay
+   ============================================================ */
+.piece-bank.blind {
+  position: relative;
+}
+.piece-bank.blind::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.88);
+  border-radius: var(--r-lg, 12px);
+  z-index: 10;
+  pointer-events: none;
+}
+.blind-countdown {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  color: #fff;
+  font-family: var(--font-display, sans-serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 10px;
+  border-radius: var(--r-sm, 6px);
+  pointer-events: none;
+}
+
+/* ============================================================
+   PHASE 14: prominent event notification banner
+   ============================================================ */
+.event-banner {
+  position: absolute;
+  top: -3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 20, 0.88);
+  color: #fff;
+  font-family: var(--font-display, sans-serif);
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding: 0.6rem 1.4rem;
+  border-radius: var(--r-md, 8px);
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+  animation: bannerFadeIn 0.2s ease-out;
+}
+@keyframes bannerFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
