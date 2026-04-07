@@ -202,13 +202,17 @@ function registerSocketHandlers(io, socket, puzzleMap) {
         });
         io.emit('leaderboard:update', getLeaderboard()); // TIME-04: broadcast to ALL sockets
       } else {
-        advanceTurn(lobby);
-        // Random Mode: 30% chance of chaos event after each successful place (CONTEXT.md locked)
-        if (lobby.randomModeEnabled && Math.random() < 0.30) {
-          const event = triggerRandomEvent(lobby);
-          if (event) {
-            // Broadcast event BEFORE stateUpdate so clients see description before grid change
-            io.to(roomCode).emit('randomMode:event', event);
+        // Phase 14 double_turn gate: consume extra turn instead of advancing
+        if (lobby.extraTurns > 0) {
+          lobby.extraTurns--;
+          // same player goes again; NO random event trigger during extra turn
+        } else {
+          advanceTurn(lobby);
+          if (lobby.randomModeEnabled && Math.random() < 0.30) {
+            const event = triggerRandomEvent(lobby);
+            if (event) {
+              io.to(roomCode).emit('randomMode:event', event);
+            }
           }
         }
         io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
