@@ -938,63 +938,63 @@ describe('getPublicState - extraTurns field', () => {
 });
 
 describe('pickRandomEvent - Phase 14 weight table', () => {
-  it('returns rotate_piece for r < 0.30', () => {
+  it('returns rotate_piece for r < 0.10', () => {
     const origRandom = Math.random;
-    Math.random = () => 0.15;
+    Math.random = () => 0.05;
     try {
       const { pickRandomEvent } = require('./game');
       assert.strictEqual(pickRandomEvent(), 'rotate_piece');
     } finally { Math.random = origRandom; }
   });
 
-  it('returns skip_turn for 0.30 <= r < 0.38', () => {
+  it('returns skip_turn for 0.10 <= r < 0.25', () => {
     const origRandom = Math.random;
-    Math.random = () => 0.34;
+    Math.random = () => 0.20;
     try {
       const { pickRandomEvent } = require('./game');
       assert.strictEqual(pickRandomEvent(), 'skip_turn');
     } finally { Math.random = origRandom; }
   });
 
-  it('returns remove_piece for 0.38 <= r < 0.46', () => {
+  it('returns remove_piece for 0.25 <= r < 0.45', () => {
     const origRandom = Math.random;
-    Math.random = () => 0.42;
+    Math.random = () => 0.40;
     try {
       const { pickRandomEvent } = require('./game');
       assert.strictEqual(pickRandomEvent(), 'remove_piece');
     } finally { Math.random = origRandom; }
   });
 
-  it('returns shuffle_order for 0.46 <= r < 0.54', () => {
+  it('returns shuffle_order for 0.45 <= r < 0.60', () => {
     const origRandom = Math.random;
-    Math.random = () => 0.50;
+    Math.random = () => 0.55;
     try {
       const { pickRandomEvent } = require('./game');
       assert.strictEqual(pickRandomEvent(), 'shuffle_order');
     } finally { Math.random = origRandom; }
   });
 
-  it('returns double_turn for 0.54 <= r < 0.62', () => {
+  it('returns double_turn for 0.60 <= r < 0.75', () => {
     const origRandom = Math.random;
-    Math.random = () => 0.58;
+    Math.random = () => 0.70;
     try {
       const { pickRandomEvent } = require('./game');
       assert.strictEqual(pickRandomEvent(), 'double_turn');
     } finally { Math.random = origRandom; }
   });
 
-  it('returns reverse_order for 0.62 <= r < 0.70', () => {
+  it('returns reverse_order for 0.75 <= r < 0.90', () => {
     const origRandom = Math.random;
-    Math.random = () => 0.66;
+    Math.random = () => 0.85;
     try {
       const { pickRandomEvent } = require('./game');
       assert.strictEqual(pickRandomEvent(), 'reverse_order');
     } finally { Math.random = origRandom; }
   });
 
-  it('returns blind_bank for r >= 0.70', () => {
+  it('returns blind_bank for r >= 0.90', () => {
     const origRandom = Math.random;
-    Math.random = () => 0.85;
+    Math.random = () => 0.95;
     try {
       const { pickRandomEvent } = require('./game');
       assert.strictEqual(pickRandomEvent(), 'blind_bank');

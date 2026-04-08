@@ -379,14 +379,13 @@ function setRandomMode(roomCode, enabled) {
 
 function pickRandomEvent() {
   const r = Math.random();
-  // TEST WEIGHTS — boosted for easier manual verification of rotate_piece and blind_bank
-  if (r < 0.30) return 'rotate_piece';    // 30% (prod: 10%)
-  if (r < 0.38) return 'skip_turn';       //  8% (prod: 15%)
-  if (r < 0.46) return 'remove_piece';    //  8% (prod: 20%)
-  if (r < 0.54) return 'shuffle_order';   //  8% (prod: 15%)
-  if (r < 0.62) return 'double_turn';     //  8% (prod: 15%)
-  if (r < 0.70) return 'reverse_order';   //  8% (prod: 15%)
-  return 'blind_bank';                    // 30% (prod: 10%)
+  if (r < 0.10) return 'rotate_piece';    // 10%
+  if (r < 0.25) return 'skip_turn';       // 15%
+  if (r < 0.45) return 'remove_piece';    // 20%
+  if (r < 0.60) return 'shuffle_order';   // 15%
+  if (r < 0.75) return 'double_turn';     // 15%
+  if (r < 0.90) return 'reverse_order';   // 15%
+  return 'blind_bank';                    // 10%
 }
 
 function shuffleArray(arr) {
