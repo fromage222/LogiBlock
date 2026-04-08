@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 14-random-mode-overhaul
 source: [14-01-SUMMARY.md, 14-02-SUMMARY.md]
 started: 2026-04-08T00:00:00Z
@@ -68,29 +68,55 @@ skipped: 0
   reason: "User reported: erhöhe die wahrscheinlichkeit noch nie erreicht (event never fired during testing — probability too low to observe)"
   severity: major
   test: 3
-  artifacts: []
-  missing: []
+  root_cause: "blind_bank has 10% weight among events, and events only fire at 30% per turn. Effective rate = 3% per turn. In 15–20 turns, expected ~0.45–0.6 occurrences — statistically normal to see 0. Combined with null-event skipping (some events return null and socket.js silently skips, wasting the trigger slot), actual observability is even lower."
+  artifacts:
+    - path: "server/src/game.js"
+      issue: "pickRandomEvent(): blind_bank weight (10%) combined with 30% per-turn gate yields 3% effective rate — too low to observe in short sessions"
+    - path: "server/src/socket.js"
+      issue: "When triggerRandomEvent() returns null, the event slot is silently wasted (no retry) — further reduces effective diversity"
+  missing:
+    - "Increase base event rate from 30% to 50% in socket.js game:move place-branch"
+    - "When triggerRandomEvent() returns null, retry once with a different event type instead of silently skipping"
 
 - truth: "rotate_piece trap fires +90° rotation on selected piece before it is placed"
   status: failed
   reason: "User reported: klappt nicht er sagt zwar das piece wurde gedreht aber erst nachdem man es schon gesetzt hat (piece rotation message appears only after the piece is already placed — too late)"
   severity: major
   test: 4
-  artifacts: []
-  missing: []
+  root_cause: "The bank click handler sets pendingRotate=true and immediately assigns selectedShapeId, then starts a setTimeout(2000). If the player places the piece within 2 seconds (clicks a grid cell), game:move is emitted, selectedShapeId is cleared, and the server responds with game:stateUpdate which re-renders everything. The setTimeout then fires on stale state — incrementing selectedRotation and calling updateBankSelection() AFTER re-render. The notification 'piece rotated' appears (server-side, correctly), but the visual rotation effect on the client applies too late, after placement already occurred."
+  artifacts:
+    - path: "client/main.js"
+      issue: "renderBank click handler lines ~397–408: setTimeout(2000) delay allows placement before rotation fires — rotation should apply synchronously on piece selection, not 2 seconds later"
+  missing:
+    - "Apply the +90° rotation immediately (synchronously) when pendingRotate=true and a piece is selected, removing the 2-second setTimeout"
+    - "The 'trap' effect is preserved (player gets an unexpected rotation) but it must apply BEFORE they can place the piece"
 
 - truth: "reverse_order event fires and reverses turn order visibly"
   status: failed
   reason: "User reported: never happened (event never fired during testing — probability too low to observe)"
   severity: major
   test: 7
-  artifacts: []
-  missing: []
+  root_cause: "Same root cause as blind_bank: reverse_order has 15% weight × 30% per-turn rate = 4.5% effective rate. In 15–20 turns, expected 0.67–0.9 occurrences — statistically common to get 0. Additionally, reverse_order resets activeTurnIndex to 0, which may feel invisible to players who don't track the full turn queue."
+  artifacts:
+    - path: "server/src/game.js"
+      issue: "pickRandomEvent(): reverse_order at 15% weight × 30% gate = 4.5% effective rate per turn — too low for reliable observability in short test sessions"
+    - path: "server/src/socket.js"
+      issue: "No retry on null event — wasted trigger slots reduce effective event diversity further"
+  missing:
+    - "Increase base event rate from 30% to 50% in socket.js"
+    - "Retry on null result in socket.js event trigger block"
 
 - truth: "All 7 event types appear with roughly equal distribution after 15-20 turns"
   status: failed
   reason: "User reported: mostly double turn (weight distribution skewed — double_turn dominates, rare events like blind_bank and reverse_order never appear)"
   severity: major
   test: 8
-  artifacts: []
-  missing: []
+  root_cause: "Three compounding factors: (1) Low sampling — at 30% event rate, only ~4–6 events fire in 15–20 turns; with 7 event types at 10–20% each, it is statistically normal to see 0 of the rarest types. (2) Null-event waste — remove_piece returns null when no pieces are on the grid (early game), and double_turn returns null when extraTurns>0; socket.js silently skips nulls instead of retrying, so some trigger slots produce no observable event. (3) Visibility bias — double_turn is the most visually prominent event (⚡ badge + extra placement) so it feels dominant even if other events fire with similar frequency."
+  artifacts:
+    - path: "server/src/socket.js"
+      issue: "Random event rate is 30% (Math.random() < 0.30). With 7 event types, session too short to observe all events. Null returns from triggerRandomEvent silently wasted — no retry."
+    - path: "server/src/game.js"
+      issue: "triggerRandomEvent() returns null for: remove_piece (no grid pieces), double_turn (extraTurns>0), skip_turn (1 player) — these wasted slots reduce effective distribution diversity"
+  missing:
+    - "Increase event rate from 30% to 50% in socket.js"
+    - "Retry triggerRandomEvent() once on null return, picking a different event type, to guarantee every trigger slot produces an observable event"
