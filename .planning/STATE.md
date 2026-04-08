@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
-stopped_at: "Checkpoint: 14-02 Task 3 human-verify"
-last_updated: "2026-04-07T21:46:30.753Z"
+stopped_at: "Checkpoint: 14-03 Task 3 human-verify"
+last_updated: "2026-04-08T18:17:55.918Z"
 progress:
   total_phases: 12
   completed_phases: 11
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 22
+  completed_plans: 22
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 ## Current Position
 
 Phase: 14 (random-mode-overhaul) — EXECUTING
-Plan: 1 of 2
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -108,6 +108,8 @@ v1.1 decisions locked by research:
 - [Phase 14-random-mode-overhaul]: extraTurns gate in socket.js game:move place-branch: decrement when > 0 instead of advanceTurn, no random event during extra turn (socket layer owns turn-flow policy)
 - [Phase 14-random-mode-overhaul]: pendingRotate guard uses selectedShapeId !== null to prevent deselect from triggering delayed rotation trap (single-use, fires on null→value transition only)
 - [Phase 14-random-mode-overhaul]: blindTimer and blindInterval module-level guards cleared before re-arm on repeated blind_bank events — prevents stacking and stale timer reveal
+- [Phase 14-random-mode-overhaul]: 50% gate + single retry in socket.js: raises effective blind_bank rate from ~3% to ~10%, reverse_order from ~4.5% to ~15% — observable in 15-20 turn sessions
+- [Phase 14-random-mode-overhaul]: Synchronous rotate_piece in main.js: rotation applied before updateBankSelection() re-render — piece appears rotated on same paint tick as selection, placement impossible before rotation visible
 
 ### Roadmap Evolution
 
@@ -125,6 +127,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-07T21:46:30.751Z
-Stopped at: Checkpoint: 14-02 Task 3 human-verify
+Last session: 2026-04-08T18:17:49.796Z
+Stopped at: Checkpoint: 14-03 Task 3 human-verify
 Resume file: None
