@@ -365,7 +365,10 @@ function renderGrid(state) {
 // ─── Bank rendering (game screen) ────────────────────────────────────────────
 function renderBank(state) {
   const bank = document.getElementById('piece-bank');
+  // Preserve blind-countdown element — renderBank must not destroy an active blind timer
+  const existingCountdown = document.getElementById('blind-countdown');
   bank.innerHTML = '';
+  if (existingCountdown) bank.appendChild(existingCountdown);
   const amIActive = state.activePlayerName === myPlayerName;
   (state.bankShapes || []).forEach(shape => {
     const pieceEl = document.createElement('div');
@@ -402,6 +405,10 @@ function renderBank(state) {
       }
       updateBankSelection();
       updateRotationButtons();
+      // Refresh ghost if mouse is already over the grid (rotation changed without a mousemove)
+      if (lastHoveredRow !== null && lastHoveredCol !== null) {
+        updateGhostPreview(lastHoveredRow, lastHoveredCol);
+      }
     });
 
     // Touch: select piece and begin drag mode
