@@ -393,17 +393,11 @@ function renderBank(state) {
         // Select — always reset rotation to 0 on bank selection
         selectedShapeId = shape.id;
         selectedRotation = 0;
-        // Phase 14: rotate_piece delayed trap — fires only on null → value transition
+        // Phase 14: rotate_piece synchronous trap — fires only on null → value transition
         if (pendingRotate && selectedShapeId !== null) {
-          pendingRotate = false;
-          setTimeout(() => {
-            selectedRotation = (selectedRotation + 90) % 360;
-            updateBankSelection();
-            if (typeof updateRotationButtons === 'function') updateRotationButtons();
-            if (lastHoveredRow !== null && lastHoveredCol !== null) {
-              updateGhostPreview(lastHoveredRow, lastHoveredCol);
-            }
-          }, 2000);
+          selectedRotation = (selectedRotation + 90) % 360;
+          pendingRotate = false; // single-use: clear immediately
+          showGameNotification('Piece rotated!');
         }
       }
       updateBankSelection();
