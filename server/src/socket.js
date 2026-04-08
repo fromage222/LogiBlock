@@ -208,8 +208,10 @@ function registerSocketHandlers(io, socket, puzzleMap) {
           // same player goes again; NO random event trigger during extra turn
         } else {
           advanceTurn(lobby);
-          if (lobby.randomModeEnabled && Math.random() < 0.30) {
-            const event = triggerRandomEvent(lobby);
+          if (lobby.randomModeEnabled && Math.random() < 0.50) {
+            // Retry once if null (e.g. remove_piece on empty grid, double_turn at cap)
+            let event = triggerRandomEvent(lobby);
+            if (!event) event = triggerRandomEvent(lobby);
             if (event) {
               io.to(roomCode).emit('randomMode:event', event);
             }
