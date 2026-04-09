@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
-stopped_at: Phase 15 context gathered
-last_updated: "2026-04-09T09:29:44.106Z"
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-04-09T09:38:50.799Z"
 progress:
   total_phases: 12
   completed_phases: 11
   total_plans: 25
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # Project State
@@ -61,6 +61,7 @@ Plan: 2 of 3
 | Phase 14-random-mode-overhaul P01 | 20min | 2 tasks | 4 files |
 | Phase 14-random-mode-overhaul P02 | 2min | 2 tasks | 2 files |
 | Phase 15-reconnect-after-disconnect P01 | 2min | 2 tasks | 2 files |
+| Phase 15-reconnect-after-disconnect P02 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,8 @@ v1.1 decisions locked by research:
 - [Phase 15-reconnect-after-disconnect P01]: reconnectPlayer updates lobby.hostId when reconnecting player is host (Pitfall 1 prevention)
 - [Phase 15-reconnect-after-disconnect P01]: disconnecting handler returns early after reservePlayerSlot in game phase; lobby-phase path falls through unchanged preserving all existing behavior
 - [Phase 15-reconnect-after-disconnect P01]: onExpiry callback pattern in reservePlayerSlot — timer callback in game.js calls back into socket.js via closure for broadcast, avoids circular dependency
+- [Phase 15-reconnect-after-disconnect P02]: reconnectRoom emit guarded by gameScreen.classList.contains('active') + myRoomCode + myPlayerName — screen-state guard avoids spurious emit on initial page load
+- [Phase 15-reconnect-after-disconnect P02]: room:error extended to three branches: start-screen (showJoinError), game-screen (drop to start + clear state), lobby (notification)
 
 ### Roadmap Evolution
 
@@ -133,6 +136,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-09T09:32:43Z
-Stopped at: Completed 15-01-PLAN.md
-Resume file: .planning/phases/15-reconnect-after-disconnect/15-02-PLAN.md
+Last session: 2026-04-09T09:38:50.796Z
+Stopped at: Completed 15-02-PLAN.md
+Resume file: None
