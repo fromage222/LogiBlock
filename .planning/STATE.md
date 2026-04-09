@@ -4,12 +4,12 @@ milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
 stopped_at: Phase 15 context gathered
-last_updated: "2026-04-09T09:17:03.510Z"
+last_updated: "2026-04-09T09:29:44.106Z"
 progress:
   total_phases: 12
   completed_phases: 11
-  total_plans: 22
-  completed_plans: 22
+  total_plans: 25
+  completed_plans: 23
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 14 — random-mode-overhaul
+**Current focus:** Phase 15 — reconnect-after-disconnect
 
 ## Current Position
 
-Phase: 14 (random-mode-overhaul) — EXECUTING
-Plan: 1 of 3
+Phase: 15 (reconnect-after-disconnect) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Plan: 1 of 3
 | Phase 13-per-level-leaderboard P01 | 2min | 2 tasks | 3 files |
 | Phase 14-random-mode-overhaul P01 | 20min | 2 tasks | 4 files |
 | Phase 14-random-mode-overhaul P02 | 2min | 2 tasks | 2 files |
+| Phase 15-reconnect-after-disconnect P01 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,11 @@ v1.1 decisions locked by research:
 - [Phase 14-random-mode-overhaul]: blindTimer and blindInterval module-level guards cleared before re-arm on repeated blind_bank events — prevents stacking and stale timer reveal
 - [Phase 14-random-mode-overhaul]: 50% gate + single retry in socket.js: raises effective blind_bank rate from ~3% to ~10%, reverse_order from ~4.5% to ~15% — observable in 15-20 turn sessions
 - [Phase 14-random-mode-overhaul]: Synchronous rotate_piece in main.js: rotation applied before updateBankSelection() re-render — piece appears rotated on same paint tick as selection, placement impossible before rotation visible
+- [Phase 15-reconnect-after-disconnect P01]: advanceTurn uses for-loop with cycle guard (max iterations = player count) to skip disconnected slots without infinite loop when all players disconnect
+- [Phase 15-reconnect-after-disconnect P01]: reservePlayerSlot stores timer on player.disconnectTimer — cleared on reconnect, no external Map tracking needed
+- [Phase 15-reconnect-after-disconnect P01]: reconnectPlayer updates lobby.hostId when reconnecting player is host (Pitfall 1 prevention)
+- [Phase 15-reconnect-after-disconnect P01]: disconnecting handler returns early after reservePlayerSlot in game phase; lobby-phase path falls through unchanged preserving all existing behavior
+- [Phase 15-reconnect-after-disconnect P01]: onExpiry callback pattern in reservePlayerSlot — timer callback in game.js calls back into socket.js via closure for broadcast, avoids circular dependency
 
 ### Roadmap Evolution
 
@@ -127,6 +133,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-09T09:17:03.508Z
-Stopped at: Phase 15 context gathered
-Resume file: .planning/phases/15-reconnect-after-disconnect/15-CONTEXT.md
+Last session: 2026-04-09T09:32:43Z
+Stopped at: Completed 15-01-PLAN.md
+Resume file: .planning/phases/15-reconnect-after-disconnect/15-02-PLAN.md

@@ -105,7 +105,7 @@ Plans:
 | 12. Controls Modal | 1/1 | Complete    | 2026-04-06 | - |
 | 13. Per-Level Leaderboard | 1/1 | Complete    | 2026-04-06 | - |
 | 14. Random Mode Overhaul | 2/2 | Complete   | 2026-04-07 | - |
-| 15. Reconnect After Disconnect | v1.2 | 0/3 | Not started | - |
+| 15. Reconnect After Disconnect | 1/3 | In Progress|  | - |
 
 ### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
 
