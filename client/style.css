@@ -1047,3 +1047,35 @@ input[type="range"]#random-mode-toggle {
   from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* ── Reconnect overlay (Phase 15) ────────────────────────────────────── */
+.reconnect-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  border-radius: inherit;
+}
+
+.reconnect-overlay-content {
+  background: var(--clr-surface, #fff);
+  color: var(--clr-text, #222);
+  padding: 2rem 3rem;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Disconnected player badge (Phase 15) ────────────────────────────── */
+.player-badge.disconnected {
+  opacity: 0.45;
+  font-style: italic;
+}
