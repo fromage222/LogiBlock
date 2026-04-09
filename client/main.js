@@ -120,6 +120,7 @@ const lobbyNotification = document.getElementById('lobby-notification');
 const selectedPuzzleDisplay = document.getElementById('selected-puzzle-display');
 
 const gameGrid         = document.getElementById('game-grid');
+const reconnectOverlay = document.getElementById('reconnect-overlay');
 const controlsInfoBtn  = document.getElementById('controls-info-btn');
 const controlsModal    = document.getElementById('controls-modal');
 const controlsModalClose = document.getElementById('controls-modal-close');
@@ -540,10 +541,15 @@ function renderTurnUI(state) {
   (state.players || []).forEach(player => {
     const badge = document.createElement('div');
     badge.classList.add('player-badge');
-    const isActive = player.name === state.activePlayerName;
-    const showBolt = isActive && (state.extraTurns ?? 0) > 0;
-    badge.textContent = player.name + (showBolt ? ' ⚡' : '');
-    if (isActive) badge.classList.add('active');
+    if (player.disconnected) {
+      badge.classList.add('disconnected');
+      badge.textContent = player.name + ' (reconnecting)';
+    } else {
+      const isActive = player.name === state.activePlayerName;
+      const showBolt = isActive && (state.extraTurns ?? 0) > 0;
+      badge.textContent = player.name + (showBolt ? ' ⚡' : '');
+      if (isActive) badge.classList.add('active');
+    }
     badgesContainer.appendChild(badge);
   });
 }
@@ -953,6 +959,9 @@ socket.on('game:start', (state) => {
 
 // Game state update during play — reset selection, re-render all UI
 socket.on('game:stateUpdate', (state) => {
+  // Dismiss reconnect overlay on successful state update (Phase 15)
+  reconnectOverlay.style.display = 'none';
+
   selectedShapeId = null;
   selectedRotation = 0;
   refreshCursorPiece();
@@ -1025,9 +1034,44 @@ socket.on('game:win', (state) => {
 socket.on('room:error', (message) => {
   if (startScreen.classList.contains('active')) {
     showJoinError(message);
+  } else if (gameScreen.classList.contains('active')) {
+    // Session expired or reconnect failed — drop to start screen (Phase 15)
+    reconnectOverlay.style.display = 'none';
+    myRoomCode = null;
+    amIHost = false;
+    clearInterval(timerInterval);
+    timerInterval = null;
+    showScreen('start-screen');
+    showJoinError(message);
+    setTimeout(clearJoinError, 4000);
   } else {
     showLobbyNotification(`Error: ${message}`);
   }
+});
+
+// ── Reconnect: show overlay on disconnect during game (Phase 15) ─────
+socket.on('disconnect', () => {
+  if (gameScreen.classList.contains('active') && myRoomCode) {
+    reconnectOverlay.style.display = 'flex';
+  }
+});
+
+// ── Reconnect: emit reconnectRoom on auto-reconnect (Phase 15) ───────
+socket.on('connect', () => {
+  // Socket.IO fires 'connect' on first connect AND every reconnect.
+  // Only emit reconnectRoom if we were in a game (game screen active + room code known).
+  if (gameScreen.classList.contains('active') && myRoomCode && myPlayerName) {
+    socket.emit('reconnectRoom', { roomCode: myRoomCode, playerName: myPlayerName });
+  }
+});
+
+// ── Reconnect notifications for remaining players (Phase 15) ─────────
+socket.on('game:playerDisconnected', ({ playerName: disconnectedName }) => {
+  showGameNotification(`${disconnectedName} disconnected — reconnecting...`);
+});
+
+socket.on('game:playerReconnected', ({ playerName: reconnectedName }) => {
+  showGameNotification(`${reconnectedName} reconnected!`);
 });
 
 // Leaderboard update — re-render leaderboard on start screen (TIME-04)
