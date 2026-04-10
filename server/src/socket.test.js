@@ -20,6 +20,8 @@ const {
   setSelectedPuzzle,
   setRandomMode,
   getLobby,
+  reservePlayerSlot,
+  reconnectPlayer,
 } = require('./game');
 
 const registerSocketHandlers = require('./socket');
@@ -628,4 +630,58 @@ describe('game:move - double_turn extra-turn gate', () => {
     // Turn MUST advance
     assert.strictEqual(freshLobby.activeTurnIndex, 1, 'activeTurnIndex must advance to 1 when extraTurns === 0');
   });
+});
+
+// ─── Phase 15: reconnectRoom handler tests ────────────────────────────────────
+
+describe('Phase 15: reconnectRoom handler', () => {
+
+  it('reconnectRoom emits game:stateUpdate on successful reconnect', () => {
+    const roomCode = 'SKREC01';
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-socket', 'Alice');
+    addPlayer(roomCode, 'p2-socket', 'Bob');
+    setSelectedPuzzle(roomCode, 'puzzle_01');
+    startGame(roomCode);
+
+    // Reserve Bob's slot (simulate disconnect)
+    reservePlayerSlot(roomCode, 'p2-socket', () => {});
+
+    // Use the existing makeMocks helper with Bob's new socket ID
+    const { socket, emitted } = makeMocks(roomCode, 'new-p2-socket', undefined);
+
+    // Trigger reconnectRoom handler
+    trigger(socket, 'reconnectRoom', { roomCode, playerName: 'Bob' });
+
+    // Should have emitted game:stateUpdate via io.to(roomCode)
+    assert.ok(emitted.room['game:stateUpdate'], 'Expected game:stateUpdate to be emitted to room');
+    assert.equal(socket.data.roomCode, roomCode, 'socket.data.roomCode should be set');
+    assert.equal(socket.data.playerName, 'Bob', 'socket.data.playerName should be set');
+
+    // Cleanup
+    const lobby = getLobby(roomCode);
+    if (lobby) lobby.players.forEach(p => { if (p.disconnectTimer) clearTimeout(p.disconnectTimer); });
+    lobbies.delete(roomCode);
+  });
+
+  it('reconnectRoom emits room:error on failed reconnect (no disconnected slot)', () => {
+    const roomCode = 'SKREC02';
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-socket', 'Alice');
+    addPlayer(roomCode, 'p2-socket', 'Bob');
+    setSelectedPuzzle(roomCode, 'puzzle_01');
+    startGame(roomCode);
+
+    // Do NOT reserve Bob's slot — he is connected, reconnect should fail
+    const { socket, emitted } = makeMocks(roomCode, 'new-p2-socket', undefined);
+
+    trigger(socket, 'reconnectRoom', { roomCode, playerName: 'Bob' });
+
+    // Should have emitted room:error to the socket
+    assert.ok(emitted.socket['room:error'], 'Expected room:error to be emitted');
+    assert.ok(!emitted.room['game:stateUpdate'], 'game:stateUpdate must NOT be emitted on failed reconnect');
+
+    lobbies.delete(roomCode);
+  });
+
 });
