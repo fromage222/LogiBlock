@@ -224,6 +224,6 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 15-01-PLAN.md — Server: modify `disconnecting` handler for game-phase hold vs. lobby-phase evict; add 30s setTimeout per disconnecting player; new `reconnectRoom` socket handler
-- [ ] 15-02-PLAN.md — Client: `reconnectRoom` emit on Socket.IO auto-reconnect; "Reconnecting..." UI state; handle `room:error "Session expired"` path
-- [ ] 15-03-PLAN.md — TDD: disconnect-hold, 30s-expiry, successful reconnect, host-reconnect, all-disconnect edge cases; human verification
+- [x] 15-01-PLAN.md — Server: modify `disconnecting` handler for game-phase hold vs. lobby-phase evict; add 30s setTimeout per disconnecting player; new `reconnectRoom` socket handler
+- [x] 15-02-PLAN.md — Client: `reconnectRoom` emit on Socket.IO auto-reconnect; "Reconnecting..." UI state; handle `room:error "Session expired"` path
+- [x] 15-03-PLAN.md — TDD: disconnect-hold, 30s-expiry, successful reconnect, host-reconnect, all-disconnect edge cases; human verification
