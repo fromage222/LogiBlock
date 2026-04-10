@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
-stopped_at: Completed 15-02-PLAN.md
-last_updated: "2026-04-09T09:38:50.799Z"
+stopped_at: Completed 15-03-PLAN.md
+last_updated: "2026-04-10T12:32:39.131Z"
 progress:
   total_phases: 12
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 ## Current Position
 
 Phase: 15 (reconnect-after-disconnect) — EXECUTING
-Plan: 2 of 3
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Plan: 2 of 3
 | Phase 14-random-mode-overhaul P02 | 2min | 2 tasks | 2 files |
 | Phase 15-reconnect-after-disconnect P01 | 2min | 2 tasks | 2 files |
 | Phase 15-reconnect-after-disconnect P02 | 5min | 2 tasks | 3 files |
+| Phase 15 P03 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,7 @@ v1.1 decisions locked by research:
 - [Phase 15-reconnect-after-disconnect P01]: onExpiry callback pattern in reservePlayerSlot — timer callback in game.js calls back into socket.js via closure for broadcast, avoids circular dependency
 - [Phase 15-reconnect-after-disconnect P02]: reconnectRoom emit guarded by gameScreen.classList.contains('active') + myRoomCode + myPlayerName — screen-state guard avoids spurious emit on initial page load
 - [Phase 15-reconnect-after-disconnect P02]: room:error extended to three branches: start-screen (showJoinError), game-screen (drop to start + clear state), lobby (notification)
+- [Phase 15]: cleanupTimers helper clears disconnectTimer on all players after each test to prevent 30s hang in test runner
 
 ### Roadmap Evolution
 
@@ -136,6 +138,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-09T09:38:50.796Z
-Stopped at: Completed 15-02-PLAN.md
+Last session: 2026-04-10T12:32:39.129Z
+Stopped at: Completed 15-03-PLAN.md
 Resume file: None
