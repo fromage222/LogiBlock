@@ -20,9 +20,6 @@ const {
   // NEW from Plan 09-03 (Random Mode socket layer):
   setRandomMode,
   triggerRandomEvent,
-  // Phase 15 (Reconnect After Disconnect):
-  reservePlayerSlot,
-  reconnectPlayer,
 } = require('./game');
 
 const BadWordsFilter = require('bad-words');
@@ -246,28 +243,7 @@ function registerSocketHandlers(io, socket, puzzleMap) {
 
     const wasHost = lobby.hostId === socket.id;
     const playerName = socket.data.playerName || 'Unknown';
-    const wasInGame = lobby.phase === 'playing';
 
-    // ── Game-phase disconnect: hold slot for 30s reconnect window ──
-    if (wasInGame) {
-      const result = reservePlayerSlot(roomCode, socket.id, (expiredRoomCode, expiredPlayerName) => {
-        // Fires after 30s if player did not reconnect
-        const currentLobby = getLobby(expiredRoomCode);
-        if (!currentLobby) return;
-        io.to(expiredRoomCode).emit('lobby:playerLeft', { playerName: expiredPlayerName });
-        io.to(expiredRoomCode).emit('game:stateUpdate', getPublicState(expiredRoomCode));
-      });
-
-      if (result.ok) {
-        // Notify remaining players about the disconnect (transient notification)
-        socket.to(roomCode).emit('game:playerDisconnected', { playerName });
-        // Broadcast updated state so clients see the disconnected badge
-        io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
-      }
-      return;
-    }
-
-    // ── Lobby-phase disconnect: unchanged behavior ──
     removePlayer(roomCode, socket.id);
 
     // GAME-10: destroy lobby if empty
@@ -288,29 +264,6 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
   });
 
-  // ── reconnectRoom ────────────────────────────────────────────────────────
-  // Client emits: { roomCode: string, playerName: string }
-  // Fires on Socket.IO auto-reconnect when game screen was active.
-  // Re-associates the new socket ID with the held player slot.
-  // NOTE (Pitfall 2): name-only identity — slot hijacking accepted for Uni scope.
-  socket.on('reconnectRoom', ({ roomCode, playerName } = {}) => {
-    if (!roomCode || !playerName) return;
-
-    const result = reconnectPlayer(roomCode, playerName, socket.id);
-    if (!result.ok) {
-      return socket.emit('room:error', result.error || 'Session expired');
-    }
-
-    // Re-associate socket metadata
-    socket.data.roomCode = roomCode;
-    socket.data.playerName = playerName;
-    socket.join(roomCode);
-
-    // Notify all players (including the reconnected one) with fresh state
-    io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
-    // Notify remaining players
-    socket.to(roomCode).emit('game:playerReconnected', { playerName });
-  });
 }
 
 module.exports = registerSocketHandlers;

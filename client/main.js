@@ -120,7 +120,6 @@ const lobbyNotification = document.getElementById('lobby-notification');
 const selectedPuzzleDisplay = document.getElementById('selected-puzzle-display');
 
 const gameGrid         = document.getElementById('game-grid');
-const reconnectOverlay = document.getElementById('reconnect-overlay');
 const controlsInfoBtn  = document.getElementById('controls-info-btn');
 const controlsModal    = document.getElementById('controls-modal');
 const controlsModalClose = document.getElementById('controls-modal-close');
@@ -198,7 +197,7 @@ function renderLobbyUpdate(state) {
     playerList.appendChild(li);
   });
 
-  // Determine if I am host (check by name — socket.id may differ if reconnected)
+  // Determine if I am host
   const me = state.players.find(p => p.name === myPlayerName);
   amIHost = me ? me.isHost : false;
 
@@ -541,15 +540,10 @@ function renderTurnUI(state) {
   (state.players || []).forEach(player => {
     const badge = document.createElement('div');
     badge.classList.add('player-badge');
-    if (player.disconnected) {
-      badge.classList.add('disconnected');
-      badge.textContent = player.name + ' (reconnecting)';
-    } else {
-      const isActive = player.name === state.activePlayerName;
-      const showBolt = isActive && (state.extraTurns ?? 0) > 0;
-      badge.textContent = player.name + (showBolt ? ' ⚡' : '');
-      if (isActive) badge.classList.add('active');
-    }
+    const isActive = player.name === state.activePlayerName;
+    const showBolt = isActive && (state.extraTurns ?? 0) > 0;
+    badge.textContent = player.name + (showBolt ? ' ⚡' : '');
+    if (isActive) badge.classList.add('active');
     badgesContainer.appendChild(badge);
   });
 }
@@ -801,6 +795,8 @@ document.getElementById('play-again-btn').addEventListener('click', () => {
   showScreen('start-screen');
   myRoomCode = null;
   amIHost = false;
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
   // No game:leave event needed — socket.data.roomCode is overwritten on next createRoom/joinRoom
 });
 
@@ -905,6 +901,8 @@ function renderLeaderboard(entries) {
 socket.on('room:created', ({ roomCode }) => {
   myRoomCode = roomCode;
   roomCodeText.textContent = roomCode;
+  localStorage.setItem('logiblock_roomCode', roomCode);
+  localStorage.setItem('logiblock_playerName', myPlayerName);
   showScreen('lobby-screen');
 });
 
@@ -924,6 +922,9 @@ socket.on('puzzle:list', (puzzles) => {
 socket.on('lobby:update', (state) => {
   myRoomCode = state.roomCode;
   roomCodeText.textContent = state.roomCode;
+  pendingAutoRejoin = false;
+  localStorage.setItem('logiblock_roomCode', state.roomCode);
+  localStorage.setItem('logiblock_playerName', myPlayerName);
   // Transition to lobby screen if still on start screen (joiner flow)
   if (startScreen.classList.contains('active')) {
     showScreen('lobby-screen');
@@ -940,6 +941,8 @@ socket.on('lobby:playerLeft', ({ playerName }) => {
 socket.on('lobby:hostLeft', ({ message }) => {
   myRoomCode = null;
   amIHost = false;
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
   showScreen('start-screen');
   // Use inline error (not alert — browsers silently block repeated alert() calls)
   showJoinError(message || 'Host left — lobby closed');
@@ -948,6 +951,8 @@ socket.on('lobby:hostLeft', ({ message }) => {
 
 // Game started — transition to game screen, initialise colors, render all UI
 socket.on('game:start', (state) => {
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
   showScreen('game-screen');
   initPieceColors(state);
   renderGrid(state);
@@ -959,9 +964,6 @@ socket.on('game:start', (state) => {
 
 // Game state update during play — reset selection, re-render all UI
 socket.on('game:stateUpdate', (state) => {
-  // Dismiss reconnect overlay on successful state update (Phase 15)
-  reconnectOverlay.style.display = 'none';
-
   selectedShapeId = null;
   selectedRotation = 0;
   refreshCursorPiece();
@@ -1033,45 +1035,31 @@ socket.on('game:win', (state) => {
 // Inline error — show under the join input on start screen; or as notification in lobby
 socket.on('room:error', (message) => {
   if (startScreen.classList.contains('active')) {
+    if (pendingAutoRejoin) {
+      pendingAutoRejoin = false;
+      localStorage.removeItem('logiblock_roomCode');
+      localStorage.removeItem('logiblock_playerName');
+      myPlayerName = null;
+    }
     showJoinError(message);
-  } else if (gameScreen.classList.contains('active')) {
-    // Session expired or reconnect failed — drop to start screen (Phase 15)
-    reconnectOverlay.style.display = 'none';
-    myRoomCode = null;
-    amIHost = false;
-    clearInterval(timerInterval);
-    timerInterval = null;
-    showScreen('start-screen');
-    showJoinError(message);
-    setTimeout(clearJoinError, 4000);
   } else {
     showLobbyNotification(`Error: ${message}`);
   }
 });
 
-// ── Reconnect: show overlay on disconnect during game (Phase 15) ─────
-socket.on('disconnect', () => {
-  if (gameScreen.classList.contains('active') && myRoomCode) {
-    reconnectOverlay.style.display = 'flex';
-  }
-});
+// ── Lobby-Rejoin nach Seitenreload ────────────────────────────────────
+// Beim ersten Connect (= Seitenload): falls localStorage einen Lobby-Eintrag hat,
+// automatisch wieder beitreten. Klappt nur, wenn Lobby noch in Phase 'lobby' ist.
+let pendingAutoRejoin = false;
 
-// ── Reconnect: emit reconnectRoom on auto-reconnect (Phase 15) ───────
 socket.on('connect', () => {
-  // Socket.IO fires 'connect' on first connect AND every reconnect.
-  // Only emit reconnectRoom if we were in a game (game screen active + room code known).
-  if (gameScreen.classList.contains('active') && myRoomCode && myPlayerName) {
-    socket.emit('reconnectRoom', { roomCode: myRoomCode, playerName: myPlayerName });
+  const savedRoom = localStorage.getItem('logiblock_roomCode');
+  const savedName = localStorage.getItem('logiblock_playerName');
+  if (savedRoom && savedName && startScreen.classList.contains('active')) {
+    myPlayerName = savedName;
+    pendingAutoRejoin = true;
+    socket.emit('joinRoom', { roomCode: savedRoom, playerName: savedName });
   }
-});
-
-// ── Reconnect notifications for remaining players (Phase 15) ─────────
-socket.on('game:playerDisconnected', ({ playerName: disconnectedName }) => {
-  showGameNotification(`${disconnectedName} disconnected — reconnecting...`);
-});
-
-socket.on('game:playerReconnected', ({ playerName: reconnectedName }) => {
-  showGameNotification(`${reconnectedName} reconnected!`);
 });
 
 // Leaderboard update — re-render leaderboard on start screen (TIME-04)

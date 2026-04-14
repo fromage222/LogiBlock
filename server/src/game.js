@@ -35,7 +35,7 @@ function createLobby(roomCode, hostSocketId, hostName) {
     hostId: hostSocketId,
     selectedPuzzleId: firstPuzzleId,
     phase: 'lobby',
-    players: [{ socketId: hostSocketId, name: hostName, isHost: true, disconnected: false, disconnectTimer: null }],
+    players: [{ socketId: hostSocketId, name: hostName, isHost: true }],
     grid: null,
     randomModeEnabled: false,
     extraTurns: 0,           // Phase 14: double_turn gate
@@ -166,15 +166,9 @@ function returnPiece(lobby, shapeId) {
 // ─── Turn helpers (GAME-07, GAME-08, GAME-09) ─────────────────────────────────
 
 // Advance the active turn to the next player (circular).
-// Phase 15: skips disconnected slots; cycle guard prevents infinite loop if all disconnected.
 function advanceTurn(lobby) {
   if (!lobby.players || lobby.players.length === 0) return;
-  const len = lobby.players.length;
-  for (let i = 0; i < len; i++) {
-    lobby.activeTurnIndex = (lobby.activeTurnIndex + 1) % len;
-    if (!lobby.players[lobby.activeTurnIndex].disconnected) return;
-  }
-  // All players disconnected — activeTurnIndex stays wherever it landed
+  lobby.activeTurnIndex = (lobby.activeTurnIndex + 1) % lobby.players.length;
 }
 
 // ─── Safe serialization (GAME-06 invariant: solution NEVER leaves server) ────
@@ -211,7 +205,6 @@ function getPublicState(roomCode) {
       name: p.name,
       isHost: p.isHost,
       socketId: p.socketId,
-      disconnected: p.disconnected || false,
     })),
     selectedPuzzleName: puzzle ? puzzle.name : null,
     selectedPuzzleDifficulty: puzzle ? (puzzle.difficulty ?? null) : null,
@@ -360,7 +353,7 @@ function loadPuzzles() {
 function addPlayer(roomCode, socketId, name) {
   const lobby = lobbies.get(roomCode);
   if (!lobby) return false;
-  lobby.players.push({ socketId, name, isHost: false, disconnected: false, disconnectTimer: null });
+  lobby.players.push({ socketId, name, isHost: false });
   return true;
 }
 
@@ -553,76 +546,6 @@ function advanceTurnIfActive(lobby, socketId) {
   // Non-active player with index >= activeTurnIndex: no change
 }
 
-// ─── Reconnect helpers (Phase 15) ────────────────────────────────────────────
-
-// Mark a player's slot as disconnected and start a 30s expiry timer.
-// If the player was the active turn player, advance turn to the next connected player.
-// onExpiry(roomCode, playerName) is called after 30s if player did not reconnect.
-// NOTE (Pitfall 2): name-only identity — slot hijacking is possible but accepted for Uni scope.
-function reservePlayerSlot(roomCode, socketId, onExpiry) {
-  const lobby = lobbies.get(roomCode);
-  if (!lobby) return { ok: false };
-  const player = lobby.players.find(p => p.socketId === socketId);
-  if (!player) return { ok: false };
-
-  player.disconnected = true;
-  player.disconnectedAt = Date.now();
-
-  // Skip turn if this was the active player
-  if (lobby.activeTurnIndex >= 0 && lobby.players[lobby.activeTurnIndex]?.socketId === socketId) {
-    advanceTurn(lobby);
-  }
-
-  const playerName = player.name;
-  const wasHost = player.isHost;
-
-  player.disconnectTimer = setTimeout(() => {
-    const currentLobby = lobbies.get(roomCode);
-    if (!currentLobby) return;
-    const slotPlayer = currentLobby.players.find(p => p.name === playerName && p.disconnected);
-    if (!slotPlayer) return;
-
-    removePlayer(roomCode, slotPlayer.socketId);
-
-    if (currentLobby.players.length === 0) {
-      deleteLobby(roomCode);
-      return;
-    }
-
-    // Host promotion: oldest remaining player (index 0) becomes host
-    if (wasHost) {
-      currentLobby.hostId = currentLobby.players[0].socketId;
-      currentLobby.players[0].isHost = true;
-    }
-
-    if (onExpiry) onExpiry(roomCode, playerName);
-  }, 30000);
-
-  return { ok: true, playerName };
-}
-
-// Re-associate a reconnecting player's new socket ID with their held slot.
-// Clears the disconnect timer and restores connected state.
-// CRITICAL (Pitfall 1): also updates lobby.hostId if the reconnecting player is the host.
-function reconnectPlayer(roomCode, playerName, newSocketId) {
-  const lobby = lobbies.get(roomCode);
-  if (!lobby) return { ok: false, error: 'Room not found' };
-  const player = lobby.players.find(p => p.name === playerName && p.disconnected === true);
-  if (!player) return { ok: false, error: 'Session expired' };
-
-  clearTimeout(player.disconnectTimer);
-  player.socketId = newSocketId;
-  player.disconnected = false;
-  player.disconnectedAt = null;
-  player.disconnectTimer = null;
-
-  // Pitfall 1: update hostId if reconnecting player is the host
-  if (player.isHost) {
-    lobby.hostId = newSocketId;
-  }
-
-  return { ok: true };
-}
 
 module.exports = {
   lobbies,
@@ -655,7 +578,4 @@ module.exports = {
   triggerRandomEvent,
   // Phase 14 exports (Random Mode Overhaul):
   pickRandomEvent,
-  // Phase 15 exports (Reconnect After Disconnect):
-  reservePlayerSlot,
-  reconnectPlayer,
 };
