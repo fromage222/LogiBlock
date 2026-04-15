@@ -34,11 +34,23 @@ let currentGrid = null;       // cached grid data for ghost preview (null cells)
 let currentGridSize = null;   // cached { rows, cols }
 let currentBankShapes = [];   // cached bankShapes array for ghost lookup
 
-// Phase 7: click disambiguation state
-const DBLCLICK_DELAY = 150; // ms window to distinguish single-click (rotate) from double-click (place)
-let clickTimer = null;
+// Phase 10: interaction state
 let lastHoveredRow = null;  // cached from last mousemove — used to re-trigger ghost after rotation
 let lastHoveredCol = null;
+
+// Phase 14: random mode state
+let pendingRotate = false;
+let blindTimer = null;
+let blindInterval = null;
+
+// Phase 10: touch interaction state
+let touchDragging = false;
+let longPressTimer = null;
+let lastTouchTime = 0;         // suppresses synthesized mousemove events after touch
+let suppressNextGridClick = false; // blocks synthesized click after drag-lift
+let touchStartX = 0;           // finger position at touch begin — used for drag threshold
+let touchStartY = 0;
+const TOUCH_DRAG_THRESHOLD = 12; // px — below = tap, above = drag
 
 // ─── Difficulty labels (Phase 8) ─────────────────────────────────────────────
 const DIFFICULTY_LABELS = {
@@ -108,6 +120,9 @@ const lobbyNotification = document.getElementById('lobby-notification');
 const selectedPuzzleDisplay = document.getElementById('selected-puzzle-display');
 
 const gameGrid         = document.getElementById('game-grid');
+const controlsInfoBtn  = document.getElementById('controls-info-btn');
+const controlsModal    = document.getElementById('controls-modal');
+const controlsModalClose = document.getElementById('controls-modal-close');
 
 // ─── Screen switching ─────────────────────────────────────────────────────────
 function showScreen(screenId) {
@@ -182,7 +197,7 @@ function renderLobbyUpdate(state) {
     playerList.appendChild(li);
   });
 
-  // Determine if I am host (check by name — socket.id may differ if reconnected)
+  // Determine if I am host
   const me = state.players.find(p => p.name === myPlayerName);
   amIHost = me ? me.isHost : false;
 
@@ -249,8 +264,8 @@ function renderGrid(state) {
   currentBankShapes = state.bankShapes || [];
 
   const { rows, cols } = state.gridSize;
-  gameGrid.style.gridTemplateColumns = `repeat(${cols}, 40px)`;
-  gameGrid.style.gridTemplateRows    = `repeat(${rows}, 40px)`;
+  gameGrid.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+  gameGrid.style.gridTemplateRows    = `repeat(${rows}, var(--cell-size))`;
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -286,24 +301,12 @@ function renderGrid(state) {
         if (selectedShapeId) updateGhostPreview(r, c);
       });
 
-      // Click: start 300ms timer; double-click cancels it via clearTimeout before it fires
+      // Single click: place selected piece OR return placed movable piece
       cell.addEventListener('click', () => {
-        clearTimeout(clickTimer);
-        clickTimer = setTimeout(() => {
-          // Single-click rotate — guard: do nothing if no piece selected (CTRL-01)
-          if (!selectedShapeId) return;
-          selectedRotation = (selectedRotation + 90) % 360;
-          updateBankSelection();  // CTRL-04: bank mini-grid reflects new rotation
-          if (lastHoveredRow !== null && lastHoveredCol !== null) {
-            updateGhostPreview(lastHoveredRow, lastHoveredCol);  // CTRL-03: ghost reflects new rotation
-          }
-        }, DBLCLICK_DELAY);
-      });
-
-      // Double-click: cancel pending rotate, then place or return (CTRL-02)
-      cell.addEventListener('dblclick', () => {
-        clearTimeout(clickTimer);  // MUST be first — cancels rotate from click event
+        // Suppress the synthesized click that iOS fires right after a drag-lift
+        if (suppressNextGridClick) { suppressNextGridClick = false; return; }
         if (selectedShapeId) {
+          // Place the selected piece at this cell
           const shape = currentBankShapes.find(s => s.id === selectedShapeId);
           let originRow = r, originCol = c;
           if (shape) {
@@ -324,10 +327,35 @@ function renderGrid(state) {
           clearGhostPreview();
           refreshCursorPiece();
           updateBankSelection();
+          updateRotationButtons();
         } else if (content && content.movable !== false) {
+          // Return placed movable piece to bank
           handleReturnClick(content.shapeId);
         }
       });
+
+      // Touch: long-press return for placed movable pieces
+      if (content && content.movable !== false && !content.inactive) {
+        cell.addEventListener('touchstart', () => {
+          if (selectedShapeId) return; // only long-press return when no piece selected
+          clearTimeout(longPressTimer);
+          longPressTimer = setTimeout(() => {
+            handleReturnClick(content.shapeId);
+            longPressTimer = null;
+          }, 500);
+        }, { passive: true });
+
+        cell.addEventListener('touchend', () => {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        });
+
+        cell.addEventListener('touchmove', () => {
+          // Finger moved — cancel long press (it became a drag)
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        });
+      }
 
       gameGrid.appendChild(cell);
     }
@@ -337,7 +365,10 @@ function renderGrid(state) {
 // ─── Bank rendering (game screen) ────────────────────────────────────────────
 function renderBank(state) {
   const bank = document.getElementById('piece-bank');
+  // Preserve blind-countdown element — renderBank must not destroy an active blind timer
+  const existingCountdown = document.getElementById('blind-countdown');
   bank.innerHTML = '';
+  if (existingCountdown) bank.appendChild(existingCountdown);
   const amIActive = state.activePlayerName === myPlayerName;
   (state.bankShapes || []).forEach(shape => {
     const pieceEl = document.createElement('div');
@@ -365,9 +396,44 @@ function renderBank(state) {
         // Select — always reset rotation to 0 on bank selection
         selectedShapeId = shape.id;
         selectedRotation = 0;
+        // Phase 14: rotate_piece synchronous trap — fires only on null → value transition
+        if (pendingRotate && selectedShapeId !== null) {
+          selectedRotation = (selectedRotation + 90) % 360;
+          pendingRotate = false; // single-use: clear immediately
+          showGameNotification('Piece rotated!');
+        }
       }
       updateBankSelection();
+      updateRotationButtons();
+      // Refresh ghost if mouse is already over the grid (rotation changed without a mousemove)
+      if (lastHoveredRow !== null && lastHoveredCol !== null) {
+        updateGhostPreview(lastHoveredRow, lastHoveredCol);
+      }
     });
+
+    // Touch: select piece and begin drag mode
+    pieceEl.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // prevent scroll during piece selection
+      if (!amIActive) return;
+      if (selectedShapeId === shape.id) {
+        selectedShapeId = null;
+        selectedRotation = 0;
+      } else {
+        selectedShapeId = shape.id;
+        selectedRotation = 0;
+      }
+      updateBankSelection();
+      updateRotationButtons();
+      refreshCursorPiece();
+      // Position cursor piece above the bank element immediately on selection
+      if (selectedShapeId) {
+        const rect = pieceEl.getBoundingClientRect();
+        const cursorEl = getCursorEl();
+        cursorEl.style.left = (rect.left + rect.width / 2) + 'px';
+        cursorEl.style.top  = (rect.top  - 10) + 'px';
+      }
+    }, { passive: false });
+
     bank.appendChild(pieceEl);
   });
 }
@@ -422,7 +488,19 @@ function refreshCursorPiece() {
   el.appendChild(buildMiniGrid(rotateCells(shape.cells, selectedRotation), color, 22));
   el.style.display = 'block';
 }
+// Track touch origin for drag threshold + suppress synthesized mousemove from iOS
+document.addEventListener('touchstart', (e) => {
+  lastTouchTime = Date.now();
+  if (e.touches[0]) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }
+}, { passive: true });
+
 document.addEventListener('mousemove', (e) => {
+  // iOS fires a fake mousemove right before synthesized click events.
+  // Ignore it for 500ms after any touch so the cursor piece doesn't jump to tap targets.
+  if (Date.now() - lastTouchTime < 500) return;
   const el = getCursorEl();
   el.style.left = e.clientX + 'px';
   el.style.top = e.clientY + 'px';
@@ -462,8 +540,10 @@ function renderTurnUI(state) {
   (state.players || []).forEach(player => {
     const badge = document.createElement('div');
     badge.classList.add('player-badge');
-    badge.textContent = player.name;
-    if (player.name === state.activePlayerName) badge.classList.add('active');
+    const isActive = player.name === state.activePlayerName;
+    const showBolt = isActive && (state.extraTurns ?? 0) > 0;
+    badge.textContent = player.name + (showBolt ? ' ⚡' : '');
+    if (isActive) badge.classList.add('active');
     badgesContainer.appendChild(badge);
   });
 }
@@ -515,16 +595,156 @@ gameGrid.addEventListener('mouseleave', () => {
   lastHoveredCol = null;
 });
 
-// Deselect piece when clicking outside the grid and bank
+// Deselect piece when clicking outside the grid, bank, and rotation controls
 document.addEventListener('click', (e) => {
   if (!selectedShapeId) return;
-  if (!e.target.closest('#game-grid') && !e.target.closest('#piece-bank')) {
+  if (!e.target.closest('#game-grid') && !e.target.closest('#piece-bank') && !e.target.closest('#rotation-controls')) {
     selectedShapeId = null;
     selectedRotation = 0;
     clearGhostPreview();
     refreshCursorPiece();
     updateBankSelection();
+    updateRotationButtons();
   }
+});
+
+// ── Rotation button state ────────────────────────────────────────────────────
+function updateRotationButtons() {
+  const ccwBtn = document.getElementById('rotate-ccw-btn');
+  const cwBtn = document.getElementById('rotate-cw-btn');
+  if (ccwBtn) ccwBtn.disabled = !selectedShapeId;
+  if (cwBtn) cwBtn.disabled = !selectedShapeId;
+}
+
+// ── Rotation button handlers (wired once) ────────────────────────────────────
+document.getElementById('rotate-cw-btn').addEventListener('click', (e) => {
+  e.stopPropagation(); // prevent document deselect handler
+  if (!selectedShapeId) return;
+  selectedRotation = (selectedRotation + 90) % 360;
+  updateBankSelection();
+  updateRotationButtons();
+  if (lastHoveredRow !== null && lastHoveredCol !== null) {
+    updateGhostPreview(lastHoveredRow, lastHoveredCol);
+  }
+});
+
+document.getElementById('rotate-ccw-btn').addEventListener('click', (e) => {
+  e.stopPropagation(); // prevent document deselect handler
+  if (!selectedShapeId) return;
+  selectedRotation = (selectedRotation + 270) % 360; // +270 = -90 mod 360
+  updateBankSelection();
+  updateRotationButtons();
+  if (lastHoveredRow !== null && lastHoveredCol !== null) {
+    updateGhostPreview(lastHoveredRow, lastHoveredCol);
+  }
+});
+
+// ── R key rotation shortcut (EXT-01) ─────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'r' && e.key !== 'R') return;
+  if (!selectedShapeId) return;
+  if (!gameScreen.classList.contains('active')) return;
+  selectedRotation = (selectedRotation + 90) % 360;
+  updateBankSelection();
+  updateRotationButtons();
+  if (lastHoveredRow !== null && lastHoveredCol !== null) {
+    updateGhostPreview(lastHoveredRow, lastHoveredCol);
+  }
+});
+
+// ── Controls Modal (HLP-01) ──────────────────────────────────────────────────
+controlsInfoBtn.addEventListener('click', () => {
+  controlsModal.showModal();
+});
+
+controlsModalClose.addEventListener('click', () => {
+  controlsModal.close();
+});
+
+// Close on backdrop click (click on dialog element itself, not on content inside)
+controlsModal.addEventListener('click', (e) => {
+  if (e.target === controlsModal) {
+    controlsModal.close();
+  }
+});
+
+// ── Touch: drag-to-preview (document-level, wired once) ─────────────────────
+document.addEventListener('touchmove', (e) => {
+  if (!selectedShapeId) return;
+  if (!gameScreen.classList.contains('active')) return;
+  e.preventDefault(); // block page scroll — requires passive: false
+
+  const touch = e.touches[0];
+
+  // Move cursor piece above finger during drag
+  const cursorEl = getCursorEl();
+  if (cursorEl) {
+    cursorEl.style.left = touch.clientX + 'px';
+    cursorEl.style.top  = (touch.clientY - 70) + 'px';
+    refreshCursorPiece();
+  }
+
+  // Only enter drag mode once finger moves past threshold.
+  // Tiny wobbles during a confirmation tap stay below threshold → not treated as drag.
+  const dx = touch.clientX - touchStartX;
+  const dy = touch.clientY - touchStartY;
+  if (Math.sqrt(dx * dx + dy * dy) <= TOUCH_DRAG_THRESHOLD) return;
+
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (!el) {
+    if (touchDragging) { clearGhostPreview(); touchDragging = false; }
+    return;
+  }
+  const row = parseInt(el.dataset.row);
+  const col = parseInt(el.dataset.col);
+  if (isNaN(row) || isNaN(col)) {
+    // Off grid — only clear ghost when we were actively dragging (tapping rotation buttons must not wipe ghost)
+    if (touchDragging) { clearGhostPreview(); touchDragging = false; }
+    return;
+  }
+  if (el.classList.contains('inactive')) return;
+  touchDragging = true;
+  lastHoveredRow = row;
+  lastHoveredCol = col;
+  updateGhostPreview(row, col);
+}, { passive: false });
+
+document.addEventListener('touchend', (e) => {
+  if (!selectedShapeId) return;
+
+  if (touchDragging) {
+    // Real drag ended — ghost stays, suppress the synthesized click iOS fires after lift
+    touchDragging = false;
+    suppressNextGridClick = true;
+    setTimeout(() => { suppressNextGridClick = false; }, 350);
+    return;
+  }
+
+  // Tap (movement below threshold) — place piece if ghost is visible and finger is on grid
+  if (lastHoveredRow === null || lastHoveredCol === null) return;
+  const touch = e.changedTouches[0];
+  if (!touch) return;
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (!el || isNaN(parseInt(el.dataset.row)) || isNaN(parseInt(el.dataset.col))) return;
+  if (el.classList.contains('inactive')) return;
+
+  const shape = currentBankShapes.find(s => s.id === selectedShapeId);
+  let originRow = lastHoveredRow, originCol = lastHoveredCol;
+  if (shape) {
+    const cells = rotateCells(shape.cells, selectedRotation);
+    const [pivotDr, pivotDc] = getPivotOffset(cells);
+    originRow = lastHoveredRow - pivotDr;
+    originCol = lastHoveredCol - pivotDc;
+  }
+  socket.emit('game:move', { action: 'place', shapeId: selectedShapeId, rotation: selectedRotation, originRow, originCol });
+  selectedShapeId = null;
+  selectedRotation = 0;
+  clearGhostPreview();
+  refreshCursorPiece();
+  updateBankSelection();
+  updateRotationButtons();
+  lastHoveredRow = null;
+  lastHoveredCol = null;
 });
 
 // ─── Return piece click handler ───────────────────────────────────────────────
@@ -575,6 +795,8 @@ document.getElementById('play-again-btn').addEventListener('click', () => {
   showScreen('start-screen');
   myRoomCode = null;
   amIHost = false;
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
   // No game:leave event needed — socket.data.roomCode is overwritten on next createRoom/joinRoom
 });
 
@@ -596,27 +818,81 @@ function showGameError(message) {
   setTimeout(() => { el.textContent = ''; }, 3500);
 }
 function showGameNotification(message) {
-  const el = ensureGameNotification();
-  el.textContent = message;
-  setTimeout(() => { el.textContent = ''; }, 3000);
+  const existing = document.getElementById('event-banner');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'event-banner';
+  banner.className = 'event-banner';
+  banner.textContent = message;
+  const host = document.getElementById('game-screen');
+  host.appendChild(banner);
+
+  setTimeout(() => {
+    if (banner.isConnected) banner.remove();
+  }, 2500);
 }
 
 // ─── Leaderboard render ────────────────────────────────────────────────────
+let activeLeaderboardTab = null;
+
 function renderLeaderboard(entries) {
   const tbody = document.getElementById('leaderboard-body');
+  const tabsContainer = document.getElementById('leaderboard-tabs');
+  const thead = document.querySelector('.leaderboard-table thead tr');
   if (!tbody) return;
+
   if (!entries || entries.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="leaderboard-empty">No games completed yet</td></tr>';
+    if (tabsContainer) tabsContainer.innerHTML = '';
+    if (thead) thead.innerHTML = '<th>#</th><th>Puzzle</th><th>Zeit</th><th>Spieler</th>';
+    tbody.innerHTML = '<tr><td colspan="4" class="leaderboard-empty">Noch keine Spiele abgeschlossen</td></tr>';
+    activeLeaderboardTab = null;
     return;
   }
-  tbody.innerHTML = entries.map(e =>
-    `<tr>
-      <td>${e.rank}</td>
-      <td>${e.puzzleName}</td>
-      <td class="leaderboard-time">${e.time}</td>
-      <td>${e.playerNames.join(', ')}</td>
-    </tr>`
-  ).join('');
+
+  // Derive unique puzzle names (preserving insertion order)
+  const puzzleNames = [...new Set(entries.map(e => e.puzzleName))];
+
+  // Default to puzzle with most recent entry; preserve selection across re-renders
+  if (!activeLeaderboardTab || !puzzleNames.includes(activeLeaderboardTab)) {
+    activeLeaderboardTab = entries[0].puzzleName;
+  }
+
+  // Render tab buttons
+  if (tabsContainer) {
+    tabsContainer.innerHTML = puzzleNames.map(name =>
+      `<button class="leaderboard-tab${name === activeLeaderboardTab ? ' active' : ''}" data-puzzle="${name}">${name}</button>`
+    ).join('');
+
+    // Wire tab click handlers (event delegation on container)
+    tabsContainer.onclick = (e) => {
+      const btn = e.target.closest('.leaderboard-tab');
+      if (!btn) return;
+      activeLeaderboardTab = btn.dataset.puzzle;
+      renderLeaderboard(entries);
+    };
+  }
+
+  // Filter entries for active tab and re-rank
+  const filtered = entries
+    .filter(e => e.puzzleName === activeLeaderboardTab)
+    .map((e, i) => ({ ...e, rank: i + 1 }));
+
+  // Update thead to 3 columns (hide Puzzle column)
+  if (thead) thead.innerHTML = '<th>#</th><th>Zeit</th><th>Spieler</th>';
+
+  // Render filtered rows (3 columns, no puzzleName)
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="leaderboard-empty">Keine Eintraege</td></tr>';
+  } else {
+    tbody.innerHTML = filtered.map(e =>
+      `<tr>
+        <td>${e.rank}</td>
+        <td class="leaderboard-time">${e.time}</td>
+        <td>${e.playerNames.join(', ')}</td>
+      </tr>`
+    ).join('');
+  }
 }
 
 // ─── Socket event listeners ───────────────────────────────────────────────────
@@ -625,6 +901,8 @@ function renderLeaderboard(entries) {
 socket.on('room:created', ({ roomCode }) => {
   myRoomCode = roomCode;
   roomCodeText.textContent = roomCode;
+  localStorage.setItem('logiblock_roomCode', roomCode);
+  localStorage.setItem('logiblock_playerName', myPlayerName);
   showScreen('lobby-screen');
 });
 
@@ -644,6 +922,9 @@ socket.on('puzzle:list', (puzzles) => {
 socket.on('lobby:update', (state) => {
   myRoomCode = state.roomCode;
   roomCodeText.textContent = state.roomCode;
+  pendingAutoRejoin = false;
+  localStorage.setItem('logiblock_roomCode', state.roomCode);
+  localStorage.setItem('logiblock_playerName', myPlayerName);
   // Transition to lobby screen if still on start screen (joiner flow)
   if (startScreen.classList.contains('active')) {
     showScreen('lobby-screen');
@@ -660,6 +941,8 @@ socket.on('lobby:playerLeft', ({ playerName }) => {
 socket.on('lobby:hostLeft', ({ message }) => {
   myRoomCode = null;
   amIHost = false;
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
   showScreen('start-screen');
   // Use inline error (not alert — browsers silently block repeated alert() calls)
   showJoinError(message || 'Host left — lobby closed');
@@ -668,11 +951,14 @@ socket.on('lobby:hostLeft', ({ message }) => {
 
 // Game started — transition to game screen, initialise colors, render all UI
 socket.on('game:start', (state) => {
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
   showScreen('game-screen');
   initPieceColors(state);
   renderGrid(state);
   renderBank(state);
   renderTurnUI(state);
+  updateRotationButtons();
   startLiveTimer(state.startTime);   // TIME-01
 });
 
@@ -681,6 +967,7 @@ socket.on('game:stateUpdate', (state) => {
   selectedShapeId = null;
   selectedRotation = 0;
   refreshCursorPiece();
+  updateRotationButtons();
   renderGrid(state);
   renderBank(state);
   renderTurnUI(state);
@@ -694,15 +981,44 @@ socket.on('randomMode:event', ({ type, description } = {}) => {
   showGameNotification(description);
 
   if (type === 'rotate_piece') {
-    setTimeout(() => {
-      if (selectedShapeId !== null) {
-        selectedRotation = (selectedRotation + 90) % 360;
-        updateBankSelection();
-        if (lastHoveredRow !== null && lastHoveredCol !== null) {
-          updateGhostPreview(lastHoveredRow, lastHoveredCol);
-        }
+    pendingRotate = true;
+    return;
+  }
+
+  if (type === 'blind_bank') {
+    const bank = document.getElementById('piece-bank');
+    if (!bank) return;
+
+    // Cancel any in-flight blind timers to avoid stacking (Pitfall 4)
+    if (blindTimer) { clearTimeout(blindTimer); blindTimer = null; }
+    if (blindInterval) { clearInterval(blindInterval); blindInterval = null; }
+    const oldCountdown = document.getElementById('blind-countdown');
+    if (oldCountdown) oldCountdown.remove();
+
+    bank.classList.add('blind');
+
+    let remaining = 5;
+    const countdownEl = document.createElement('div');
+    countdownEl.id = 'blind-countdown';
+    countdownEl.className = 'blind-countdown';
+    countdownEl.textContent = `Blind! ${remaining}s`;
+    bank.appendChild(countdownEl);
+
+    blindInterval = setInterval(() => {
+      remaining--;
+      countdownEl.textContent = `Blind! ${remaining}s`;
+      if (remaining <= 0) {
+        clearInterval(blindInterval);
+        blindInterval = null;
       }
-    }, 1200);
+    }, 1000);
+
+    blindTimer = setTimeout(() => {
+      bank.classList.remove('blind');
+      if (countdownEl.isConnected) countdownEl.remove();
+      if (blindInterval) { clearInterval(blindInterval); blindInterval = null; }
+      blindTimer = null;
+    }, 5000);
   }
 });
 
@@ -719,9 +1035,30 @@ socket.on('game:win', (state) => {
 // Inline error — show under the join input on start screen; or as notification in lobby
 socket.on('room:error', (message) => {
   if (startScreen.classList.contains('active')) {
+    if (pendingAutoRejoin) {
+      pendingAutoRejoin = false;
+      localStorage.removeItem('logiblock_roomCode');
+      localStorage.removeItem('logiblock_playerName');
+      myPlayerName = null;
+    }
     showJoinError(message);
   } else {
     showLobbyNotification(`Error: ${message}`);
+  }
+});
+
+// ── Lobby-Rejoin nach Seitenreload ────────────────────────────────────
+// Beim ersten Connect (= Seitenload): falls localStorage einen Lobby-Eintrag hat,
+// automatisch wieder beitreten. Klappt nur, wenn Lobby noch in Phase 'lobby' ist.
+let pendingAutoRejoin = false;
+
+socket.on('connect', () => {
+  const savedRoom = localStorage.getItem('logiblock_roomCode');
+  const savedName = localStorage.getItem('logiblock_playerName');
+  if (savedRoom && savedName && startScreen.classList.contains('active')) {
+    myPlayerName = savedName;
+    pendingAutoRejoin = true;
+    socket.emit('joinRoom', { roomCode: savedRoom, playerName: savedName });
   }
 });
 

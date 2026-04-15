@@ -38,6 +38,7 @@ function createLobby(roomCode, hostSocketId, hostName) {
     players: [{ socketId: hostSocketId, name: hostName, isHost: true }],
     grid: null,
     randomModeEnabled: false,
+    extraTurns: 0,           // Phase 14: double_turn gate
   });
 }
 
@@ -200,7 +201,11 @@ function getPublicState(roomCode) {
   return {
     roomCode: lobby.roomCode,
     phase: lobby.phase,
-    players: lobby.players.map(p => ({ name: p.name, isHost: p.isHost, socketId: p.socketId })),
+    players: lobby.players.map(p => ({
+      name: p.name,
+      isHost: p.isHost,
+      socketId: p.socketId,
+    })),
     selectedPuzzleName: puzzle ? puzzle.name : null,
     selectedPuzzleDifficulty: puzzle ? (puzzle.difficulty ?? null) : null,
     selectedPuzzleId: lobby.selectedPuzzleId,
@@ -210,6 +215,7 @@ function getPublicState(roomCode) {
     activeTurnIndex,
     bankShapes,
     randomMode: lobby.randomModeEnabled ?? false,
+    extraTurns: lobby.extraTurns ?? 0,  // Phase 14: client needs for ⚡ badge
     // solution: intentionally NEVER included — GAME-06 invariant
   };
 }
@@ -377,10 +383,13 @@ function setRandomMode(roomCode, enabled) {
 
 function pickRandomEvent() {
   const r = Math.random();
-  if (r < 0.30) return 'rotate_piece';
-  if (r < 0.60) return 'skip_turn';
-  if (r < 0.80) return 'remove_piece';
-  return 'shuffle_order';
+  if (r < 0.10) return 'rotate_piece';    // 10%
+  if (r < 0.25) return 'skip_turn';       // 15%
+  if (r < 0.45) return 'remove_piece';    // 20%
+  if (r < 0.60) return 'shuffle_order';   // 15%
+  if (r < 0.75) return 'double_turn';     // 15%
+  if (r < 0.90) return 'reverse_order';   // 15%
+  return 'blind_bank';                    // 10%
 }
 
 function shuffleArray(arr) {
@@ -441,6 +450,31 @@ function triggerRandomEvent(lobby, _forceEventType) {
     };
   }
 
+  if (eventType === 'double_turn') {
+    if (lobby.extraTurns > 0) return null; // no stacking cap
+    lobby.extraTurns = 1;
+    return {
+      type: 'double_turn',
+      description: `Chaos! ${activePlayerName} bekommt einen zweiten Zug!`,
+    };
+  }
+
+  if (eventType === 'reverse_order') {
+    lobby.players.reverse();
+    lobby.activeTurnIndex = 0;
+    return {
+      type: 'reverse_order',
+      description: 'Chaos! Die Reihenfolge wurde umgekehrt!',
+    };
+  }
+
+  if (eventType === 'blind_bank') {
+    return {
+      type: 'blind_bank',
+      description: 'Chaos! Alle sind blind für 5 Sekunden!',
+    };
+  }
+
   return null;
 }
 
@@ -457,6 +491,7 @@ function startGame(roomCode) {
   lobby.grid = buildInitialGrid(puzzle);
   lobby.activeTurnIndex = 0;          // Phase 2 uses this; set here for consistency
   lobby.startTime = Date.now();       // TIME-01: authoritative start moment
+  lobby.extraTurns = 0;              // Phase 14: reset on game restart (Pitfall 3)
   return { ok: true };
 }
 
@@ -511,6 +546,7 @@ function advanceTurnIfActive(lobby, socketId) {
   // Non-active player with index >= activeTurnIndex: no change
 }
 
+
 module.exports = {
   lobbies,
   generateRoomCode,
@@ -540,4 +576,6 @@ module.exports = {
   // Phase 9 exports (Random Mode):
   setRandomMode,
   triggerRandomEvent,
+  // Phase 14 exports (Random Mode Overhaul):
+  pickRandomEvent,
 };

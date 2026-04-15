@@ -1,40 +1,35 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Grid & Pieces Redesign
-status: verifying
-stopped_at: Completed 09-random-mode 09-03-PLAN.md
-last_updated: "2026-03-25T08:34:55.585Z"
-last_activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
+milestone: v1.2
+milestone_name: Spielqualität & Features
+status: unknown
+stopped_at: Completed 15-03-PLAN.md
+last_updated: "2026-04-10T12:32:39.131Z"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  total_phases: 12
+  completed_phases: 12
+  total_plans: 25
+  completed_plans: 25
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-15)
+See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Die Lösung liegt ausschließlich auf dem Server — jeder Zug wird serverseitig validiert, kein Client sieht die Lösung, kein Cheat ist möglich.
-**Current focus:** Phase 6 Plan 01 complete — inactive cell rendering, 10-color palette, 2-column bank panel (GRID-05, GRID-06, PIEC-03)
+**Current focus:** Phase 15 — reconnect-after-disconnect
 
 ## Current Position
 
-Phase: 8 of 7 (Erstes richtiges Level bauen)
-Plan: 3 of 3 complete
-Status: Complete — Phase 8 fully verified and closed
-Last activity: 2026-03-24 — 08-03 human verification approved, Level 1 end-to-end confirmed, post-verification fixes applied
-
-Progress: [██████████] 100% (Phase 8 complete)
+Phase: 15 (reconnect-after-disconnect) — EXECUTING
+Plan: 1 of 3
 
 ## Performance Metrics
 
 **Velocity (v1.0 baseline):**
+
 - Total plans completed: 11 (v1.0)
 - v1.0 timeline: 9 days, 3 phases
 
@@ -57,6 +52,17 @@ Progress: [██████████] 100% (Phase 8 complete)
 | Phase 09-random-mode P01 | 2min | 2 tasks | 2 files |
 | Phase 09-random-mode P02 | 2min | 2 tasks | 3 files |
 | Phase 09-random-mode P03 | 10min | 2 tasks | 2 files |
+| Phase 10 P01 | 15min | 2 tasks | 3 files |
+| Phase 10 P02 | 40min | 1 tasks | 1 files |
+| Phase 10 P03 | ~5min | 1 tasks | 0 files |
+| Phase 11-profanity-filter P01 | 3min | 2 tasks | 4 files |
+| Phase 12-controls-modal P01 | 2min | 2 tasks | 3 files |
+| Phase 13-per-level-leaderboard P01 | 2min | 2 tasks | 3 files |
+| Phase 14-random-mode-overhaul P01 | 20min | 2 tasks | 4 files |
+| Phase 14-random-mode-overhaul P02 | 2min | 2 tasks | 2 files |
+| Phase 15-reconnect-after-disconnect P01 | 2min | 2 tasks | 2 files |
+| Phase 15-reconnect-after-disconnect P02 | 5min | 2 tasks | 3 files |
+| Phase 15 P03 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -65,6 +71,7 @@ Progress: [██████████] 100% (Phase 8 complete)
 Decisions are logged in PROJECT.md Key Decisions table.
 
 v1.1 decisions locked by research:
+
 - Click disambiguation: `setTimeout(200ms)` + `clearTimeout` (not `event.detail`) — resilient to OS dblclick timing
 - Inactive cell visual: `background: transparent` + `border: none` + `pointer-events: none` (not `visibility: hidden`)
 - Delay constant: `DBLCLICK_DELAY = 200` (named constant, not inline magic number)
@@ -88,11 +95,38 @@ v1.1 decisions locked by research:
 - [Phase 09-random-mode]: randomMode:event rotate_piece guard requires selectedShapeId !== null — prevents rotation state drift when no piece selected (RESEARCH.md Pitfall 1)
 - [Phase 09-random-mode]: makeRandomModeLobby helper uses puzzle_01 (A/B/C shapes) because default lobby puzzle is level_01 (P01-P10 shapes) — test isolation without changing lobby creation logic
 - [Phase 09-random-mode]: 30% Math.random gate lives in socket.js (not game.js) — socket layer owns the probability policy, game.js owns the event execution logic
+- [Phase 10]: Rotation buttons wired once outside renderGrid to prevent duplicate listeners on re-render; e.stopPropagation() prevents deselect cascade
+- [Phase 10]: Single click handler in renderGrid directly emits game:move (no setTimeout); dblclick/DBLCLICK_DELAY/clickTimer interaction model fully removed
+- [Phase 10]: --cell-size uses min(calc((100vw - 240px) / 9), 60px) so grid fills viewport minus bank width, capped at 60px; #game-screen max-width relaxed to 1200px
+- [Phase 10]: Touch placement confirmation uses synthesized click (not touchend handler) — avoids double-fire and reuses existing click handler for both desktop and touch
+- [Phase 10]: Document-level touchmove wired once outside renderGrid; elementFromPoint for reliable grid cell lookup under finger (Pitfall 2 avoidance)
+- [Phase 10]: longPressTimer is module-level (not per-cell) — renderGrid rebuilds DOM on every game:stateUpdate; per-cell variable would leak stale timers
+- [Phase 11-profanity-filter]: bad-words@3.0.4 over v4.0.0: v4 type:module breaks require() on Node 24; v3.0.4 is pure CJS
+- [Phase 11-profanity-filter]: joinRoom profanity check placed before getLobby — profane names rejected before room lookup per CONTEXT.md locked decision
+- [Phase 12-controls-modal]: Native <dialog>.showModal() for controls modal — Escape key handled for free; backdrop click via e.target === controlsModal guard
+- [Phase 12-controls-modal]: ? button positioned absolutely inside #game-screen (position: relative) — avoids overlap with fixed theme-toggle; modal CSS uses only var(--clr-*) tokens for automatic dark/light mode
+- [Phase 13-per-level-leaderboard]: activeLeaderboardTab module-level so tab selection persists across leaderboard:update re-renders; default tab = entries[0].puzzleName (most recent winner)
+- [Phase 13-per-level-leaderboard]: Tab bar active indicator uses border-bottom 3px with clr-primary (underline convention); empty-all restores 4-col thead; filtered view uses 3-col thead (Puzzle column hidden)
+- [Phase 14-random-mode-overhaul]: Phase 14 pickRandomEvent uses 7-event cumulative threshold table: rotate_piece 10%, skip_turn 15%, remove_piece 20%, shuffle_order 15%, double_turn 15%, reverse_order 15%, blind_bank 10%
+- [Phase 14-random-mode-overhaul]: extraTurns gate in socket.js game:move place-branch: decrement when > 0 instead of advanceTurn, no random event during extra turn (socket layer owns turn-flow policy)
+- [Phase 14-random-mode-overhaul]: pendingRotate guard uses selectedShapeId !== null to prevent deselect from triggering delayed rotation trap (single-use, fires on null→value transition only)
+- [Phase 14-random-mode-overhaul]: blindTimer and blindInterval module-level guards cleared before re-arm on repeated blind_bank events — prevents stacking and stale timer reveal
+- [Phase 14-random-mode-overhaul]: 50% gate + single retry in socket.js: raises effective blind_bank rate from ~3% to ~10%, reverse_order from ~4.5% to ~15% — observable in 15-20 turn sessions
+- [Phase 14-random-mode-overhaul]: Synchronous rotate_piece in main.js: rotation applied before updateBankSelection() re-render — piece appears rotated on same paint tick as selection, placement impossible before rotation visible
+- [Phase 15-reconnect-after-disconnect P01]: advanceTurn uses for-loop with cycle guard (max iterations = player count) to skip disconnected slots without infinite loop when all players disconnect
+- [Phase 15-reconnect-after-disconnect P01]: reservePlayerSlot stores timer on player.disconnectTimer — cleared on reconnect, no external Map tracking needed
+- [Phase 15-reconnect-after-disconnect P01]: reconnectPlayer updates lobby.hostId when reconnecting player is host (Pitfall 1 prevention)
+- [Phase 15-reconnect-after-disconnect P01]: disconnecting handler returns early after reservePlayerSlot in game phase; lobby-phase path falls through unchanged preserving all existing behavior
+- [Phase 15-reconnect-after-disconnect P01]: onExpiry callback pattern in reservePlayerSlot — timer callback in game.js calls back into socket.js via closure for broadcast, avoids circular dependency
+- [Phase 15-reconnect-after-disconnect P02]: reconnectRoom emit guarded by gameScreen.classList.contains('active') + myRoomCode + myPlayerName — screen-state guard avoids spurious emit on initial page load
+- [Phase 15-reconnect-after-disconnect P02]: room:error extended to three branches: start-screen (showJoinError), game-screen (drop to start + clear state), lobby (notification)
+- [Phase 15]: cleanupTimers helper clears disconnectTimer on all players after each test to prevent 30s hang in test runner
 
 ### Roadmap Evolution
 
 - Phase 8 added: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
 - Phase 9 added: Random Mode
+- Phase 10 added: Steuerung überarbeiten und Tablet integration
 
 ### Pending Todos
 
@@ -100,10 +134,10 @@ None.
 
 ### Blockers/Concerns
 
-None — Phase 8 complete. Level 1 fully playable end-to-end: lobby filtering, anchor pre-placement, 7-piece bank, ghost preview, win condition all verified by human.
+None — Phase 10 complete and human-verified. All 23 interaction scenarios passed: desktop single-click-place, rotation buttons (CW/CCW), R key, touch drag-to-preview, ghost-confirm tap, long-press return, responsive CSS auto-scale, portrait overlay, and regression checks.
 
 ## Session Continuity
 
-Last session: 2026-03-24T21:09:24.675Z
-Stopped at: Completed 09-random-mode 09-03-PLAN.md
+Last session: 2026-04-10T12:32:39.129Z
+Stopped at: Completed 15-03-PLAN.md
 Resume file: None

@@ -22,6 +22,9 @@ const {
   triggerRandomEvent,
 } = require('./game');
 
+const BadWordsFilter = require('bad-words');
+const profanityFilter = new BadWordsFilter();
+
 /**
  * Registers all Socket.IO event handlers for one connected socket.
  * Called from server.js inside io.on('connection', ...).
@@ -43,6 +46,9 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       return socket.emit('room:error', 'Player name is required');
     }
     const name = playerName.trim().slice(0, 20);
+    if (profanityFilter.isProfane(name)) {
+      return socket.emit('room:error', 'Player name is not allowed');
+    }
     const roomCode = generateRoomCode();
 
     createLobby(roomCode, socket.id, name);
@@ -69,6 +75,9 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     }
 
     const name = playerName.trim().slice(0, 20);
+    if (profanityFilter.isProfane(name)) {
+      return socket.emit('room:error', 'Player name is not allowed');
+    }
     const lobby = getLobby(roomCode);
 
     if (!lobby) {
@@ -193,13 +202,19 @@ function registerSocketHandlers(io, socket, puzzleMap) {
         });
         io.emit('leaderboard:update', getLeaderboard()); // TIME-04: broadcast to ALL sockets
       } else {
-        advanceTurn(lobby);
-        // Random Mode: 30% chance of chaos event after each successful place (CONTEXT.md locked)
-        if (lobby.randomModeEnabled && Math.random() < 0.30) {
-          const event = triggerRandomEvent(lobby);
-          if (event) {
-            // Broadcast event BEFORE stateUpdate so clients see description before grid change
-            io.to(roomCode).emit('randomMode:event', event);
+        // Phase 14 double_turn gate: consume extra turn instead of advancing
+        if (lobby.extraTurns > 0) {
+          lobby.extraTurns--;
+          // same player goes again; NO random event trigger during extra turn
+        } else {
+          advanceTurn(lobby);
+          if (lobby.randomModeEnabled && Math.random() < 0.50) {
+            // Retry once if null (e.g. remove_piece on empty grid, double_turn at cap)
+            let event = triggerRandomEvent(lobby);
+            if (!event) event = triggerRandomEvent(lobby);
+            if (event) {
+              io.to(roomCode).emit('randomMode:event', event);
+            }
           }
         }
         io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
@@ -228,12 +243,6 @@ function registerSocketHandlers(io, socket, puzzleMap) {
 
     const wasHost = lobby.hostId === socket.id;
     const playerName = socket.data.playerName || 'Unknown';
-    const wasInGame = lobby.phase === 'playing';
-
-    // GAME-09: advance turn before removing player (if they were active)
-    if (wasInGame) {
-      advanceTurnIfActive(lobby, socket.id);
-    }
 
     removePlayer(roomCode, socket.id);
 
@@ -244,7 +253,7 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     }
 
     // Host left during lobby phase -> destroy and notify remaining players
-    if (wasHost && !wasInGame) {
+    if (wasHost) {
       deleteLobby(roomCode);
       socket.to(roomCode).emit('lobby:hostLeft', { message: 'Host left — lobby closed' });
       return;
@@ -252,14 +261,9 @@ function registerSocketHandlers(io, socket, puzzleMap) {
 
     // Notify remaining players of departure
     socket.to(roomCode).emit('lobby:playerLeft', { playerName });
-
-    // Broadcast updated state
-    if (wasInGame) {
-      io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
-    } else {
-      io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
-    }
+    io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
   });
+
 }
 
 module.exports = registerSocketHandlers;

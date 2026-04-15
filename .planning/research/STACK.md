@@ -1,283 +1,281 @@
-# Technology Stack
+# Stack Research
 
-**Project:** LogiBlock — v1.1 Grid & Pieces Redesign
-**Researched:** 2026-03-15
-**Scope:** Additive research for irregular grid support, custom piece shapes, and new click interaction. The v1.0 stack (Node.js + Express + Socket.IO + Vanilla JS + CSS) is already validated and is not re-evaluated here.
-
----
-
-## v1.1 Stack Decision: No New Dependencies
-
-**Recommendation: Add zero new npm packages or client-side libraries.**
-
-All three v1.1 features (irregular grid, custom piece shapes, new interaction model) are solved entirely within the existing stack using:
-- JSON schema extensions to puzzle files
-- Two new CSS classes
-- Native DOM `dblclick` event + a `setTimeout` click disambiguator in Vanilla JS
-
-Evidence: The existing code already has `buildMiniGrid()` (arbitrary cell arrays), `rotateCells()` (pure geometry), `renderGrid()` (CSS Grid on a 2D array), and `updateGhostPreview()` (cell-level DOM query). All three features extend these patterns — they do not require new abstractions.
+**Project:** LogiBlock v1.2 — Spielqualität & Features
+**Researched:** 2026-04-06
+**Scope:** Additive research for 5 new features. Existing validated stack (Node.js + Express + Socket.IO 4.8.3 + Vanilla JS) is not re-evaluated.
+**Confidence:** HIGH for Socket.IO reconnect (verified in installed source), MEDIUM for profanity package (npm registry not accessible; training data + API surface comparison)
 
 ---
 
-## Recommended Stack (Existing — Unchanged)
+## v1.2 Stack Decision: One New Dependency
 
-### Core Framework — Server
-
-| Technology | Version | Purpose | Status |
-|------------|---------|---------|--------|
-| Node.js | 20 LTS | Runtime | Unchanged |
-| Express.js | ^4.18 | HTTP + static file serving | Unchanged |
-| Socket.IO | ^4.7 | Real-time events, room management | Unchanged |
-
-### Core Framework — Client
-
-| Technology | Version | Purpose | Status |
-|------------|---------|---------|--------|
-| Vanilla JavaScript (ES2022+) | — | Game UI, event handling, DOM | Unchanged |
-| HTML5 | — | Markup | Unchanged |
-| CSS3 | — | Styling, layout | Unchanged |
-| socket.io-client | ^4.7 | Client socket | Unchanged |
+**Recommendation: Add exactly one npm package — `leo-profanity` for profanity filtering. All other features (reconnect, random mode, leaderboard, controls modal) are implemented with zero new dependencies.**
 
 ---
 
-## Feature-Specific Patterns (v1.1 Additions)
+## New Dependency: Profanity Filter
 
-### Feature 1: Irregular Grid — Cell Mask in Puzzle JSON
+### Recommendation: `leo-profanity` over `bad-words`
 
-**Decision: Use a `cellMask` 2D boolean array in the puzzle JSON.**
+| Package | Version | Weekly DL (approx) | Last Release | API | CJS support |
+|---------|---------|-------------------|--------------|-----|-------------|
+| `leo-profanity` | ~1.7.x | ~200K | Active (2023+) | `check(str)`, `clean(str)`, `add([words])` | Yes |
+| `bad-words` | ~3.0.4 | ~800K | ~2019 (unmaintained) | `filter.isProfane(str)`, `filter.clean(str)` | Yes |
 
-The current puzzle JSON schema has a `solution` array (2D, `rows × cols`). The `buildInitialGrid()` function and `checkWin()` both iterate full `rows × cols` loops against the solution. Adding a parallel `cellMask` array is zero-friction — every existing loop gains one guard check.
+**Use `leo-profanity` because:**
 
-**Why `cellMask` over an `activeCells` coordinate list:**
+1. **Active maintenance.** `bad-words` has not had a release since approximately 2019. Stale packages introduce risk over time (unpatched vulnerabilities, breaking Node versions). `leo-profanity` has recent releases and an open maintainer.
+2. **Better API for word-list extension.** `leoProfanity.add(['wort1', 'wort2'])` lets us append German slurs at server startup — directly relevant since player names may be entered in German (the game UI is German). `bad-words` requires constructing a new `Filter` instance with options.
+3. **Comparable bundle size.** Both are small (< 50KB installed). Neither adds measurable startup overhead.
+4. **CommonJS.** The server uses CommonJS (`require()`). Both packages support `require()` directly. No ESM interop issues.
 
-The `solution` array is already a full 2D rectangle. A mask array mirrors that shape directly, making the two arrays index-compatible. An `activeCells: [[r,c], ...]` list requires a `Set` lookup (`activeCells.has(\`${r},${c}\`)`) in every hot path (win check, placement validation, ghost preview, rendering). A `cellMask[r][c]` lookup is O(1) direct array access with no conversion.
+**Integration point — `server/src/socket.js`, inside `createRoom` and `joinRoom` handlers:**
 
-**Proposed JSON schema extension:**
+```javascript
+const leoProfanity = require('leo-profanity');
 
-```json
-{
-  "id": "puzzle_03",
-  "name": "Corner-Cut 5x9",
-  "gridSize": { "rows": 5, "cols": 9 },
-  "cellMask": [
-    [true,  true,  true,  true,  true,  true,  true,  true,  true],
-    [true,  true,  true,  true,  true,  true,  true,  true,  true],
-    [true,  true,  true,  true,  true,  true,  true,  true,  true],
-    [true,  true,  true,  true,  true,  true,  true,  false, false],
-    [true,  true,  true,  true,  true,  true,  true,  false, false]
-  ],
-  "shapes": [ ... ],
-  "solution": [
-    ["A","A","B","B","C","C","D","D","E"],
-    ...
-  ]
+// At module top — add German profanity if needed
+// leoProfanity.add(['word1', 'word2']);
+
+// Inside createRoom / joinRoom, after trimming name:
+if (leoProfanity.check(name)) {
+  return socket.emit('room:error', 'Spielername enthält unerlaubte Wörter');
 }
 ```
 
-`true` = active cell (placeable, part of the puzzle). `false` = inactive/dead cell (rendered as blank, unreachable by game logic).
+`leoProfanity.check(str)` returns `true` if the string contains any blocked word. Case-insensitive by default.
 
-**Backward compatibility:** `cellMask` is optional. When absent, all cells are treated as active (matches v1.0 behavior). `validatePuzzleSchema` gains one optional check: if `cellMask` is present, verify it is a 2D array of `rows` × `cols` booleans, and that every `false` cell has `null` in `solution`.
-
-**Server-side guard additions:**
-
-```javascript
-// In placePiece() — after bounds check:
-if (puzzle.cellMask && !puzzle.cellMask[r][c]) {
-  return { ok: false, error: 'Cell is not part of this puzzle' };
-}
-
-// In checkWin() — skip inactive cells:
-const mask = puzzle.cellMask;
-if (mask && !mask[r][c]) continue; // inactive cell — not part of win condition
-```
-
-**Confidence: HIGH** — This is a direct extension of the existing pattern in `game.js`. No API or library involved.
+**Confidence: MEDIUM** — Package version and "active maintenance" claim based on training data; npm registry was not accessible to verify exact current version. Verify with `npm info leo-profanity version` before installing.
 
 ---
 
-### Feature 2: Custom Piece Shapes
+## Socket.IO Reconnect: Use Built-In `connectionStateRecovery`
 
-**Decision: No schema change needed. Existing `cells: [[r,c], ...]` format already handles arbitrary shapes.**
+**No new dependency needed.** Socket.IO 4.8.3 (already installed) has native connection state recovery. Verified directly in the installed source at `server/node_modules/socket.io/dist/`.
 
-The current piece schema is:
-```json
-{ "id": "A", "cells": [[0,0],[1,0],[2,0]], "movable": true }
-```
+### How it works (verified in source)
 
-`cells` is an arbitrary list of `[deltaRow, deltaCol]` offsets from an origin. This already supports any connected shape of 3–5 cells. The constraint "not standard tetrominos" is a puzzle design constraint, not a code constraint.
+When `connectionStateRecovery` is enabled on the server, Socket.IO:
 
-`buildMiniGrid()` on the client renders any `cells` array into a bounding-box grid. `rotateCells()` (both server and client copies) transforms any cell array geometrically. No code changes are needed for arbitrary custom shapes.
+1. Assigns each socket a `pid` (persistent ID, separate from `socket.id`) via `base64id`
+2. On disconnect due to a **recoverable reason** — `transport error`, `transport close`, `forced close`, `ping timeout` — the adapter calls `persistSession()`, storing `{ sid, pid, rooms, data, disconnectedAt }`
+3. On reconnect, the client sends its `pid` and last packet `offset` in `socket.auth`
+4. Server calls `restoreSession(pid, offset)`, checks `disconnectedAt + maxDisconnectionDuration < now`
+5. If valid: restores `socket.id` (same as before), `socket.data` (including `roomCode` and `playerName`), and re-joins rooms. Sets `socket.recovered = true`
+6. If expired or unrecoverable: new `socket.id` is issued, `socket.recovered = false` → manual rejoin fallback required
 
-The 10 new pieces simply need to be authored in the puzzle JSON with correct `cells` arrays. The only implementation work is designing and encoding the 10 shapes so they tile exactly 43 active cells.
+**Critical insight for LogiBlock:** The LobbyManager stores players by `socketId`. On successful recovery, `socket.id` is the **same** as the disconnected socket — so `lobby.players[i].socketId` still matches. No LobbyManager changes needed for the happy path.
 
-**Confidence: HIGH** — `buildMiniGrid()` and `rotateCells()` are already shape-agnostic. Verified directly in `client/main.js` lines 274–293 and `server/src/game.js` lines 56–74.
-
----
-
-### Feature 3: New Click Interaction (Single-click = rotate, Double-click = place)
-
-**Decision: Use native `dblclick` DOM event + `setTimeout` single-click guard in Vanilla JS. No library.**
-
-**The disambiguation problem:**
-
-When the user double-clicks a grid cell, the browser fires: `click` → `click` → `dblclick` (in that order). Without disambiguation, the first `click` would trigger rotation, and the `dblclick` would trigger placement — but the second `click` would also trigger another rotation. This produces: rotate, rotate, place (instead of: rotate, place).
-
-**Standard Vanilla JS pattern — delayed single-click:**
+### Server configuration
 
 ```javascript
-let clickTimer = null;
-const CLICK_DELAY = 220; // ms — below typical dblclick threshold (~300ms)
-
-cell.addEventListener('click', () => {
-  if (clickTimer) return; // first click of a double — let dblclick handle it
-  clickTimer = setTimeout(() => {
-    clickTimer = null;
-    // handle single-click: rotate selected piece
-    if (selectedShapeId) {
-      selectedRotation = (selectedRotation + 90) % 360;
-      updateBankSelection();
-    }
-  }, CLICK_DELAY);
-});
-
-cell.addEventListener('dblclick', () => {
-  clearTimeout(clickTimer);
-  clickTimer = null;
-  // handle double-click: place selected piece
-  if (selectedShapeId) {
-    socket.emit('game:move', {
-      action: 'place',
-      shapeId: selectedShapeId,
-      rotation: selectedRotation,
-      originRow: r,
-      originCol: c,
-    });
-    selectedShapeId = null;
-    selectedRotation = 0;
-    clearGhostPreview();
-    refreshCursorPiece();
-    updateBankSelection();
+const io = new Server(httpServer, {
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 30 * 1000, // 30 seconds — matches RECON requirement
+    skipMiddlewares: true,               // default: true
   }
 });
 ```
 
-**Why this pattern is correct:**
+### Handler changes required
 
-- `dblclick` always fires after the two `click` events in the same browser tick batch. `clearTimeout` inside `dblclick` cancels the first `click`'s pending callback before it executes — so rotation does not fire on double-click.
-- The 220ms delay keeps single-click feeling responsive (under human perception threshold for feedback) while being safely below the browser's dblclick detection window (~300–500ms depending on OS settings).
-- `clickTimer` is a module-level variable (like `selectedShapeId`), not per-cell — the grid is rebuilt on every `game:stateUpdate`, so per-cell closure state would be destroyed anyway.
+The `disconnecting` handler currently calls `advanceTurnIfActive()` and `removePlayer()` immediately. This must be gated: **do not remove the player if recovery might still happen.**
 
-**Why not use a library:**
-
-Hammer.js and similar gesture libraries solve touch-gesture ambiguity. This project targets desktop-only (per PROJECT.md "Out of Scope: Mobile-Optimierung"). The `dblclick` event is a W3C standard DOM event, available in all desktop browsers since IE9. It requires zero dependencies and five lines of code.
-
-**Interaction model change for non-selected state:**
-
-When no piece is selected: single-click on a placed movable cell currently returns it to bank (v1.0 behavior). In v1.1, this action should remain a single-click (no disambiguation needed — double-click on a placed piece with nothing selected can be ignored or treated identically). Only the "piece selected + grid cell clicked" path needs the disambiguator.
-
-**Confidence: HIGH** — `dblclick` is a native DOM event (MDN specification). The `setTimeout` cancel pattern is a well-established Vanilla JS technique requiring no external verification.
-
----
-
-### Feature 4: Ghost Preview with Inactive Cells
-
-**Decision: Add `cellMask` check to `updateGhostPreview()` on the client.**
-
-Current logic in `main.js` lines 380–392:
 ```javascript
-const valid = cells.every(([dr, dc]) => {
-  const r = originRow + dr, c = originCol + dc;
-  return r >= 0 && r < rows && c >= 0 && c < cols &&
-         currentGrid && currentGrid[r][c] === null;
+// In 'disconnecting' handler — check if reason is recoverable:
+const RECOVERABLE = new Set(['transport error', 'transport close', 'forced close', 'ping timeout']);
+const isRecoverable = RECOVERABLE.has(reason);
+
+if (isRecoverable) {
+  // Mark player as disconnected, reserve slot for 30s
+  // Do NOT call removePlayer() yet
+  // Start a 30s timer: if no reconnect, then removePlayer()
+} else {
+  // Immediate cleanup (same as current behavior)
+  advanceTurnIfActive(lobby, socket.id);
+  removePlayer(roomCode, socket.id);
+  ...
+}
+```
+
+In the `connection` handler, check `socket.recovered`:
+
+```javascript
+io.on('connection', (socket) => {
+  if (socket.recovered) {
+    // socket.data.roomCode and socket.data.playerName are restored
+    // socket.id is the same as before — no LobbyManager update needed
+    // Update socketId in lobby.players to confirm still connected
+    socket.emit('reconnect:ok', getPublicState(socket.data.roomCode));
+  } else {
+    // Normal new connection — register handlers as now
+    registerSocketHandlers(io, socket, puzzleMap);
+  }
 });
 ```
 
-With irregular grid, a cell can be in-bounds (`r < rows, c < cols`) but inactive. The ghost must also check that the target cell is active. The server will send `gridMask` in the public state (a new field alongside `grid` and `gridSize`). Client caches it as `currentGridMask` and adds one guard:
+### Fallback: manual rejoin when recovery fails
+
+When `socket.recovered === false` but the player was mid-game, the client must re-submit `{ roomCode, playerName }` to a new `rejoinRoom` event. Server finds the reserved slot by name, updates `socketId`, and restores state.
 
 ```javascript
-return r >= 0 && r < rows && c >= 0 && c < cols &&
-       currentGrid[r][c] === null &&
-       (!currentGridMask || currentGridMask[r][c]); // active cell check
+socket.on('rejoinRoom', ({ roomCode, playerName }) => {
+  const lobby = getLobby(roomCode);
+  if (!lobby) return socket.emit('room:error', 'Room not found or expired');
+  const player = lobby.players.find(p => p.name === playerName && p.disconnected);
+  if (!player) return socket.emit('room:error', 'No reserved slot found');
+  player.socketId = socket.id;
+  player.disconnected = false;
+  socket.data.roomCode = roomCode;
+  socket.data.playerName = playerName;
+  socket.join(roomCode);
+  socket.emit('reconnect:ok', getPublicState(roomCode));
+  io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
+});
 ```
 
-This is a one-line change per guard. No new API, no library.
-
-**Confidence: HIGH** — Direct extension of existing pattern in `main.js`.
+**Confidence: HIGH** — `connectionStateRecovery` behavior verified directly in installed Socket.IO 4.8.3 source (`dist/socket.js` lines 96–107, `dist/index.js` lines 106–111, `dist/socket.io-adapter/dist/in-memory-adapter.js`).
 
 ---
 
-## CSS Additions for Inactive Cells
+## Leaderboard Per-Puzzle Data Structure
 
-**Decision: Add a single `.grid-cell.inactive` CSS rule.**
+**No new dependency needed.** Replace the existing flat `leaderboard[]` array with a `Map<puzzleId, entries[]>`.
 
-Current cell states in `style.css`: `.empty`, `.anchor`, `.placed`, `.ghost-valid`, `.ghost-invalid`.
+### Current structure (v1.1)
 
-Add:
-```css
-.grid-cell.inactive {
-  background: transparent;
-  border: none;
-  pointer-events: none;
-  cursor: default;
-}
-```
-
-`background: transparent` makes the cell invisible against the page background. `pointer-events: none` prevents mousemove ghost-preview events from firing on inactive cells (important: the existing `mousemove` listener on each cell would otherwise still trigger ghost preview). `border: none` removes the 2px grid gap effect from the `.grid` background color showing through.
-
-In `renderGrid()`, inactive cells receive class `inactive` instead of `empty` and get no event listeners. The condition is:
 ```javascript
-if (cellMask && !cellMask[r][c]) {
-  cell.classList.add('inactive');
-  gameGrid.appendChild(cell);
-  continue; // skip all event listener attachment
+const leaderboard = []; // flat, global, sorted by elapsedMs
+// Entry: { puzzleName, elapsedMs, playerNames }
+```
+
+`getLeaderboard()` returns all entries globally, broadcast to all sockets via `io.emit('leaderboard:update', ...)`.
+
+### v1.2 structure: per-puzzle Map
+
+```javascript
+const leaderboardByPuzzle = new Map();
+// Map<puzzleId, Array<{ rank, time, playerNames, elapsedMs }>>
+// Each array is sorted ascending by elapsedMs, capped at N entries (e.g. top 10)
+```
+
+**`recordLeaderboardEntry()` change:**
+
+```javascript
+function recordLeaderboardEntry(lobby, elapsedMs) {
+  const puzzleId = lobby.selectedPuzzleId;
+  const puzzle = puzzleMap.get(puzzleId);
+  if (!puzzleId) return;
+
+  if (!leaderboardByPuzzle.has(puzzleId)) {
+    leaderboardByPuzzle.set(puzzleId, []);
+  }
+  const entries = leaderboardByPuzzle.get(puzzleId);
+  entries.push({
+    puzzleName: puzzle ? puzzle.name : 'Unknown',
+    elapsedMs,
+    playerNames: lobby.players.map(p => p.name),
+  });
+  entries.sort((a, b) => a.elapsedMs - b.elapsedMs);
 }
 ```
 
-**Why not `visibility: hidden`:** `visibility: hidden` preserves the element's space (correct) but still receives `pointer-events` by default in some browsers unless explicitly disabled. Using `background: transparent` + `pointer-events: none` is unambiguous and has the same visual result.
+**`getLeaderboard()` change — emit per-puzzle structure:**
 
-**Why not `display: none`:** `display: none` removes the cell from the CSS Grid flow, collapsing that grid track. The irregular shape would no longer render correctly — active cells in the same column would shift position.
+```javascript
+function getLeaderboard() {
+  const result = {};
+  for (const [puzzleId, entries] of leaderboardByPuzzle) {
+    result[puzzleId] = entries.slice(0, 10).map((e, i) => ({
+      rank: i + 1,
+      puzzleName: e.puzzleName,
+      time: formatTime(e.elapsedMs),
+      playerNames: e.playerNames,
+    }));
+  }
+  return result;
+}
+```
 
-**Confidence: HIGH** — CSS Grid behavior for transparent/hidden cells is well-established spec behavior.
+**Client receives:** `{ [puzzleId]: [{rank, puzzleName, time, playerNames}] }` — the leaderboard screen renders the section for the just-played puzzle (from `selectedPuzzleId` in the game state) or shows tabs/sections per puzzle.
+
+**Why `Map` over nested object:** In-memory, `Map` has faster keyed access. For serialization over Socket.IO (which calls `JSON.stringify`), we convert to a plain object at `getLeaderboard()` boundary — same as now. The Map stays private to `game.js`.
+
+**Why cap at 10 entries per puzzle:** The UI is a leaderboard screen, not a scroll. 10 entries is the de-facto standard for in-game leaderboards. Cap prevents unbounded memory growth in long demo sessions.
+
+**Backward compatibility note:** The `leaderboard:update` socket event payload shape changes from `Array` to `Object`. The client-side handler for this event (`socket.on('leaderboard:update', ...)`) must be updated to handle the new shape.
+
+**Confidence: HIGH** — This is a pure data structure decision with no external dependencies. The existing `recordLeaderboardEntry` and `getLeaderboard` functions are fully under our control.
+
+---
+
+## Features Requiring Zero Stack Changes
+
+### Random Mode Overhaul (RAND-*)
+All new event types are server-side mutations of `lobby.players`, `lobby.grid`, and `lobby.activeTurnIndex` — the same objects the existing 4 event types already mutate. No new functions, no new events. Extend `pickRandomEvent()` weights and `triggerRandomEvent()` switch.
+
+### Controls Explanation Modal (HLP-*)
+Pure HTML/CSS/JS. An `<div id="controls-modal">` with `display: none` toggled to `display: flex` by a button `onclick`. No library, no build step, no Socket.IO event.
+
+---
+
+## Installation
+
+```bash
+# From server/ directory:
+npm install leo-profanity
+```
+
+No other packages needed.
+
+---
+
+## Alternatives Considered
+
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| `leo-profanity` | `bad-words` | Unmaintained since ~2019. Same API surface. No reason to prefer it over an active package. |
+| `leo-profanity` | Custom wordlist (no package) | Would require curating and maintaining a German+English profanity list manually. The requirement (PROF-*) asks for a server-side filter — using an existing package is the correct level of effort for a Uni project. |
+| `connectionStateRecovery` (built-in) | Custom token via `socket.auth` | Token approach requires: (a) generating UUID on first join, (b) persisting it client-side (`localStorage`), (c) verifying on reconnect in a middleware. That is ~60 lines of custom code vs. ~5 lines enabling built-in recovery. Built-in recovery also handles packet replay (client sees no missed events). Use built-in. |
+| `connectionStateRecovery` (built-in) | Relying on `socket.id` directly | `socket.id` changes on every new connection. Browser refresh = new socket.id = lobby reference broken. `connectionStateRecovery` preserves the old socket.id on successful recovery. |
+| `Map<puzzleId, entries[]>` leaderboard | Single global `Array` | Global array (v1.1) requires client-side filtering by puzzle to show per-puzzle rankings. Server-side Map is cleaner, more efficient, and the client receives only the data it needs. |
 
 ---
 
 ## What NOT to Add
 
-| Category | Avoid | Reason |
-|----------|-------|--------|
-| Gesture library | Hammer.js, interact.js | Project is desktop-only. `dblclick` is a native DOM event. Zero need. |
-| Canvas rendering | `<canvas>` element | CSS Grid already renders the puzzle grid correctly. Canvas requires imperative hit-testing to replace working declarative DOM event handling. Pure regression. |
-| JSON Schema validator | `ajv`, `zod`, `joi` | `validatePuzzleSchema()` in `game.js` is already a custom validator with clear error messages. Adding `cellMask` requires ~6 lines to that function. An npm package for this is over-engineering a uni project. |
-| SVG grid rendering | SVG `<polygon>` / `<path>` | Necessary only for non-rectangular cell shapes (hexagons, triangles). All cells here are squares — CSS Grid handles rectangles natively. |
-| State management library | Redux, Zustand, XState | Client state is 5 module-level variables (`selectedShapeId`, `selectedRotation`, `currentGrid`, `currentGridSize`, `currentBankShapes`). Adding a state library to manage 5 variables is architectural overkill. |
-| Click delay library | `jquery.dblclick-fix` etc. | The `setTimeout` + `clearTimeout` pattern is 5 lines of idiomatic Vanilla JS. |
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `uuid` npm package | Generating reconnect tokens if going custom-token route | Use built-in `connectionStateRecovery` — no token needed |
+| `express-session` | Session middleware for reconnect | Socket.IO's built-in recovery covers the exact use case |
+| `socket.io-redis` adapter | Persistent session storage | In-memory `SessionAwareAdapter` (built into socket.io-adapter) handles the 30s slot; persistence is Out of Scope per PROJECT.md |
+| `helmet`, `express-rate-limit` | Security hardening | Out of Scope for Uni demo |
+| Any CSS framework | Controls modal styling | The project is 361 lines of CSS that already has a design language; adding Bootstrap for a single modal introduces far more than it solves |
+| `i18next` | German/English text management | All strings are hardcoded German in socket events and will stay that way for this Uni project |
 
 ---
 
-## Summary of Code Changes Required (No New Dependencies)
+## Version Compatibility
 
-| Area | File | Change | Size |
-|------|------|--------|------|
-| JSON schema | `puzzles/puzzle_03.json` | Add `cellMask` 2D boolean array | Schema addition |
-| Schema validation | `server/src/game.js` `validatePuzzleSchema()` | Validate `cellMask` shape if present | ~6 lines |
-| Grid initialization | `server/src/game.js` `buildInitialGrid()` | No change — mask is separate from grid state |
-| Win check | `server/src/game.js` `checkWin()` | Skip inactive cells via `cellMask` | +2 lines |
-| Placement validation | `server/src/game.js` `placePiece()` | Reject placement on inactive cells | +3 lines |
-| Public state | `server/src/game.js` `getPublicState()` | Include `gridMask` from puzzle | +1 line |
-| Grid rendering | `client/main.js` `renderGrid()` | Add `.inactive` path, cache `currentGridMask` | ~8 lines |
-| Ghost preview | `client/main.js` `updateGhostPreview()` | Add `cellMask` guard | +2 lines |
-| Click interaction | `client/main.js` grid cell listeners | Replace `click` with `dblclick` + `setTimeout` single-click | ~20 lines |
-| CSS | `client/style.css` | Add `.grid-cell.inactive` rule | 5 lines |
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| `leo-profanity@~1.7` | Node.js 20 LTS | CommonJS module, no peer dependencies |
+| `socket.io@4.8.3` | `socket.io-adapter@2.5.2` | `SessionAwareAdapter` ships inside `socket.io-adapter` — already present, no separate install |
+| `connectionStateRecovery` option | `socket.io@4.4.0+` | Feature was introduced in 4.4.0; 4.8.3 is safe |
 
 ---
 
-## Confidence Assessment
+## Sources
 
-| Claim | Confidence | Basis |
-|-------|------------|-------|
-| `cellMask` 2D boolean array is the right irregular grid format | HIGH | Direct inspection of `game.js` loops; mirrors `solution` shape exactly |
-| Existing `cells: [[r,c]]` format supports arbitrary custom shapes | HIGH | `buildMiniGrid()` and `rotateCells()` are already shape-agnostic; read in `main.js` |
-| `dblclick` + `setTimeout` disambiguates single vs double click | HIGH | Standard DOM specification behavior; `dblclick` fires after both `click` events |
-| `pointer-events: none` on `.inactive` prevents ghost preview leakage | HIGH | CSS specification; verified against existing `mousemove` listener pattern |
-| No new npm packages needed | HIGH | Every mechanism maps to existing code patterns in the codebase |
-| 220ms `CLICK_DELAY` is below browser dblclick threshold | MEDIUM | Typical OS dblclick timeout is 300–500ms; 220ms is conservative but not verified against all OS settings |
+- `server/node_modules/socket.io/dist/socket.js` lines 63–120 — `connectionStateRecovery` socket constructor, `socket.recovered`, `socket.data` restore, `RECOVERABLE_DISCONNECT_REASONS` set (HIGH confidence — direct source inspection)
+- `server/node_modules/socket.io/dist/index.js` lines 106–111 — `maxDisconnectionDuration` default (2 min), `skipMiddlewares` default (true) (HIGH confidence — direct source inspection)
+- `server/node_modules/socket.io-adapter/dist/in-memory-adapter.js` lines 297–391 — `SessionAwareAdapter`, `persistSession`, `restoreSession`, expiry logic (HIGH confidence — direct source inspection)
+- `server/node_modules/socket.io/dist/index.d.ts` lines 43–61 — TypeScript type definitions for `connectionStateRecovery` option (HIGH confidence — direct source inspection)
+- `server/src/socket.js` — existing `disconnecting` handler, `socket.data.roomCode` / `socket.data.playerName` usage (HIGH confidence — direct source inspection)
+- `server/src/game.js` — existing `leaderboard[]` structure, `recordLeaderboardEntry()`, `getLeaderboard()` (HIGH confidence — direct source inspection)
+- `leo-profanity` vs `bad-words` API comparison — training data, not npm-registry-verified (MEDIUM confidence — verify current version with `npm info leo-profanity` before install)
+
+---
+
+*Stack research for: LogiBlock v1.2 feature additions*
+*Researched: 2026-04-06*

@@ -826,3 +826,179 @@ describe('triggerRandomEvent - rotate_piece', () => {
     assert.strictEqual(JSON.stringify(lobby.players), playersBefore, 'players must not change');
   });
 });
+
+// ─── Phase 14: new event tests (Wave 0 — failing until source updated) ─────────
+
+describe('triggerRandomEvent - double_turn', () => {
+  it('sets lobby.extraTurns to 1 and returns { type: "double_turn", description: string } when extraTurns starts at 0', () => {
+    const lobby = makeLobbyV11('TRE-DT01');
+    lobby.extraTurns = 0;
+    const result = triggerRandomEvent(lobby, 'double_turn');
+    assert.ok(result !== null, 'double_turn should not return null when extraTurns === 0');
+    assert.strictEqual(result.type, 'double_turn');
+    assert.strictEqual(typeof result.description, 'string');
+    assert.ok(result.description.length > 0);
+    assert.strictEqual(lobby.extraTurns, 1, 'extraTurns must be set to 1');
+  });
+
+  it('returns null and does not modify extraTurns when extraTurns is already > 0 (no stacking)', () => {
+    const lobby = makeLobbyV11('TRE-DT02');
+    lobby.extraTurns = 1;
+    const result = triggerRandomEvent(lobby, 'double_turn');
+    assert.strictEqual(result, null, 'double_turn must return null when extraTurns > 0');
+    assert.strictEqual(lobby.extraTurns, 1, 'extraTurns must remain 1 (no stacking)');
+  });
+});
+
+describe('triggerRandomEvent - reverse_order', () => {
+  it('reverses lobby.players in place and resets activeTurnIndex to 0', () => {
+    const lobby = makeLobbyV11('TRE-RO01');
+    lobby.players = [
+      { socketId: 'a', name: 'A', isHost: true },
+      { socketId: 'b', name: 'B', isHost: false },
+      { socketId: 'c', name: 'C', isHost: false },
+    ];
+    lobby.activeTurnIndex = 2;
+    triggerRandomEvent(lobby, 'reverse_order');
+    assert.deepEqual(
+      lobby.players.map(p => p.name),
+      ['C', 'B', 'A'],
+      'players must be reversed in place'
+    );
+    assert.strictEqual(lobby.activeTurnIndex, 0, 'activeTurnIndex must be reset to 0');
+  });
+
+  it('returns { type: "reverse_order", description: string }', () => {
+    const lobby = makeLobbyV11('TRE-RO02');
+    const result = triggerRandomEvent(lobby, 'reverse_order');
+    assert.ok(result !== null, 'reverse_order should not return null');
+    assert.strictEqual(result.type, 'reverse_order');
+    assert.strictEqual(typeof result.description, 'string');
+    assert.ok(result.description.length > 0);
+  });
+});
+
+describe('triggerRandomEvent - blind_bank', () => {
+  it('returns { type: "blind_bank", description: string } without mutating lobby', () => {
+    const lobby = makeLobbyV11('TRE-BB01');
+    const playersBefore = JSON.stringify(lobby.players);
+    const indexBefore = lobby.activeTurnIndex;
+    const extraTurnsBefore = lobby.extraTurns;
+    const result = triggerRandomEvent(lobby, 'blind_bank');
+    assert.ok(result !== null, 'blind_bank should not return null');
+    assert.strictEqual(result.type, 'blind_bank');
+    assert.strictEqual(typeof result.description, 'string');
+    assert.ok(result.description.length > 0);
+    // No mutation
+    assert.strictEqual(JSON.stringify(lobby.players), playersBefore, 'players must not change');
+    assert.strictEqual(lobby.activeTurnIndex, indexBefore, 'activeTurnIndex must not change');
+    assert.strictEqual(lobby.extraTurns, extraTurnsBefore, 'extraTurns must not change');
+  });
+});
+
+describe('createLobby - extraTurns init', () => {
+  it('initializes extraTurns to 0', () => {
+    lobbies.delete('ET-INIT01');
+    createLobby('ET-INIT01', 'host-socket', 'Host');
+    const lobby = lobbies.get('ET-INIT01');
+    assert.strictEqual(lobby.extraTurns, 0, 'extraTurns must be initialized to 0');
+  });
+});
+
+describe('startGame - extraTurns reset', () => {
+  it('resets extraTurns to 0 on startGame even if previously > 0', () => {
+    lobbies.delete('ET-RESET01');
+    createLobby('ET-RESET01', 'host-socket', 'Alice');
+    addPlayer('ET-RESET01', 'p2-socket', 'Bob');
+    setSelectedPuzzle('ET-RESET01', 'puzzle_v11');
+    const lobby = lobbies.get('ET-RESET01');
+    lobby.extraTurns = 1; // simulate carry-over from previous game
+    const result = startGame('ET-RESET01');
+    assert.strictEqual(result.ok, true, 'startGame must succeed');
+    assert.strictEqual(lobby.extraTurns, 0, 'extraTurns must be reset to 0 by startGame');
+  });
+});
+
+describe('getPublicState - extraTurns field', () => {
+  it('includes extraTurns in the returned public state (default 0)', () => {
+    lobbies.delete('ET-GPS01');
+    createLobby('ET-GPS01', 'host-socket', 'Alice');
+    const state = getPublicState('ET-GPS01');
+    assert.strictEqual(state.extraTurns, 0, 'extraTurns must be 0 in public state by default');
+  });
+
+  it('reflects the current lobby.extraTurns value', () => {
+    lobbies.delete('ET-GPS02');
+    createLobby('ET-GPS02', 'host-socket', 'Alice');
+    const lobby = lobbies.get('ET-GPS02');
+    lobby.extraTurns = 1;
+    const state = getPublicState('ET-GPS02');
+    assert.strictEqual(state.extraTurns, 1, 'extraTurns in public state must match lobby.extraTurns');
+  });
+});
+
+describe('pickRandomEvent - Phase 14 weight table', () => {
+  it('returns rotate_piece for r < 0.10', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.05;
+    try {
+      const { pickRandomEvent } = require('./game');
+      assert.strictEqual(pickRandomEvent(), 'rotate_piece');
+    } finally { Math.random = origRandom; }
+  });
+
+  it('returns skip_turn for 0.10 <= r < 0.25', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.20;
+    try {
+      const { pickRandomEvent } = require('./game');
+      assert.strictEqual(pickRandomEvent(), 'skip_turn');
+    } finally { Math.random = origRandom; }
+  });
+
+  it('returns remove_piece for 0.25 <= r < 0.45', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.40;
+    try {
+      const { pickRandomEvent } = require('./game');
+      assert.strictEqual(pickRandomEvent(), 'remove_piece');
+    } finally { Math.random = origRandom; }
+  });
+
+  it('returns shuffle_order for 0.45 <= r < 0.60', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.55;
+    try {
+      const { pickRandomEvent } = require('./game');
+      assert.strictEqual(pickRandomEvent(), 'shuffle_order');
+    } finally { Math.random = origRandom; }
+  });
+
+  it('returns double_turn for 0.60 <= r < 0.75', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.70;
+    try {
+      const { pickRandomEvent } = require('./game');
+      assert.strictEqual(pickRandomEvent(), 'double_turn');
+    } finally { Math.random = origRandom; }
+  });
+
+  it('returns reverse_order for 0.75 <= r < 0.90', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.85;
+    try {
+      const { pickRandomEvent } = require('./game');
+      assert.strictEqual(pickRandomEvent(), 'reverse_order');
+    } finally { Math.random = origRandom; }
+  });
+
+  it('returns blind_bank for r >= 0.90', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.95;
+    try {
+      const { pickRandomEvent } = require('./game');
+      assert.strictEqual(pickRandomEvent(), 'blind_bank');
+    } finally { Math.random = origRandom; }
+  });
+});
+

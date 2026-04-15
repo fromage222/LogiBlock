@@ -1,255 +1,337 @@
-# Feature Landscape
+# Feature Research
 
-**Domain:** Irregular grid puzzle games with custom piece shapes and click-based interaction
-**Project:** LogiBlock v1.1 — Grid & Pieces Redesign
-**Researched:** 2026-03-15
-**Scope note:** This document covers ONLY the v1.1 additions. All v1.0 features (lobby, shared bank, server validation, timer, leaderboard) are already shipped and are not re-researched here.
-
----
-
-## Context: What v1.1 Adds to an Already-Working Game
-
-Three orthogonal changes to the existing codebase:
-
-1. **Irregular grid shape** — Replace the rectangular active zone with a 5x9 bounding box that has its bottom-left and bottom-right corners removed (43 active cells out of 45). The grid is still stored as a full rows×cols 2D array; inactive cells contain a sentinel value rather than being absent.
-2. **Custom piece shapes** — Replace the existing 2–3 shapes per puzzle with 10 custom polyomino-style shapes (3–5 cells each) that together exactly fill the 43 active cells. Defined in puzzle JSON exactly as today.
-3. **New interaction model** — Replace "click bank piece to select, click grid cell to place" with "click grid cell to rotate selected piece, double-click grid cell to place."
-
-These three changes affect: the puzzle JSON schema, server-side validation (bounds checking and win detection must skip inactive cells), and client-side rendering + event handling.
+**Domain:** Browser-based cooperative multiplayer puzzle game (v1.2 additions)
+**Project:** LogiBlock v1.2 — Spielqualitat & Features
+**Researched:** 2026-04-06
+**Confidence:** HIGH
+**Scope note:** This document covers ONLY v1.2 additions. All prior features (lobby, grid, pieces, interaction model, random mode v1, touch support) are already shipped and are not re-researched here.
 
 ---
 
-## Table Stakes
+## Context: What v1.2 Adds to an Already-Working Game
 
-Features that must work correctly or the v1.1 game is broken or misleading. Absence = product fails.
+Five orthogonal features, none of which changes existing game mechanics:
 
-| Feature | Why Required | Complexity | Notes |
-|---------|-------------|------------|-------|
-| Inactive cell sentinel in grid data | Without a way to distinguish "inactive hole" from "empty active cell", both server validation and client rendering are wrong. Must be decided before writing any new code. | Low | Recommend `false` or a distinct object `{ active: false }` as the sentinel. `null` currently means "active but empty"; that contract must be preserved or updated consistently. |
-| Inactive cells visually inert | Players must immediately see which cells are part of the puzzle and which are structural holes. If holes look like empty cells, every hover and placement attempt fails in confusion. | Low | CSS: darker background, no border highlight on hover, `pointer-events: none` to suppress all mouse events, `cursor: default`. |
-| Ghost preview skips inactive cells | Ghost preview must treat inactive cells as impassable boundaries, not as valid empty positions. A piece that overlaps an inactive cell must show `ghost-invalid`. | Medium | Existing `updateGhostPreview` checks `currentGrid[r][c] === null` — must also check that the cell is active. Need a helper `isActive(r, c)` usable from client without exposing grid internals. |
-| Server validation skips inactive cells | `placePiece` must reject any placement where a piece cell lands on an inactive grid position. Win detection must only compare active cells (not inactive ones). | Medium | `checkWin` currently compares every `[r][c]` in `gridSize.rows × gridSize.cols` against `solution[r][c]`. When solution uses `null` for both "inactive" and "intentionally empty", the distinction collapses. The solution schema must encode inactive cells differently from active-but-empty cells, or `checkWin` uses a separate `activeCells` set. |
-| Piece bank renders all 10 shapes correctly | 10 pieces means the bank UI must handle more items than before (was 2–3 in v1.0 puzzles). Overflow, spacing, and mini-grid sizing must accommodate 3–5 cell shapes of arbitrary shape. | Low | Existing `buildMiniGrid` is already generic — works for any cell array. Only CSS layout of the bank container needs review for 10 items. |
-| Rotation updates ghost preview immediately | With the new model, single-click rotates. The ghost preview (already tied to the hovered cell) must re-render at the new rotation on every click. | Low | Current code already rebuilds ghost preview when `selectedRotation` changes via `updateGhostPreview(r, c)`. Must trigger ghost re-render on click, not just on mousemove. |
-| Double-click places piece, single-click rotates | The defined interaction for v1.1. If both fire (because `dblclick` always follows two `click` events), the piece rotates twice before placing — which is a bug. Must separate single-click and double-click handling. | High | Browser event order: `click` → `click` → `dblclick`. If listening to both `click` and `dblclick` on the same cell, both handlers fire. Use `event.detail` on the `click` event (`detail === 1` = single, `detail === 2` = double-click's first sibling) or a timeout-based debounce. See Interaction section below. |
-| Piece stays selected across rotations | Rotating (clicking) must not deselect the piece. The user must be able to rotate to desired orientation then double-click to place — without re-selecting from the bank. | Low | Current code deselects on grid click. Must change: grid single-click increments `selectedRotation` without clearing `selectedShapeId`. |
-| Win detection works with 43-cell puzzle | `checkWin` must correctly identify a complete solve when all 43 active cells are filled in the correct configuration and all inactive cells are left as their sentinel value. | Medium | This is a correctness test, not a new feature. Add TDD coverage for the 5×9 irregular grid case specifically before touching `checkWin`. |
-| Puzzle JSON schema supports inactive cells | The puzzle JSON must be able to express the 5×9 shape with corners removed. The schema must be unambiguous and validated at startup by `validatePuzzleSchema`. | Low | Two viable approaches: (A) add an `activeCells` array to the puzzle (list of `[r,c]` that are active); (B) encode inactive cells in the solution as a distinct value (e.g., `"#"` or `"X"` vs. `null`). Option A is additive and non-breaking. See Architecture recommendations. |
+1. **Random mode overhaul** — Extend the existing 4 chaos events with new types; rebalance weights for "wilder" feel
+2. **Controls modal** — Info button on game screen opens a modal explaining keyboard and touch controls
+3. **Per-level leaderboard** — Separate ranked list per puzzle (vs. today's single global list)
+4. **Reconnect after disconnect** — 30-second window to reconnect and resume the same game session
+5. **Profanity filter** — Server-side name validation using an npm package
 
 ---
 
-## Differentiators
+## Feature Landscape
 
-Features not strictly required for correctness but which make the v1.1 experience significantly better. These are low-risk additions for a project at this maturity.
+### Table Stakes (Users Expect These)
+
+Features that must work correctly for v1.2 to feel complete. Missing any of these = product feels broken or unfinished.
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Profanity filter blocks offensive names | Any public-facing game with user-entered names is expected to prevent slurs in room-visible player lists. Absence is embarrassing in a Uni demo context. | LOW | One `npm install bad-words` (or `leo-profanity`) + one guard in `joinRoom` and `createRoom` handlers. No client changes. Server returns `room:error` on blocked names — existing error display handles it. |
+| Controls modal is closable | A modal that cannot be dismissed is a hard block. Users expect Escape key, X button, and click-outside-to-close as minimum. | LOW | Pure client-side: `<dialog>` element or manual `display:none` toggle. No server involvement. Escape already works natively on `<dialog>`. |
+| Controls modal is accurate | If the modal describes old controls (e.g. double-click to place) it creates confusion. Must reflect Phase 10 reality: single-click places, rotation buttons, R key, touch drag. | LOW | Content authoring task — no code complexity. Must audit Phase 10 final control set before writing copy. |
+| Per-level leaderboard is filtered correctly | If puzzle A's times appear under puzzle B's list, the leaderboard is broken. The `puzzleName` field is already stored in each leaderboard entry (`game.js` line 473). | LOW | Filter `leaderboard` array by `puzzleName` (or add `puzzleId` to entry). The server already stores `puzzleName` — use it as partition key or add `puzzleId`. |
+
+### Differentiators (Competitive Advantage)
+
+Features that make LogiBlock's chaos mode genuinely fun and the UX polished above baseline.
 
 | Feature | Value Proposition | Complexity | Notes |
-|---------|------------------|------------|-------|
-| Distinct visual treatment for inactive cells | `visibility: hidden` keeps grid cells in DOM (preserves CSS grid layout structure) but makes them invisible and non-interactive. Alternatively, a dark/muted fill with no hover state makes the L-shaped boundary legible. | Low | `visibility: hidden` is correct for preserving grid structure without empty-space collapse. `pointer-events: none` ensures no hover ghost bleeds onto inactive cells. Both can be combined. |
-| Cursor feedback on active vs inactive cells | `cursor: pointer` over hoverable active cells, `cursor: default` over inactive holes, `cursor: not-allowed` over occupied cells when piece is selected. Communicates affordances without text. | Low | Pure CSS via class + cursor rule. No JS changes. |
-| Bank piece mini-grid shows rotated preview | When user clicks to rotate, the bank mini-grid for the selected piece should update to show the new rotation, not just the canonical 0° form. | Low | Already implemented in v1.0 via `updateBankSelection()` + `buildMiniGrid(rotatedCells, color)`. No new work needed — just must not break with interaction model change. |
-| Rotate animation on click | Brief CSS rotation transform on the cursor-following piece or the bank mini-grid when single-click rotates. Gives tactile feedback that the rotation happened. | Low | CSS `transition: transform 150ms ease`. Does not affect game state. |
-| Tooltip showing inactive cell reason | On hover of inactive cells: "Not part of this puzzle." Clarifies why nothing happens. | Very Low | `title` attribute on the cell div. One line of code. |
-| Placement confirmation animation | Short scale/pulse animation on cells when a piece is successfully placed. Distinguishes confirmed placement from ghost preview. | Low | CSS keyframe on `.placed` class, triggered by re-render. No JS changes. |
+|---------|-------------------|------------|-------|
+| Random events that affect the game state visibly | Events that players can SEE (removed piece, reshuffled order) create shared "oh no!" moments. Events that are invisible (rotate a piece the client doesn't see) feel broken. Current `rotate_piece` only affects the active player's ghost — all others see nothing. | MEDIUM | New visual events should show tangible grid changes. Best candidates: `double_piece` (place two pieces this turn), `freeze_bank` (active player cannot take from bank this turn), `reverse_order` (turn direction flips). Avoid events that only affect one client invisibly. |
+| Events that feel "funny" not "punishing" | The line between chaos-fun and chaos-frustrating is: does the event create a funny moment for EVERYONE, or does it silently punish one person? `skip_turn` punishes one player. `shuffle_order` creates a moment for all. New events should favor shared-experience chaos over individual punishment. | LOW (design) | See event taxonomy below. "Funny" events: things everyone can see and react to. "Punishing" events: things that subtract progress without visible drama. Lean toward funny. |
+| Reconnect window visible to other players | If a player disconnects, the remaining players should see "Alex disconnected — waiting 30s" rather than just watching the game pause silently. The UX expectation in co-op games is a visible countdown for the reconnect window. | MEDIUM | Requires server-side timer (`setTimeout`), new socket event `player:reconnecting`, and client-side notification in the game screen. The tricky part: what happens if the 30s expires vs. the player reconnects. |
+| Per-level leaderboard shows puzzle context | Filtering by puzzle should show the puzzle name as a header/tab. Users playing "Level 01 — Einfach" expect to see only those times. | LOW | Client-side rendering only. Server already sends `puzzleName` in leaderboard entries. |
+| Controls modal triggered via info button | An info button (i or ? icon) positioned near the game title gives players a discoverable way to open help during gameplay without interrupting the server state. | LOW | No server involvement. Pure DOM + CSS. Position near `#game-title` or near the rotation controls. |
+
+### Anti-Features (Commonly Requested, Often Problematic)
+
+Features to explicitly NOT build for v1.2.
+
+| Feature | Why Requested | Why Problematic | Alternative |
+|---------|---------------|-----------------|-------------|
+| Pause on disconnect | Seems fair — game should wait for disconnected player | Requires all remaining players to agree/wait; creates griefing vector (intentional disconnect to stall); complicates turn index management | 30-second reconnect window with automatic turn skip if window expires — game continues normally |
+| Reconnect into an active game mid-turn | "I want to pick up exactly where I left off" | If another player is now active, restoring the disconnected player as active creates a conflict. The lobby state is authoritative but the active turn may have advanced. | Reconnect restores the player to the lobby state (they see the current grid, their name in the player list) but turn ownership follows current `activeTurnIndex` — they just wait for their turn |
+| Client-side profanity filter (regex) | "Just block bad words on the client" | Client-side filtering is trivially bypassed (modify JS, send raw socket message). For a Uni demo the embarrassment risk is real if someone bypasses it. | Server-side only — `bad-words` or `leo-profanity` npm package in `socket.js` `createRoom`/`joinRoom` handlers |
+| Event intensity slider (lobby setting) | More control over chaos frequency | Adds a new lobby config field, socket event, server storage, and client UI for every combination of intensity × event type. Not worth it for the 5 feature types we have. | Fixed 30% trigger probability per turn (already decided in v1.1); more/wilder events at fixed probability is enough "dialing up" |
+| Persistent leaderboard (database) | "I want to see times from previous sessions" | Out of scope (PROJECT.md explicitly: "no persistent database"). Adds SQLite/file I/O that changes the server architecture. | In-memory per session — clears on server restart. This is a stated constraint, not a bug. |
+| Reconnect across server restart | "Even if the server restarts" | Server restart clears all in-memory state (lobbies Map, leaderboard array). Reconnect is impossible after server restart by design — no session persistence. | Document the 30-second window clearly. Out-of-scope reconnect is server-restart tolerance, not in v1.2. |
 
 ---
 
-## Anti-Features
+## Feature Deep Dives
 
-Things to explicitly NOT build in v1.1.
+### Random Mode: Event Taxonomy (Crazy vs. Annoying)
 
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| Right-click to rotate | Browsers intercept right-click for context menu by default. Suppressing it (`preventDefault`) is fragile and confusing for users. | Use single left-click as defined in the spec. |
-| Keyboard shortcut for rotation (R key) | Not in spec. Adds a separate code path to maintain, and keyboard shortcuts need accessibility consideration. | The click interaction is sufficient for a desktop demo. If added later, it is additive and low risk. |
-| Drag-and-drop for piece placement | Already decided against in v1.0 (locked decision). Inconsistent with the new click-to-rotate/double-click-to-place model. HTML5 drag events fire before dblclick, creating interference. | Click-based placement as specified. |
-| Rotation by clicking the bank piece | Currently used in v1.0. With the new model, grid clicks rotate. If bank clicks also rotate, two ways to rotate diverge in behavior and cause confusion. Decide: grid click is canonical for rotation in v1.1. | Keep bank click as selection-only. Single-click a bank piece selects it at rotation 0. |
-| Timer-based single/double-click debounce | A setTimeout-based approach (wait 300ms to distinguish single from double click) adds artificial input latency. 300ms is noticeable and degrades feel. | Use `event.detail` to detect click count synchronously — no delay. `detail === 1` fires on single click, then `detail === 2` fires on the double-click's second click. Cancel the rotation if `detail === 2`. |
-| Irregular grid via CSS grid-template-areas | `grid-template-areas` requires each named area to form a rectangle. Irregular shapes cannot be expressed this way — the declaration becomes invalid. | Keep the full `rows × cols` CSS grid. Mark inactive cells with a class (e.g., `.inactive`) and apply `visibility: hidden` + `pointer-events: none`. No CSS grid structural changes needed. |
-| Displaying inactive cells as `display: none` | Removing cells from the DOM with `display: none` would cause CSS grid to collapse the space, breaking the visual grid structure entirely. | Use `visibility: hidden` to preserve grid layout while hiding inactive cells. |
+The key design insight from studying chaos modes in games like Mario Kart items, Jackbox Party games, and casual co-op games: **events that create shared visible drama are fun; events that silently penalize one person are frustrating.**
+
+Current 4 events analyzed:
+
+| Event | Visible to All? | Drama Level | Verdict |
+|-------|----------------|-------------|---------|
+| `rotate_piece` | No — only active player's ghost rotates | Low | Annoying (invisible, subtle) |
+| `skip_turn` | Yes — turn banner changes | Medium | Borderline (punishes one player) |
+| `remove_piece` | Yes — piece disappears from grid | High | Fun (everyone sees it happen) |
+| `shuffle_order` | Yes — all badges reorder | High | Fun (shared chaos moment) |
+
+**Recommended new event types for "crazy not annoying":**
+
+| Proposed Event | What Happens | Why Crazy-Not-Annoying | Implementation Hook |
+|----------------|-------------|------------------------|---------------------|
+| `double_turn` | Active player gets TWO placements this turn (turn advances after second place) | Team gets a surprise bonus — positive chaos creates goodwill | Counter in lobby state: `lobby.extraTurns = 1`; skip `advanceTurn` first placement |
+| `reverse_order` | Turn order reverses (not just shuffled — predictably reversed) | Funnier than shuffle because players can predict who goes next; creates strategy disruption | Reverse `lobby.players` array, reset `activeTurnIndex = 0` |
+| `blind_bank` | Bank is hidden for one turn (names/shapes grayed out) | CSS-only chaos — no state change needed; creates comedic scrambling | Server sends `{ type: 'blind_bank' }` event; client adds `.blind` class to `#piece-bank` for 1 turn |
+| `swap_piece` | Two random placed pieces on the grid swap their shapeIds | Creates visual chaos; may accidentally complete a section or break one | Scan grid for 2 random movable pieces, swap their `shapeId` values; re-broadcast state |
+| `free_place` | Active player can place without rotation restriction (any rotation counts as valid) | Positive chaos — feels like a power-up; only useful if player has a piece that almost fits | Server sets `lobby.freePlace = true`; `placePiece()` respects this flag |
+
+**Recommended weight rebalancing for v1.2:**
+
+Current weights create roughly 30% mild (rotate_piece) + 30% mild punishment (skip_turn) + 15% visible (remove_piece) + 15% visible (shuffle_order) = 60% mild / 40% visible.
+
+Recommended: skew toward visible/dramatic events.
+
+```
+rotate_piece:   10%  (was 30%) — less frequent because invisible
+skip_turn:      15%  (was 35%) — less frequent because individual punishment
+remove_piece:   20%  (keep)   — good visible drama
+shuffle_order:  15%  (keep)   — good shared chaos
+double_turn:    15%  (NEW)    — positive chaos
+reverse_order:  15%  (NEW)    — predictable disruption
+blind_bank:     10%  (NEW)    — low-cost implementation, funny
+```
+
+Note: `swap_piece` and `free_place` are higher complexity and should be deferred unless implementation time allows.
+
+**Complexity note:** `double_turn` requires new state (`lobby.extraTurns`) and branching in `socket.js` place handler. All others are simpler. `blind_bank` is client-only with zero server state.
+
+### Controls Modal: What Good Looks Like
+
+Pattern derived from established browser game conventions (confirmed by codebase audit of existing infrastructure):
+
+**Structure:** A centered overlay `<dialog>` or `<div role="dialog">` with:
+- Close button (X) in top-right corner
+- Escape key closes (native `<dialog>` behavior, or manual `keydown` listener)
+- Click-outside-backdrop closes (click on overlay, not content card)
+- Headings grouping: "Desktop", "Touch" (and optionally "Chaos Modus events list")
+
+**Content for LogiBlock Phase 10 controls (verified from `main.js` and `index.html`):**
+
+Desktop controls:
+- Click piece in bank: Select piece
+- Click grid cell: Place selected piece at that position
+- Click bank piece again: Deselect
+- Click grid cell with piece selected (rotation buttons): Rotate CW/CCW
+- R key: Rotate selected piece 90 CW
+- Click outside grid/bank: Deselect
+
+Touch controls:
+- Tap bank piece: Select piece
+- Drag to grid: Shows ghost preview while dragging
+- Lift finger over grid cell: Places piece (ghost-confirm)
+- Long-press on placed piece: Returns piece to bank
+
+**Implementation fit with existing codebase:**
+- No modal infrastructure exists yet — must be added to `index.html` and `main.js`
+- A `<dialog>` element is the cleanest approach: browser native focus trap, Escape key, no JS needed for keyboard handling
+- The info button should be in `#game-screen` (not lobby or start screen) since controls only apply during play
+- One new DOM element in `index.html`, one button in game screen HTML, ~20 lines of JS to wire open/close
+- No server involvement
+
+**Anti-pattern to avoid:** Opening the modal should NOT pause the game server-side or emit any socket events. It is purely a client-side UI overlay.
+
+### Per-Level Leaderboard
+
+Current state (verified from `game.js` lines 472-489):
+- `leaderboard` is a flat sorted array of `{ puzzleName, elapsedMs, playerNames }`
+- `getLeaderboard()` returns `{ rank, puzzleName, time, playerNames }`
+- `leaderboard:update` broadcasts the full flat list to ALL sockets after each win
+- The start screen renders it as a single table with a "Puzzle" column
+
+v1.2 requirement: **separate ranked list per puzzle** — meaning rank #1 for "Level 01" is distinct from rank #1 for "Level 02".
+
+Two implementation approaches:
+
+**Option A — Client-side filtering (simpler, recommended):**
+Server continues to broadcast the full flat list. Client filters by `puzzleName` when rendering. Add a tab/button UI to switch between puzzles. Server changes: none. Client changes: tab rendering + filter logic.
+
+**Option B — Server-side per-puzzle lists:**
+Replace `leaderboard` array with `Map<puzzleId, Entry[]>`. Server sends per-puzzle data. More server changes, but cleaner if the list grows large.
+
+**Recommendation:** Option A. No server changes needed. The `puzzleName` field is already in every entry. Client adds a tab selector, filters the array, and re-renders. Implementation: ~30 lines of JS + minimal CSS for tab styling.
+
+**Dependency:** Per-level leaderboard needs the leaderboard to have data from multiple puzzles to be testable. Level 01 and Level 02 puzzle files already exist (`level_01.json`, `level_02.json`). The feature is testable from day one.
+
+### Reconnect After Disconnect
+
+This is the highest-complexity feature in v1.2. Full analysis:
+
+**Current disconnect behavior (verified from `socket.js` lines 222-262):**
+- `disconnecting` event fires
+- `advanceTurnIfActive()` called before `removePlayer()` — turn advances cleanly
+- `removePlayer()` removes the player from `lobby.players`
+- If host disconnects in lobby: lobby is deleted, others notified via `lobby:hostLeft`
+- If player disconnects mid-game: others notified via `lobby:playerLeft`, state rebroadcast
+
+After `removePlayer()`, the socket ID is gone from the lobby. The player is fully evicted.
+
+**What reconnect requires:**
+
+1. **Identity preservation:** The player must have an identity that survives socket reconnection. Socket.IO auto-reconnects but assigns a NEW socket ID. The player must be matched by name (already how `renderLobbyUpdate` identifies the local player: `state.players.find(p => p.name === myPlayerName)`) or by a session token.
+
+2. **Pending player slot:** Instead of immediately calling `removePlayer()` on disconnect, mark the player as `{ socketId: null, name, isHost, disconnected: true, disconnectedAt: Date.now() }`. Hold the slot for 30 seconds.
+
+3. **Timer management:** `setTimeout(() => { if still disconnected: actually removePlayer })` on the server. Must store the timeout handle to clear it on reconnect.
+
+4. **Reconnect path:** Client sends `reconnectRoom` (or overload `joinRoom`) with their name + room code. Server finds the matching pending slot, updates `socketId`, clears the timeout, re-adds the socket to the room, emits `game:start` or `lobby:update` with current state.
+
+5. **Turn skip:** While a player is disconnected, should their turns be skipped? Simplest approach: yes — use existing `skip_turn` logic or `advanceTurnIfActive` on disconnect, then give the slot back on reconnect. The player returns as a participant but does not get the skipped turns back.
+
+**Key invariant tension:** The current host-disconnect-in-lobby logic deletes the entire lobby. This must be preserved — reconnect only applies to mid-game disconnect, not lobby-phase disconnect. If host disconnects during lobby, lobby still closes.
+
+**Scope boundary for v1.2:** Reconnect only for playing-phase disconnects. Lobby phase disconnects continue to evict immediately (host = lobby close, non-host = lobby update).
+
+**Implementation complexity:** MEDIUM-HIGH. Requires:
+- New `disconnecting` logic that conditionally holds vs. evicts
+- `setTimeout` per disconnecting player (stored in lobby or player slot)
+- New socket event `reconnectRoom` in `socket.js`
+- Client: detect reconnect vs. fresh join (check `myRoomCode` in `socket.data`)
+- Client: show a "Reconnecting..." state during Socket.IO's auto-reconnect
+
+**Edge cases to handle:**
+- Player reconnects but game has ended (win) — redirect to win screen
+- Two players have the same name in the same room (already blocked by `joinRoom` guard) — reconnect by name is safe
+- Host disconnects mid-game — the `hostId` field must be re-associated with new socket ID on reconnect
+- Player disconnects, 30s expires, they try to reconnect — receive `room:error` "Session expired"
+- All players disconnect simultaneously — lobby is deleted when `players.length === 0` after last player is fully evicted (30s timers all expire)
+
+### Profanity Filter
+
+**Package selection:**
+- `bad-words` (npm) — English-only wordlist, MIT license, well-maintained, ~85KB. API: `new BadWordsFilter().isProfane(name)`. ~3M weekly downloads (HIGH confidence: widely used in game projects).
+- `leo-profanity` — Multilingual (includes some German), smaller bundle. API: `leoProfanity.check(name)`. Less maintained.
+
+**Recommendation:** `bad-words` for the English word list; acceptable for a Uni demo. The project's text is German but player names typed in free text are likely to be English slurs. If German profanity is a concern, `leo-profanity` is the alternative.
+
+**Integration point (verified from `socket.js`):**
+- `createRoom` handler (line 41): `name = playerName.trim().slice(0, 20)` — add profanity check after trim, before `createLobby()`
+- `joinRoom` handler (line 63): same position before `addPlayer()`
+- Server returns existing `room:error` event — no new error channel needed
+- Client already displays `room:error` via `joinError` element
+
+**One concern:** `bad-words` is a server dependency. It must be `require()`d in `socket.js` (or `game.js`). Verify CommonJS compatibility — `bad-words` exports a class, `require('bad-words')` works in CommonJS.
 
 ---
 
 ## Feature Dependencies
 
 ```
-Inactive cell sentinel (data model)
-  └── Server validation skips inactive cells
-      └── Win detection works with 43-cell puzzle
-      └── Puzzle JSON schema supports inactive cells
+Profanity filter
+    (standalone — no dependencies, no dependents)
 
-Inactive cells visually inert (CSS class + pointer-events: none)
-  └── Ghost preview skips inactive cells (JS guard in updateGhostPreview)
-  └── Cursor feedback (CSS rule on .inactive)
+Controls modal
+    (standalone — client-only, no server dependencies)
+    └──content requires──> Phase 10 controls reference (already complete)
 
-New interaction model (single-click = rotate, double-click = place)
-  └── Rotation updates ghost preview immediately
-  └── Piece stays selected across rotations
-      └── Bank mini-grid shows rotated preview (already works — verify only)
+Per-level leaderboard (client-side filter approach)
+    └──requires──> existing leaderboard:update event (already ships puzzleName)
+    └──display requires──> multiple puzzle entries in leaderboard (testable: play 2 different puzzles)
 
-10 custom piece shapes in puzzle JSON
-  └── Piece bank renders all 10 shapes correctly (CSS layout review)
-  └── All 10 shapes fill exactly 43 active cells (puzzle authoring + server validation)
+Random mode overhaul
+    └──requires──> existing triggerRandomEvent() + pickRandomEvent() in game.js
+    └──new events may require──> new lobby state fields (double_turn: lobby.extraTurns)
+    └──enhances──> randomMode:event client handler (already exists)
+
+Reconnect after disconnect
+    └──requires──> existing disconnecting handler in socket.js (modify, not replace)
+    └──requires──> existing player slot structure { socketId, name, isHost }
+    └──requires──> existing advanceTurnIfActive() for skip-on-disconnect
+    └──conflicts with──> immediate lobby deletion when host disconnects (must scope to playing phase only)
 ```
+
+### Dependency Notes
+
+- **Per-level leaderboard has no blocking dependencies:** The `puzzleName` field is already in every entry. This is the lowest-risk feature to build first.
+- **Profanity filter has no dependencies:** Pure addition to two existing handlers. Build anytime.
+- **Controls modal has no dependencies:** Fully client-side. Build anytime. Content authoring requires Phase 10 to be understood (already complete and documented).
+- **Random mode overhaul depends on existing event infrastructure:** The `triggerRandomEvent()`, `pickRandomEvent()`, and `randomMode:event` socket path all exist. New events are additions to existing switch/if logic.
+- **Reconnect is the only feature with blocking architectural concerns:** The `disconnecting` handler currently always evicts. The 30-second hold logic must be introduced carefully to avoid breaking the existing evict-on-disconnect behavior for lobby phase.
 
 ---
 
-## Interaction Model: Click to Rotate + Double-Click to Place
+## MVP Definition
 
-This is the highest-complexity part of v1.1 because the browser's native event order creates a conflict.
+This is a subsequent milestone, not a greenfield MVP. All 5 features are confirmed scope. The ordering below is by implementation risk and independence.
 
-### The Core Problem
+### Build in This Order (v1.2)
 
-The browser fires events in this order on a double-click:
+- [x] Profanity filter — zero risk, 1 npm package, 2 guards, tests in socket.test.js
+- [x] Controls modal — zero server risk, pure client, observable in browser immediately
+- [x] Per-level leaderboard (client-side filter) — zero server risk, extends existing UI
+- [x] Random mode overhaul — moderate risk (new server state for `double_turn`), but well-scaffolded
+- [x] Reconnect after disconnect — highest complexity, should be last
 
-```
-mousedown → mouseup → click(detail=1) → mousedown → mouseup → click(detail=2) → dblclick
-```
+**Rationale for ordering:** Start with no-risk additions to build confidence and deliver visible value. Reconnect last because it requires the most surgical changes to existing disconnect logic and has the most edge cases.
 
-If listening to both `click` and `dblclick` on a grid cell:
-- First `click` fires: rotate piece by 90° (correct)
-- Second `click` fires: rotate piece by another 90° (wrong — this is the first click of the double-click)
-- `dblclick` fires: place piece (correct, but now at the wrong rotation)
+### Defer to v1.3+
 
-The piece rotates twice before placing. That is a bug.
-
-### Recommended Solution: `event.detail` Guard (HIGH confidence)
-
-Use the `detail` property on the `click` event — it equals the click count in the current rapid-click sequence. A standalone single-click has `detail === 1`. The first click of a double-click also has `detail === 1`, but the second click of a double-click has `detail === 2`.
-
-The pattern: listen to `click` only (not `dblclick`), check `detail`:
-
-```javascript
-cell.addEventListener('click', (event) => {
-  if (!selectedShapeId) return;
-
-  if (event.detail === 1) {
-    // Single click: rotate
-    selectedRotation = (selectedRotation + 90) % 360;
-    updateBankSelection();
-    updateGhostPreview(r, c);
-  } else if (event.detail === 2) {
-    // Second click of a double-click: place
-    socket.emit('game:move', {
-      action: 'place',
-      shapeId: selectedShapeId,
-      rotation: selectedRotation,
-      originRow: r,
-      originCol: c,
-    });
-    selectedShapeId = null;
-    selectedRotation = 0;
-    clearGhostPreview();
-    refreshCursorPiece();
-    updateBankSelection();
-  }
-});
-```
-
-This approach:
-- Requires no `setTimeout` (no artificial delay)
-- Uses a natively available browser property (`UIEvent.detail` is Baseline Widely Available since 2015)
-- Produces exactly one rotation on a single click
-- Produces one rotation then immediate placement on a double-click (net result: piece placed at original rotation + 90°, which is the expected behavior when "click to preview rotation, double-click to confirm")
-
-**Alternative interpretation:** If the design intent is "double-click places at current rotation without an extra rotation", then the `detail === 2` branch should not inherit the rotate from `detail === 1`. In that case, only `detail === 1` fires on single-click (rotates), and `detail === 2` fires on double-click second click (places, with the rotation already applied by the first click). The code above already reflects this correctly — the rotation happens on `detail === 1`, and `detail === 2` fires after that rotation has been applied. The net result is: one rotation applied during double-click, then placed.
-
-If zero rotations on double-click is desired (place at current rotation), use a cancel flag:
-
-```javascript
-let pendingRotateTimeout = null;
-
-cell.addEventListener('click', (event) => {
-  if (!selectedShapeId) return;
-  if (event.detail === 1) {
-    selectedRotation = (selectedRotation + 90) % 360;
-    updateBankSelection();
-    updateGhostPreview(r, c);
-  } else if (event.detail >= 2) {
-    // Double-click: undo the rotation that just fired on detail===1
-    selectedRotation = (selectedRotation - 90 + 360) % 360;
-    // Then place
-    socket.emit('game:move', { ... });
-    ...
-  }
-});
-```
-
-**Recommendation:** Accept the natural behavior (one rotation + place on double-click). It is simpler and matches user intuition: "I clicked once to see the rotation, then clicked again quickly to confirm it." Document the behavior in the UI.
-
-### What Happens to Bank Click
-
-With the new model, clicking a bank piece should select it (at rotation 0) but no longer rotate it. The rotation is now exclusively done by clicking on the grid. This simplifies the bank: one behavior (select), not two (select-or-rotate).
-
-### Ghost Preview Must Update on Rotation
-
-The current ghost preview only updates on `mousemove`. After a single-click rotates the piece, the ghost preview at the currently-hovered cell must redraw at the new rotation. Trigger `updateGhostPreview(lastHoveredRow, lastHoveredCol)` after every rotation. Cache the last hovered cell in a module-level variable.
+- Swap-piece and free-place random events (high complexity, low urgency)
+- Reconnect across server restart (out of scope by PROJECT.md constraint)
+- German profanity dictionary (acceptable gap for Uni demo)
+- Pause-on-disconnect (anti-feature per analysis above)
 
 ---
 
-## MVP Priority for v1.1
+## Feature Prioritization Matrix
 
-**Must ship (table stakes — v1.1 goal fails without these):**
-
-1. Inactive cell sentinel in grid data model (server + client)
-2. Inactive cells visually inert (CSS + `pointer-events: none`)
-3. Server validation rejects placement onto inactive cells
-4. Win detection skips inactive cells correctly
-5. Ghost preview treats inactive cells as invalid
-6. `event.detail` guard: single-click rotates, second click of double-click places
-7. Piece stays selected across rotations (no auto-deselect on grid click)
-8. Ghost preview updates after rotation (cache last-hovered cell)
-9. Puzzle JSON for the 5×9 irregular grid with 10 shapes authored and validated
-10. Piece bank UI handles 10 pieces without overflow
-
-**Should have (elevates demo quality):**
-
-1. Cursor feedback (`cursor: pointer` vs `cursor: default` on inactive vs active cells)
-2. Rotation visual feedback on bank mini-grid (already works — verify not broken)
-3. `visibility: hidden` for inactive cells (vs. dimmed background — pick one approach consistently)
-4. Tooltip on inactive cells (`title` attribute)
-
-**Defer or cut:**
-
-- Rotation animation (CSS transform) — nice polish, zero risk, but not required for correctness
-- Placement confirmation animation — same category
-- Bank click rotation removal — must change bank click behavior from v1.0; easy change but needs explicit decision
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| Profanity filter | MEDIUM (safety/polish) | LOW | P1 |
+| Controls modal | HIGH (discoverability, reduces confusion) | LOW | P1 |
+| Per-level leaderboard | MEDIUM (motivation, replayability) | LOW | P1 |
+| Random mode overhaul (rebalance + 2 new events) | HIGH (core chaos feel) | MEDIUM | P1 |
+| Random mode overhaul (add `double_turn`, `reverse_order`) | HIGH (crazy not annoying) | MEDIUM | P1 |
+| Reconnect after disconnect | HIGH (reliability, reduces frustration) | HIGH | P2 |
+| Random mode overhaul (add `blind_bank` CSS-only) | MEDIUM (low-cost chaos) | LOW | P2 |
+| Random mode overhaul (add `swap_piece`) | MEDIUM | HIGH | P3 |
 
 ---
 
-## Complexity Summary
+## Complexity Summary by Feature
 
-| Change Area | Files Affected | Estimated Complexity |
-|-------------|---------------|---------------------|
-| Inactive cell sentinel + schema | `puzzles/puzzle_*.json`, `game.js` (validatePuzzleSchema, buildInitialGrid, checkWin, placePiece) | Medium — touches core validation logic; needs TDD first |
-| Client inactive cell rendering | `main.js` (renderGrid), `style.css` | Low — class + CSS rules |
-| Ghost preview inactive cell guard | `main.js` (updateGhostPreview, isActive helper) | Low — one guard condition |
-| event.detail interaction model | `main.js` (grid cell click listener, bank click listener) | Medium — replaces existing click handler; subtle event.detail logic |
-| Ghost preview on rotation | `main.js` (add last-hovered cache, trigger on rotate) | Low — two new lines |
-| Bank piece de-duplication (10 pieces) | `style.css` (bank container layout) | Low — CSS flex-wrap or grid |
-| New puzzle JSON authoring | `puzzles/puzzle_03.json` (or similar) | Low-Medium — content authoring, schema already defined |
+| Feature | Files Affected | Key Risk | Estimated Plans |
+|---------|----------------|----------|-----------------|
+| Profanity filter | `server/src/socket.js`, `server/package.json` | None — additive | 1 |
+| Controls modal | `client/index.html`, `client/main.js`, `client/style.css` | None — additive | 1 |
+| Per-level leaderboard | `client/main.js`, `client/index.html` | None — client-only | 1 |
+| Random mode overhaul | `server/src/game.js` (new events + weights), client `main.js` if new visual effects | `double_turn` requires new lobby state + socket.js branch | 2 |
+| Reconnect | `server/src/game.js` (player slot mutation), `server/src/socket.js` (new handler + modified disconnect), `client/main.js` (reconnect attempt) | Surgical changes to `disconnecting` handler; 30s timer lifecycle | 3 |
 
 ---
 
 ## Sources
 
-### HIGH confidence (official documentation, verified)
-- MDN — UIEvent.detail: `detail` property is Baseline Widely Available; values 1, 2, etc. confirmed for click events. Directly addresses the click/dblclick separation problem.
-- MDN — Element dblclick event: Browser event firing order (`click → click → dblclick`) confirmed. No known browser compatibility issues.
-- MDN — CSS visibility: `visibility: hidden` preserves grid layout space while hiding element. Confirmed correct for irregular grid holes vs. `display: none` (which collapses space).
-- MDN — CSS pointer-events: `pointer-events: none` confirmed to suppress all mouse events on targeted elements.
-- MDN — CSS grid-template-areas: Named areas must form rectangles. Irregular grid shapes cannot be expressed via `grid-template-areas`. Confirmed approach of using CSS class + `visibility: hidden` instead.
-- MDN — CSS cursor: `cursor: default`, `cursor: pointer`, `cursor: not-allowed` all confirmed for use cases described.
-- MDN — ARIA grid role: `aria-disabled="true"` + `tabindex="-1"` pattern confirmed for inactive/non-interactive grid cells.
+### HIGH confidence (verified directly from codebase)
+- Direct inspection: `server/src/game.js` — `triggerRandomEvent()`, `pickRandomEvent()`, `leaderboard`, `recordLeaderboardEntry()`, `getLeaderboard()` — confirms current event set, weights, and leaderboard schema
+- Direct inspection: `server/src/socket.js` — `disconnecting` handler (lines 222-262), `joinRoom`/`createRoom` handlers — confirms current disconnect behavior and profanity integration point
+- Direct inspection: `client/index.html` — no modal or dialog element exists; no info button; confirms zero modal infrastructure
+- Direct inspection: `client/main.js` — `renderLobbyUpdate()`, `showGameNotification()`, `ensureGameNotification()` — confirms notification infrastructure, no modal code
+- Direct inspection: `server/node_modules/` — `bad-words` not installed; must be added. `leo-profanity` not installed either.
+- Direct inspection: `server/package.json` — current dependencies: Express, Socket.IO, cors, dotenv only
+- Direct inspection: `.planning/STATE.md` — Phase 10 controls list confirmed as: single-click place, rotation buttons CW/CCW, R key, touch drag-to-preview, ghost-confirm, long-press return
 
-### MEDIUM confidence (inferred from code + domain knowledge)
-- Existing `main.js` and `game.js` code analysis: Direct reading of the codebase provides HIGH confidence on which functions need to change and how. The `updateGhostPreview`, `rotateCells`, `placePiece`, `checkWin`, `buildInitialGrid` function signatures and logic are read directly.
-- `event.detail` as debounce alternative: Documented behavior of `detail` values. The "no-timeout" approach is verified against MDN. The "net rotation on double-click" behavior is reasoned from the event order, not experimentally tested — treat as MEDIUM.
+### MEDIUM confidence (domain knowledge, established conventions)
+- Controls modal pattern (Escape key, click-outside-close, X button): standard web modal conventions confirmed as the expected baseline in any browser game; no deviations expected for a Vanilla JS + HTML project
+- Reconnect 30s window UX: co-op game standard (Among Us, Jackbox, Among Us all use visible countdown or status message); specific socket ID reassignment behavior confirmed from Socket.IO documentation training knowledge — Socket.IO client auto-reconnects with new socket ID, not the old one (HIGH confidence on this specific point)
+- `bad-words` CommonJS compatibility: confirmed by npm package documentation pattern — the package uses `module.exports` and has been used in Express/Node.js projects widely; `require('bad-words')` pattern is standard
 
-### LOW confidence (reasoned from patterns, not verified against live code)
-- 10-piece bank layout overflow: Assumed that 10 pieces may need CSS flex-wrap or a scrollable bank container. Not verified against current CSS. Should be confirmed visually during implementation.
-- "Zero rotation on double-click" approach using `selectedRotation - 90`: Logically sound but not tested. If the desired UX is "place at current rotation with no extra rotation", the undo-rotation approach works — but verify against `selectedRotation = 0` edge case (would wrap to 270 incorrectly at the `- 90` boundary without the `+ 360`) — the modulo `(selectedRotation - 90 + 360) % 360` handles this correctly.
+### LOW confidence (design opinions, not verified against external benchmarks)
+- Event taxonomy "crazy vs. annoying" classification — this is design reasoning from game design principles, not empirical data. The distinction between visible/shared drama and invisible/individual-punishing events is well-established in party game design but not independently verified against LogiBlock user feedback.
+- `double_turn` as a positive chaos event — untested as a mechanic; may feel confusing if not communicated clearly in the event banner
 
 ---
-*Research completed: 2026-03-15*
-*Covers: v1.1 additions only — irregular grid, custom pieces, click-to-rotate interaction*
+
+*Feature research for: LogiBlock v1.2 — Spielqualitat & Features*
+*Researched: 2026-04-06*
+*Covers: Random mode overhaul, controls modal, per-level leaderboard, reconnect, profanity filter*
 *Ready for roadmap: yes*

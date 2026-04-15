@@ -78,6 +78,7 @@ function makeMocks(roomCode, socketId, playerName) {
       socket._handlers = socket._handlers || {};
       socket._handlers[event] = handler;
     },
+    join: () => {},
     _handlers: {},
     to: () => ({ emit: () => {} }),
   };
@@ -530,3 +531,102 @@ describe('game:move randomMode:event trigger', () => {
   });
 
 });
+
+// ── Profanity filter tests ──────────────────────────────────────────────────
+
+describe('createRoom profanity filter', () => {
+  it('rejects profane name with room:error "Player name is not allowed"', () => {
+    const { socket, emitted } = makeMocks(undefined, 'cr-prof-1', undefined);
+    trigger(socket, 'createRoom', { playerName: 'ass' });
+    assert.ok(emitted.socket['room:error'], 'room:error should be emitted');
+    assert.equal(emitted.socket['room:error'][0], 'Player name is not allowed');
+    assert.ok(!emitted.socket['room:created'], 'room:created must NOT be emitted for profane name');
+  });
+
+  it('accepts clean name — emits room:created, no room:error', () => {
+    const { socket, emitted } = makeMocks(undefined, 'cr-clean-1', undefined);
+    trigger(socket, 'createRoom', { playerName: 'Alice' });
+    assert.ok(!emitted.socket['room:error'], 'room:error must NOT be emitted for clean name');
+    assert.ok(emitted.socket['room:created'], 'room:created should be emitted');
+  });
+});
+
+describe('joinRoom profanity filter', () => {
+  it('rejects profane name with room:error "Player name is not allowed"', () => {
+    const { socket, emitted } = makeMocks('ANYCODE', 'jr-prof-1', undefined);
+    trigger(socket, 'joinRoom', { roomCode: 'ANYCODE', playerName: 'ass' });
+    assert.ok(emitted.socket['room:error'], 'room:error should be emitted');
+    assert.equal(emitted.socket['room:error'][0], 'Player name is not allowed');
+  });
+
+  it('accepts clean name past profanity filter (room may or may not exist)', () => {
+    const roomCode = 'JRCLEAN1';
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-sock', 'Host');
+    addPlayer(roomCode, 'jr-clean-extra', 'Extra');
+
+    const { socket, emitted } = makeMocks(roomCode, 'jr-clean-1', undefined);
+    trigger(socket, 'joinRoom', { roomCode, playerName: 'Alice' });
+
+    const errors = emitted.socket['room:error'] || [];
+    const hasProfanityError = errors.some(e => e === 'Player name is not allowed');
+    assert.ok(!hasProfanityError, 'Clean name must not trigger profanity rejection');
+  });
+});
+
+// ─── game:move - double_turn extra-turn gate (Phase 14) ───────────────────────
+
+describe('game:move - double_turn extra-turn gate', () => {
+  it('when lobby.extraTurns > 0, a successful placement decrements extraTurns and does NOT call advanceTurn', () => {
+    const roomCode = 'DT-GATE01';
+    const lobby = makePlayingLobby(roomCode);
+    // Force puzzle_01 since makePlayingLobby might use a different puzzle
+    setSelectedPuzzle(roomCode, 'puzzle_01');
+    // Restart game with puzzle_01
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-socket', 'Alice');
+    addPlayer(roomCode, 'p2-socket', 'Bob');
+    setSelectedPuzzle(roomCode, 'puzzle_01');
+    const result = startGame(roomCode);
+    if (!result.ok) throw new Error('startGame failed: ' + result.error);
+    const freshLobby = lobbies.get(roomCode);
+    freshLobby.activeTurnIndex = 0;
+    freshLobby.extraTurns = 1; // simulate double_turn grant
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+
+    // Place shape B at valid position — non-winning
+    trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+
+    assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
+    assert.strictEqual(freshLobby.extraTurns, 0, 'extraTurns must be decremented to 0');
+    // Turn must NOT advance — same player (index 0) should still be active
+    assert.strictEqual(freshLobby.activeTurnIndex, 0, 'activeTurnIndex must remain 0 (same player goes again)');
+    // No randomMode:event should fire during extra turn
+    assert.ok(!emitted.room['randomMode:event'], 'randomMode:event must NOT be emitted during extra turn');
+    // stateUpdate should still be broadcast
+    assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate must still be broadcast');
+  });
+
+  it('when lobby.extraTurns === 0, a successful placement calls advanceTurn as before', () => {
+    const roomCode = 'DT-GATE02';
+    lobbies.delete(roomCode);
+    createLobby(roomCode, 'host-socket', 'Alice');
+    addPlayer(roomCode, 'p2-socket', 'Bob');
+    setSelectedPuzzle(roomCode, 'puzzle_01');
+    const result = startGame(roomCode);
+    if (!result.ok) throw new Error('startGame failed: ' + result.error);
+    const freshLobby = lobbies.get(roomCode);
+    freshLobby.activeTurnIndex = 0;
+    freshLobby.extraTurns = 0; // normal turn
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+
+    trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+
+    assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
+    // Turn MUST advance
+    assert.strictEqual(freshLobby.activeTurnIndex, 1, 'activeTurnIndex must advance to 1 when extraTurns === 0');
+  });
+});
+
