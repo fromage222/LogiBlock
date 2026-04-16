@@ -68,6 +68,9 @@
   --sh-md: 4px 4px 0 var(--clr-border);
   --sh-lg: 6px 6px 0 var(--clr-border);
 
+  /* --- Dividers --- */
+  --clr-divider: rgba(0,0,0,0.1);
+
   /* --- Transitions --- */
   --t-fast:   0.1s ease;
   --t-normal: 0.15s ease;
@@ -217,7 +220,7 @@ select:focus { box-shadow: var(--sh-sm); }
 
 hr {
   border: none;
-  border-top: 2px dashed rgba(0,0,0,0.1);
+  border-top: 2px dashed var(--clr-divider);
   margin: var(--sp-xs) 0;
 }
 
@@ -757,7 +760,7 @@ button:disabled {
 .leaderboard-table tbody td {
   padding: 0.55rem 0.75rem;
   font-weight: 500;
-  border-top: 1px solid rgba(0,0,0,0.07);
+  border-top: 1px solid var(--clr-divider);
 }
 .leaderboard-time {
   font-family: var(--font-mono);
@@ -779,11 +782,14 @@ body.dark-mode {
   --clr-bg:          #1a1714;
   --clr-surface:     #252220;
   --clr-surface-alt: #2e2b27;
+  --clr-border:      #c0b8ad;
   --clr-text:        #f0ece4;
   --clr-text-muted:  #9a9080;
-  --clr-text-faint:  #5a5248;
+  --clr-text-faint:  #776f64;
   --clr-primary-bg:  #3a1a10;
+  --clr-accent-dark: #e8b830;
   --clr-warning-bg:  #2a2210;
+  --clr-divider:     rgba(255,255,255,0.08);
 
   background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
 }
@@ -799,6 +805,20 @@ body.dark-mode .rotation-controls button {
   --clr-text:        #1c1c1c;
   --clr-text-muted:  #7a7060;
   --clr-primary-bg:  #fff0ec;
+}
+
+/* Leaderboard table header: keep contrast correct in dark mode */
+body.dark-mode .leaderboard-table thead    { background: var(--clr-surface-alt); }
+body.dark-mode .leaderboard-table thead th { color: var(--clr-text); }
+
+/* Inputs sit one level darker than the card surface so they're visually distinct */
+body.dark-mode input[type="text"],
+body.dark-mode select { background: var(--clr-bg); }
+
+/* Grid: vivid primary border + matching shadow to lift it off the dark page */
+body.dark-mode .grid {
+  border-color: var(--clr-primary);
+  box-shadow: 6px 6px 0 var(--clr-primary-dark);
 }
 
 /* ============================================================
@@ -946,7 +966,7 @@ body.dark-mode .rotation-controls button {
   letter-spacing: 0.08em;
   margin-bottom: var(--sp-sm);
   padding-bottom: var(--sp-xs);
-  border-bottom: 2px dashed rgba(0, 0, 0, 0.1);
+  border-bottom: 2px dashed var(--clr-divider);
 }
 
 .controls-list {
