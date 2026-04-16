@@ -951,8 +951,7 @@ socket.on('lobby:hostLeft', ({ message }) => {
 
 // Game started — transition to game screen, initialise colors, render all UI
 socket.on('game:start', (state) => {
-  localStorage.removeItem('logiblock_roomCode');
-  localStorage.removeItem('logiblock_playerName');
+  // Keep localStorage so a page reload can reconnect via reconnectRoom.
   showScreen('game-screen');
   initPieceColors(state);
   renderGrid(state);
@@ -960,6 +959,19 @@ socket.on('game:start', (state) => {
   renderTurnUI(state);
   updateRotationButtons();
   startLiveTimer(state.startTime);   // TIME-01
+});
+
+// Reconnect during playing phase — restore full game screen after page reload
+socket.on('game:reconnect', (state) => {
+  pendingAutoRejoin = false;
+  myRoomCode = state.roomCode;
+  showScreen('game-screen');
+  initPieceColors(state);
+  renderGrid(state);
+  renderBank(state);
+  renderTurnUI(state);
+  updateRotationButtons();
+  startLiveTimer(state.startTime);
 });
 
 // Game state update during play — reset selection, re-render all UI
@@ -1047,9 +1059,9 @@ socket.on('room:error', (message) => {
   }
 });
 
-// ── Lobby-Rejoin nach Seitenreload ────────────────────────────────────
-// Beim ersten Connect (= Seitenload): falls localStorage einen Lobby-Eintrag hat,
-// automatisch wieder beitreten. Klappt nur, wenn Lobby noch in Phase 'lobby' ist.
+// ── Rejoin nach Seitenreload (Lobby + Spiel) ──────────────────────────
+// Beim ersten Connect (= Seitenload): falls localStorage Credentials hat,
+// reconnectRoom emittieren. Server kümmert sich um Lobby- und Spielphase.
 let pendingAutoRejoin = false;
 
 socket.on('connect', () => {
@@ -1058,7 +1070,7 @@ socket.on('connect', () => {
   if (savedRoom && savedName && startScreen.classList.contains('active')) {
     myPlayerName = savedName;
     pendingAutoRejoin = true;
-    socket.emit('joinRoom', { roomCode: savedRoom, playerName: savedName });
+    socket.emit('reconnectRoom', { roomCode: savedRoom, playerName: savedName });
   }
 });
 
