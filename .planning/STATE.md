@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Spielqualität & Features
 status: unknown
-stopped_at: Completed 15-03-PLAN.md
-last_updated: "2026-04-10T12:32:39.131Z"
+stopped_at: Phase 15 context revised — simplified to browser-reload recovery
+last_updated: "2026-04-16T15:30:34.779Z"
 progress:
   total_phases: 12
   completed_phases: 12
@@ -138,6 +138,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-10T12:32:39.129Z
-Stopped at: Completed 15-03-PLAN.md
-Resume file: None
+Last session: 2026-04-16T15:30:34.776Z
+Stopped at: Phase 15 context revised — simplified to browser-reload recovery
+Resume file: .planning/phases/15-reconnect-after-disconnect/15-CONTEXT.md
