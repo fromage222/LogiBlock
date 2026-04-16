@@ -5,6 +5,7 @@ const {
   deleteLobby,
   addPlayer,
   removePlayer,
+  replacePlayerSocket,
   setSelectedPuzzle,
   startGame,
   advanceTurnIfActive,
@@ -24,6 +25,31 @@ const {
 
 const BadWordsFilter = require('bad-words');
 const profanityFilter = new BadWordsFilter();
+
+const customBadWords = [
+  "arsch", "4rsch", "@rsch", "ar5ch", "arsh",
+  "arschloch", "4rschl0ch", "a_rschloch", "4rsh",
+  "wichser", "wich5er", "wixxer", "wixxer", "w1chser",
+  "hure", "hur3", "huere", "h0re",
+  "hurensohn", "hurens0hn", "h0rensohn", "h-sohn", "hitler",
+  "penner", "p3nner", "penn3r", "p3nn3r",
+  "idiot", "1diot", "id1ot", "id10t",
+  "ficker", "f1cker", "fick", "f1ck", "fck",
+  "schlampe", "5chlampe", "5chlamp3", "schl4mpe",
+  "miststück", "miststueck", "m1ststueck",
+  "bastard", "b4stard", "b45tard",
+  "depp", "d3pp", "d3p",
+  "pimmel", "p1mmel", "p1mm3l",
+  "schwanz", "5chwanz", "shwanz",
+  "vagina", "v4gina", "fotze", "f0tze", "f0tz3"
+];
+profanityFilter.addWords(...customBadWords);
+
+// Grace-period timers: player stays in lobby/game for 5s after disconnect
+// so a browser reload can reconnect before the slot is freed.
+// key: `${roomCode}:${playerName}`, value: timeout handle
+const disconnectTimers = new Map();
+const DISCONNECT_GRACE_MS = 5000;
 
 /**
  * Registers all Socket.IO event handlers for one connected socket.
@@ -86,8 +112,25 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     if (lobby.phase !== 'lobby') {
       return socket.emit('room:error', 'Game has already started');
     }
-    if (lobby.players.some(p => p.name === name)) {
-      return socket.emit('room:error', `Name "${name}" is already taken in this room`);
+    const existingPlayer = lobby.players.find(p => p.name === name);
+    if (existingPlayer) {
+      // Allow rejoin if old socket is dead or in grace-period disconnect.
+      const timerKey = `${roomCode}:${name}`;
+      const hasPendingDisconnect = disconnectTimers.has(timerKey);
+      if (!hasPendingDisconnect && io.sockets.sockets.has(existingPlayer.socketId)) {
+        return socket.emit('room:error', `Name "${name}" is already taken in this room`);
+      }
+      if (hasPendingDisconnect) {
+        clearTimeout(disconnectTimers.get(timerKey));
+        disconnectTimers.delete(timerKey);
+      }
+      replacePlayerSocket(roomCode, name, socket.id);
+      socket.data.roomCode = roomCode;
+      socket.data.playerName = name;
+      socket.join(roomCode);
+      socket.emit('puzzle:list', getPuzzleListForClient());
+      io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
+      return;
     }
 
     addPlayer(roomCode, socket.id, name);
@@ -230,10 +273,72 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     // Unknown action: silently ignore
   });
 
+  // ── reconnectRoom ─────────────────────────────────────────────────────────
+  // Client emits: { roomCode: string, playerName: string }
+  // Called on page reload when the player already has credentials in localStorage.
+  // Works for both 'lobby' and 'playing' phases.
+  // Server responds:
+  //   socket.emit('room:error', message)               — if room/player not found
+  //   puzzle:list + lobby:update                       — if phase is 'lobby'
+  //   socket.emit('game:reconnect', state)             — if phase is 'playing'
+  socket.on('reconnectRoom', ({ roomCode, playerName } = {}) => {
+    if (!roomCode || typeof roomCode !== 'string') return;
+    if (!playerName || typeof playerName !== 'string' || playerName.trim() === '') return;
+
+    const name = playerName.trim().slice(0, 20);
+    const lobby = getLobby(roomCode);
+
+    if (!lobby) {
+      return socket.emit('room:error', `Room "${roomCode}" not found`);
+    }
+
+    const existingPlayer = lobby.players.find(p => p.name === name);
+    if (!existingPlayer) {
+      return socket.emit('room:error', 'You are not part of this room');
+    }
+
+    // Cancel any pending grace-period removal for this player.
+    const timerKey = `${roomCode}:${name}`;
+    if (disconnectTimers.has(timerKey)) {
+      clearTimeout(disconnectTimers.get(timerKey));
+      disconnectTimers.delete(timerKey);
+    }
+
+    // Race condition fix: browser reload may create the new socket and emit
+    // reconnectRoom BEFORE the old socket's 'disconnecting' event fires.
+    // We do NOT force-disconnect the old socket here because calling
+    // oldSock.disconnect(true) triggers Socket.IO's synchronous cleanup pipeline
+    // which corrupts in-flight room state.
+    // Instead, just proceed: replacePlayerSocket updates the player's socketId to
+    // the new socket. When the old socket eventually fires 'disconnecting' (and the
+    // 5-second timer fires), the timer callback checks player.socketId !== oldSocketId
+    // and returns early — so the player is never removed.
+
+    replacePlayerSocket(roomCode, name, socket.id);
+    socket.data.roomCode = roomCode;
+    socket.data.playerName = name;
+    socket.join(roomCode);
+
+    if (lobby.phase === 'lobby') {
+      socket.emit('puzzle:list', getPuzzleListForClient());
+      io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
+    } else {
+      // Playing phase — send full current state so client can restore the game screen.
+      socket.emit('game:reconnect', {
+        ...getPublicState(roomCode),
+        startTime: lobby.startTime,
+      });
+    }
+  });
+
   // ── disconnecting ──────────────────────────────────────────────────────────
   // CRITICAL: Use 'disconnecting' (not 'disconnect') — socket.rooms is still
   // populated here. socket.data.roomCode is the authoritative room reference.
   // Anti-pattern avoided: NEVER use 'disconnect' for lobby cleanup (see RESEARCH.md Pitfall 2).
+  //
+  // Grace period: actual removal is deferred by DISCONNECT_GRACE_MS so that a
+  // browser reload has time to emit reconnectRoom and reclaim the slot without
+  // losing their place. If no reconnect arrives, the timer fires and cleans up.
   socket.on('disconnecting', () => {
     const roomCode = socket.data.roomCode;
     if (!roomCode) return;
@@ -241,27 +346,47 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     const lobby = getLobby(roomCode);
     if (!lobby) return;
 
+    // Capture values now — socket may be GC'd by the time the timer fires.
     const wasHost = lobby.hostId === socket.id;
     const playerName = socket.data.playerName || 'Unknown';
+    const oldSocketId = socket.id;
+    const key = `${roomCode}:${playerName}`;
 
-    removePlayer(roomCode, socket.id);
-
-    // GAME-10: destroy lobby if empty
-    if (lobby.players.length === 0) {
-      deleteLobby(roomCode);
-      return;
+    // Cancel any existing timer for this player (e.g., rapid consecutive reloads).
+    if (disconnectTimers.has(key)) {
+      clearTimeout(disconnectTimers.get(key));
     }
 
-    // Host left during lobby phase -> destroy and notify remaining players
-    if (wasHost) {
-      deleteLobby(roomCode);
-      socket.to(roomCode).emit('lobby:hostLeft', { message: 'Host left — lobby closed' });
-      return;
-    }
+    const timer = setTimeout(() => {
+      disconnectTimers.delete(key);
 
-    // Notify remaining players of departure
-    socket.to(roomCode).emit('lobby:playerLeft', { playerName });
-    io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
+      const currentLobby = getLobby(roomCode);
+      if (!currentLobby) return; // lobby already gone
+
+      // If the player reconnected their socketId changed — leave them alone.
+      const player = currentLobby.players.find(p => p.name === playerName);
+      if (!player || player.socketId !== oldSocketId) return;
+
+      const isNowHost = currentLobby.hostId === oldSocketId;
+      removePlayer(roomCode, oldSocketId);
+
+      // GAME-10: destroy lobby if empty
+      if (currentLobby.players.length === 0) {
+        deleteLobby(roomCode);
+        return;
+      }
+
+      if (isNowHost) {
+        deleteLobby(roomCode);
+        io.to(roomCode).emit('lobby:hostLeft', { message: 'Host left — lobby closed' });
+        return;
+      }
+
+      io.to(roomCode).emit('lobby:playerLeft', { playerName });
+      io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
+    }, DISCONNECT_GRACE_MS);
+
+    disconnectTimers.set(key, timer);
   });
 
 }

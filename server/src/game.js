@@ -364,6 +364,21 @@ function removePlayer(roomCode, socketId) {
   return true;
 }
 
+// Replaces the socketId of an existing player (identified by name) with a new one.
+// Used for browser-reload reconnects where the player's old socket is gone.
+// Also updates hostId if the reconnecting player was the host.
+function replacePlayerSocket(roomCode, playerName, newSocketId) {
+  const lobby = lobbies.get(roomCode);
+  if (!lobby) return false;
+  const player = lobby.players.find(p => p.name === playerName);
+  if (!player) return false;
+  if (lobby.hostId === player.socketId) {
+    lobby.hostId = newSocketId;
+  }
+  player.socketId = newSocketId;
+  return true;
+}
+
 function setSelectedPuzzle(roomCode, puzzleId) {
   const lobby = lobbies.get(roomCode);
   if (!lobby) return false;
@@ -561,6 +576,7 @@ module.exports = {
   validatePuzzleSchema,
   addPlayer,
   removePlayer,
+  replacePlayerSocket,
   setSelectedPuzzle,
   startGame,
   // Phase 2 exports:
