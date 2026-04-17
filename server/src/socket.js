@@ -314,6 +314,10 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     // 5-second timer fires), the timer callback checks player.socketId !== oldSocketId
     // and returns early — so the player is never removed.
 
+    // Clear disconnected flag so the player resumes participating in turn rotation.
+    existingPlayer.disconnected = false;
+    delete existingPlayer.disconnectedAt;
+
     replacePlayerSocket(roomCode, name, socket.id);
     socket.data.roomCode = roomCode;
     socket.data.playerName = name;
@@ -352,6 +356,23 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     const oldSocketId = socket.id;
     const key = `${roomCode}:${playerName}`;
 
+    // ── Game-phase hold: mark player as disconnected, advance turn if active,
+    //    and broadcast the updated state so other players see the dimmed badge.
+    if (lobby.phase === 'playing') {
+      const pendingPlayer = lobby.players.find(p => p.name === playerName);
+      if (pendingPlayer) {
+        pendingPlayer.disconnected = true;
+        pendingPlayer.disconnectedAt = Date.now();
+        // If the disconnecting player is the active player, advance the turn
+        // so the game doesn't stall during the hold window.
+        if (lobby.activeTurnIndex === lobby.players.indexOf(pendingPlayer)) {
+          advanceTurn(lobby);
+        }
+        // Broadcast updated state immediately so other players see the dimmed badge.
+        io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
+      }
+    }
+
     // Cancel any existing timer for this player (e.g., rapid consecutive reloads).
     if (disconnectTimers.has(key)) {
       clearTimeout(disconnectTimers.get(key));
@@ -372,6 +393,20 @@ function registerSocketHandlers(io, socket, puzzleMap) {
 
       // GAME-10: destroy lobby if empty
       if (currentLobby.players.length === 0) {
+        deleteLobby(roomCode);
+        return;
+      }
+
+      // Phase 15: if every remaining player is disconnected, the game is
+      // abandoned -- delete the lobby so no orphan state lingers.
+      const allDisconnected = currentLobby.players.every(p => p.disconnected === true);
+      if (allDisconnected) {
+        for (const otherKey of Array.from(disconnectTimers.keys())) {
+          if (otherKey.startsWith(`${roomCode}:`)) {
+            clearTimeout(disconnectTimers.get(otherKey));
+            disconnectTimers.delete(otherKey);
+          }
+        }
         deleteLobby(roomCode);
         return;
       }
