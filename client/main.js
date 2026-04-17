@@ -194,6 +194,7 @@ function renderLobbyUpdate(state) {
     const li = document.createElement('li');
     li.textContent = player.name + (player.isHost ? ' (Host)' : '');
     if (player.name === myPlayerName) li.classList.add('me');
+    if (player.disconnected === true) li.classList.add('disconnected');
     playerList.appendChild(li);
   });
 
@@ -544,6 +545,7 @@ function renderTurnUI(state) {
     const showBolt = isActive && (state.extraTurns ?? 0) > 0;
     badge.textContent = player.name + (showBolt ? ' ⚡' : '');
     if (isActive) badge.classList.add('active');
+    if (player.disconnected === true) badge.classList.add('disconnected');
     badgesContainer.appendChild(badge);
   });
 }
@@ -1067,9 +1069,10 @@ let pendingAutoRejoin = false;
 socket.on('connect', () => {
   const savedRoom = localStorage.getItem('logiblock_roomCode');
   const savedName = localStorage.getItem('logiblock_playerName');
-  if (savedRoom && savedName && startScreen.classList.contains('active')) {
+  if (savedRoom && savedName) {
     myPlayerName = savedName;
-    pendingAutoRejoin = true;
+    // pendingAutoRejoin only on initial page load (start screen); not on Socket.IO auto-reconnect
+    if (startScreen.classList.contains('active')) pendingAutoRejoin = true;
     socket.emit('reconnectRoom', { roomCode: savedRoom, playerName: savedName });
   }
 });
