@@ -84,19 +84,28 @@
 
   <!-- ── Game Screen ──────────────────────────────────────────────────── -->
   <div id="game-screen" class="screen">
-    <h2 id="game-title">LogiBlock</h2>
-    <button id="controls-info-btn" class="controls-info-btn" aria-label="Steuerung anzeigen">?</button>
-    <p id="turn-banner" class="turn-banner"></p>
-    <p id="game-timer" class="game-timer">00:00</p>
+    <div class="game-header">
+      <h2 id="game-title">LogiBlock</h2>
+      <p id="turn-banner" class="turn-banner"></p>
+      <p id="game-timer" class="game-timer">00:00</p>
+    </div>
+
+    <!-- Player badges: horizontal row above the game area -->
+    <div id="player-badges" class="player-badges"></div>
+
     <div class="game-area">
-      <div id="player-badges" class="player-badges"></div>
       <div id="game-grid" class="grid"></div>
-      <div id="piece-bank" class="piece-bank"></div>
-      <div id="rotation-controls" class="rotation-controls">
-        <button id="rotate-ccw-btn" aria-label="Drehen gegen Uhrzeigersinn">&#8634;</button>
-        <button id="rotate-cw-btn" aria-label="Drehen im Uhrzeigersinn">&#8635;</button>
+      <div class="bank-column">
+        <div id="piece-bank" class="piece-bank"></div>
+        <div id="rotation-controls" class="rotation-controls">
+          <button id="rotate-ccw-btn" aria-label="Drehen gegen Uhrzeigersinn">&#8634;</button>
+          <button id="rotate-cw-btn" aria-label="Drehen im Uhrzeigersinn">&#8635;</button>
+        </div>
       </div>
     </div>
+
+    <!-- Help button: bottom-right, less prominent -->
+    <button id="controls-info-btn" class="controls-info-btn" aria-label="Steuerung anzeigen">?</button>
   </div>
 
   <!-- Controls help modal -->
