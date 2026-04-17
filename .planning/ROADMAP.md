@@ -105,7 +105,7 @@ Plans:
 | 12. Controls Modal | 1/1 | Complete    | 2026-04-06 | - |
 | 13. Per-Level Leaderboard | 1/1 | Complete    | 2026-04-06 | - |
 | 14. Random Mode Overhaul | 2/2 | Complete   | 2026-04-07 | - |
-| 15. Reconnect After Disconnect | 2/3 | In Progress|  | - |
+| 15. Reconnect After Disconnect | 2/3 | Complete    | 2026-04-17 | - |
 
 ### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
 
@@ -152,7 +152,7 @@ Plans:
 - [x] **Phase 12: Controls Modal** - Client-side info button and `<dialog>` modal with desktop/touch control reference (completed 2026-04-06)
 - [x] **Phase 13: Per-Level Leaderboard** - Client-side tab UI filtering leaderboard entries by puzzleName (completed 2026-04-06)
 - [x] **Phase 14: Random Mode Overhaul** - Add double_turn + reverse_order + blind_bank events; rebalance trigger weights (completed 2026-04-07)
-- [ ] **Phase 15: Reconnect After Disconnect** - Browser-reload recovery: 5s hold window, dimmed badge, turn skipping, no overlay/notifications (replanned 2026-04-17)
+- [x] **Phase 15: Reconnect After Disconnect** - Browser-reload recovery: 5s hold window, dimmed badge, turn skipping, no overlay/notifications (replanned 2026-04-17) (completed 2026-04-17)
 
 ### Phase 11: Profanity Filter
 **Goal**: Player names containing profanity are rejected server-side before room creation or joining; existing `room:error` display handles the feedback

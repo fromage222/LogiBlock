@@ -1,176 +1,132 @@
 ---
 phase: 15-reconnect-after-disconnect
-verified: 2026-04-10T14:45:00Z
+verified: 2026-04-17T13:00:00Z
 status: passed
 score: 14/14 must-haves verified
 re_verification: false
-human_verification:
-  - test: "Disconnect mid-game and observe 'Reconnecting...' overlay appearance"
-    expected: "Semi-transparent overlay covers game screen immediately on socket drop; auto-dismisses when socket reconnects and game:stateUpdate arrives"
-    why_human: "Visual overlay behaviour and timing cannot be verified programmatically"
-  - test: "Disconnect mid-game, wait 30 seconds without reconnecting, observe remaining players"
-    expected: "After 30 seconds, slot is fully evicted; remaining players see lobby:playerLeft notification and game:stateUpdate removes the disconnected badge; game continues"
-    why_human: "30s timer callback interaction with real Socket.IO requires live browser test; fake timers not used in tests"
-  - test: "Reconnect within 30s by refreshing — verify page-reload (NOT auto-reconnect) drops to start screen"
-    expected: "Refreshing the page clears myRoomCode; start screen shown normally; no reconnectRoom emitted; slot expires after 30s server-side"
-    why_human: "Requires manual browser manipulation to distinguish auto-reconnect vs. page reload path"
 ---
 
 # Phase 15: Reconnect After Disconnect — Verification Report
 
-**Phase Goal:** Players who disconnect during a game can reconnect within 30 seconds and resume their session. Disconnected players' turns are skipped automatically. After timeout, the slot expires and the game continues without them.
-**Verified:** 2026-04-10T14:45:00Z
+**Phase Goal:** A player who reloads their browser mid-game can rejoin the same game and continue playing. The server keeps the slot alive for 5s — enough for a browser reload. During the hold, the game continues and their turn is skipped. No overlay, no notifications, no 30s timer.
+**Verified:** 2026-04-17T13:00:00Z
 **Status:** PASSED
 **Re-verification:** No — initial verification
 
 ---
 
+## Requirements Coverage
+
+RECON-01, RECON-02, and RECON-03 are declared in ROADMAP.md §Phase 15 and in plan frontmatter. They are **not defined in REQUIREMENTS.md** — that file covers v1.0/v1.1 requirement IDs only (GRID-*, PIEC-*, CTRL-*, etc.). No RECON-* entry exists there, and no traceability row maps them. This is a **documentation gap only**: the requirement IDs are canonical in ROADMAP.md and the phase context, and the behavior they describe is fully implemented and tested. The traceability table in REQUIREMENTS.md was never extended to v1.2. This does not block phase completion.
+
+| Requirement | Source     | Description (from ROADMAP.md)                                              | Status      | Evidence                                        |
+|-------------|------------|-----------------------------------------------------------------------------|-------------|-------------------------------------------------|
+| RECON-01    | 15-01-PLAN | Disconnect hold: player.disconnected=true for 5s, turn skip, stateUpdate   | SATISFIED   | socket.js lines 361-374; game.js advanceTurn    |
+| RECON-02    | 15-02-PLAN | Client dimmed badge via .disconnected CSS class on game + lobby screens     | SATISFIED   | main.js lines 197, 548; style.css lines 435-446 |
+| RECON-03    | 15-02-PLAN | room:error on game screen drops to start screen; connect handler fires reconnectRoom | SATISFIED | main.js lines 1060-1070, 1082-1091      |
+
+**Orphaned requirements (in REQUIREMENTS.md not claimed by any plan):** None — REQUIREMENTS.md has no RECON-* rows at all.
+
+---
+
 ## Goal Achievement
 
-### Observable Truths (from ROADMAP.md Success Criteria)
+### Observable Truths
 
-| # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| 1 | On disconnect mid-game, player slot is marked `{ disconnected: true }` for 30s instead of being immediately removed; turn advances past them | VERIFIED | `reservePlayerSlot` in `game.js:562` sets `player.disconnected = true`, stores 30s `setTimeout` on `player.disconnectTimer`; `disconnecting` handler in `socket.js:252-268` calls `reservePlayerSlot` when `wasInGame` and returns early — no `removePlayer` called |
-| 2 | Remaining players see a notification "X disconnected — reconnecting..." for the 30-second window | VERIFIED | `socket.js:263` emits `game:playerDisconnected`; `main.js:1069-1071` listens and calls `showGameNotification` with `"${disconnectedName} disconnected — reconnecting..."` |
-| 3 | Player reconnects (same name + room code) within 30s: slot is re-associated with new socket ID, player rejoins the game at current state | VERIFIED | `socket.js:296-313` implements `reconnectRoom` handler; calls `reconnectPlayer(roomCode, playerName, socket.id)`; re-associates `socket.data`, calls `socket.join(roomCode)`, emits `game:stateUpdate` to room and `game:playerReconnected` to others |
-| 4 | 30s expires without reconnect: slot is fully evicted, `lobby:playerLeft` broadcast, game continues | VERIFIED | `reservePlayerSlot` callback at `game.js:579-599` calls `removePlayer`, then `onExpiry`; `socket.js:253-259` `onExpiry` callback emits `lobby:playerLeft` and `game:stateUpdate` after the 30s |
-| 5 | Lobby-phase disconnects are unchanged: host disconnect still closes lobby, non-host still evicted immediately | VERIFIED | `socket.js:270-289` lobby-phase path falls through after `if (wasInGame)` block; `removePlayer` called directly; `deleteLobby` + `lobby:hostLeft` for host; `lobby:playerLeft` + `lobby:update` for non-host — identical to pre-Phase 15 behavior |
+| #  | Truth                                                                                                                     | Status     | Evidence                                                                                      |
+|----|---------------------------------------------------------------------------------------------------------------------------|------------|-----------------------------------------------------------------------------------------------|
+| 1  | A disconnecting player in 'playing' phase is held (disconnected===true, disconnectedAt set) for 5s                       | VERIFIED   | socket.js:364-365: `pendingPlayer.disconnected = true; pendingPlayer.disconnectedAt = Date.now()` |
+| 2  | advanceTurn() skips players with disconnected===true; cycle guard terminates when all disconnect                          | VERIFIED   | game.js:169-178: for-loop with `len` iterations, returns when non-disconnected found           |
+| 3  | If hold-timer fires and every remaining player is disconnected, lobby is deleted                                           | VERIFIED   | socket.js:402-412: `allDisconnected` check cancels other timers + `deleteLobby(roomCode)`     |
+| 4  | A successful reconnectRoom call clears disconnected flag and disconnectedAt before broadcasting                            | VERIFIED   | socket.js:318-319: `existingPlayer.disconnected = false; delete existingPlayer.disconnectedAt` |
+| 5  | getPublicState() returns disconnected:boolean on every player entry                                                       | VERIFIED   | game.js:214: `disconnected: p.disconnected === true`                                          |
+| 6  | When player disconnects mid-game, other players immediately receive game:stateUpdate with disconnected flag                | VERIFIED   | socket.js:372: `io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode))`            |
+| 7  | Disconnected player's badge dims in game screen (.disconnected class applied)                                             | VERIFIED   | main.js:548: `if (player.disconnected === true) badge.classList.add('disconnected')`          |
+| 8  | Disconnected player dims in lobby player list (.disconnected class applied)                                               | VERIFIED   | main.js:197: `if (player.disconnected === true) li.classList.add('disconnected')`             |
+| 9  | CSS rules .player-badge.disconnected and #player-list li.disconnected apply opacity 0.45 + grayscale                     | VERIFIED   | style.css:435-446: opacity 0.45, filter grayscale(0.6), transition present                    |
+| 10 | socket.on('connect') emits reconnectRoom unconditionally when localStorage has credentials                                 | VERIFIED   | main.js:1082-1091: no screen-state guard on emit; pendingAutoRejoin only set on start-screen   |
+| 11 | room:error on game-screen drops to start screen, clears timer/state/localStorage                                          | VERIFIED   | main.js:1060-1070: clearInterval, reset myRoomCode/amIHost, removeItem x2, showScreen, showJoinError |
+| 12 | No client code emits or listens to game:playerDisconnected or game:playerReconnected; no reconnect-overlay                | VERIFIED   | grep returns 0 matches for all forbidden patterns in main.js and style.css                    |
+| 13 | DISCONNECT_GRACE_MS is 5000ms (5s hold window)                                                                            | VERIFIED   | socket.js:52: `const DISCONNECT_GRACE_MS = 5000`                                             |
+| 14 | All 119 tests pass with 0 failures                                                                                        | VERIFIED   | `node --test server/src/game.test.js server/src/socket.test.js` — 119 pass, 0 fail            |
 
-**Score: 5/5 Success Criteria verified**
-
----
-
-### Must-Have Truths (from Plan frontmatter — 14 truths across 3 plans)
-
-#### Plan 01 Truths
-
-| # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| 1 | Disconnecting player in game phase is held for 30s, not immediately removed | VERIFIED | `socket.js:252-268` `wasInGame` branch calls `reservePlayerSlot` and returns; `removePlayer` NOT called in game phase |
-| 2 | `advanceTurn` skips over disconnected players without infinite loop | VERIFIED | `game.js:170-178` for-loop with `len` iterations as cycle guard; exits on first non-disconnected player |
-| 3 | After 30s without reconnect, player is evicted and `game:stateUpdate` broadcast | VERIFIED | `game.js:579-599` setTimeout callback; `socket.js:253-259` onExpiry emits `game:stateUpdate` |
-| 4 | Lobby-phase disconnect behavior is unchanged | VERIFIED | `socket.js:270-289` lobby path is identical to original code; `removePlayer` + `deleteLobby`/`lobby:hostLeft` preserved |
-| 5 | Reconnecting player's socket ID is re-associated and disconnect timer cleared | VERIFIED | `reconnectPlayer` at `game.js:607-625`: `clearTimeout(player.disconnectTimer)`, `player.socketId = newSocketId`, `player.disconnected = false`, `player.disconnectTimer = null` |
-| 6 | Host reconnect updates `lobby.hostId` to the new socket ID | VERIFIED | `game.js:620-622`: `if (player.isHost) { lobby.hostId = newSocketId; }` |
-| 7 | `getPublicState` includes `disconnected` flag on player objects | VERIFIED | `game.js:210-215` player map includes `disconnected: p.disconnected \|\| false` |
-| 8 | Host promotion occurs when host's 30s expires without reconnect | VERIFIED | `game.js:593-596`: `if (wasHost) { currentLobby.hostId = currentLobby.players[0].socketId; currentLobby.players[0].isHost = true; }` |
-
-#### Plan 02 Truths
-
-| # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| 9 | On socket disconnect while game screen active, "Reconnecting..." overlay appears | VERIFIED | `main.js:1053-1057`: `socket.on('disconnect', () => { if (gameScreen.classList.contains('active') && myRoomCode) { reconnectOverlay.style.display = 'flex'; } })` |
-| 10 | On Socket.IO auto-reconnect, client emits `reconnectRoom` with `roomCode` and `playerName` | VERIFIED | `main.js:1060-1066`: `socket.on('connect', () => { if (gameScreen.classList.contains('active') && myRoomCode && myPlayerName) { socket.emit('reconnectRoom', { roomCode: myRoomCode, playerName: myPlayerName }); } })` |
-| 11 | On `game:stateUpdate` after reconnect, overlay dismisses and game re-renders | VERIFIED | `main.js:961-972`: `reconnectOverlay.style.display = 'none'` is the first statement in the `game:stateUpdate` handler |
-| 12 | On `room:error` "Session expired", client shows error and drops to start screen | VERIFIED | `main.js:1037-1046`: `gameScreen` branch clears `myRoomCode`, `amIHost`, `timerInterval`; calls `showScreen('start-screen')` and `showJoinError(message)` |
-| 13 | Disconnected players show dimmed badge with "(reconnecting)" text | VERIFIED | `main.js:544-546`: `if (player.disconnected) { badge.classList.add('disconnected'); badge.textContent = player.name + ' (reconnecting)'; }` |
-| 14 | `reconnectRoom` is NOT emitted on initial page load | VERIFIED | `main.js:1063` guard: `gameScreen.classList.contains('active') && myRoomCode && myPlayerName` — all three conditions are false on initial page load |
-
-**Score: 14/14 must-have truths verified**
+**Score:** 14/14 truths verified
 
 ---
 
-### Required Artifacts
+## Required Artifacts
 
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `server/src/game.js` | `reservePlayerSlot`, `reconnectPlayer` exports; `advanceTurn` skip logic | VERIFIED | Both functions exist at lines 562-625; exported in `module.exports` at lines 658-660; `advanceTurn` skip loop at lines 170-178 |
-| `server/src/socket.js` | Modified `disconnecting` handler; new `reconnectRoom` event handler | VERIFIED | `disconnecting` handler branches at line 252; `reconnectRoom` handler at lines 296-313 |
-| `client/main.js` | Socket disconnect/connect handlers; reconnect overlay logic; player badge rendering; disconnect/reconnect listeners | VERIFIED | `reconnectOverlay` ref at line 123; all handlers at lines 1052-1075; badge logic at lines 544-546 |
-| `client/index.html` | Reconnect overlay div inside `#game-screen` | VERIFIED | Lines 88-92: `<div id="reconnect-overlay" class="reconnect-overlay" style="display:none;">` inside `#game-screen` |
-| `client/style.css` | `.reconnect-overlay`, `.reconnect-overlay-content`, `.player-badge.disconnected` | VERIFIED | Rules at lines 1052-1081; correct `position: absolute`, `z-index: 500`, `var(--clr-surface)`, `opacity: 0.45` |
-| `server/src/game.test.js` | 12+ reconnect tests covering all scenarios | VERIFIED | `describe('Phase 15: Reconnect After Disconnect')` at line 1009; 12 tests covering `reservePlayerSlot`, `reconnectPlayer`, `advanceTurn` skip, `getPublicState`, host promotion |
-| `server/src/socket.test.js` | 2 socket integration tests for `reconnectRoom` | VERIFIED | `describe('Phase 15: reconnectRoom handler')` at line 637; 2 tests for success and failure paths |
-
----
-
-### Key Link Verification
-
-| From | To | Via | Status | Details |
-|------|----|-----|--------|---------|
-| `socket.js` | `game.js` | `reservePlayerSlot` and `reconnectPlayer` imports | VERIFIED | Lines 23-25 in `socket.js` destructure both from `require('./game')` |
-| `game.js advanceTurn` | `lobby.players[].disconnected` | skip loop | VERIFIED | Line 175: `if (!lobby.players[lobby.activeTurnIndex].disconnected) return;` |
-| `socket.js disconnecting` | `reservePlayerSlot` | game-phase branch | VERIFIED | Line 253: `const result = reservePlayerSlot(roomCode, socket.id, ...)` inside `if (wasInGame)` block |
-| `main.js socket connect handler` | `server/src/socket.js reconnectRoom` | `socket.emit('reconnectRoom', ...)` | VERIFIED | Line 1064: `socket.emit('reconnectRoom', { roomCode: myRoomCode, playerName: myPlayerName })` |
-| `main.js game:stateUpdate handler` | reconnect overlay dismiss | hide overlay on `stateUpdate` | VERIFIED | Line 963: `reconnectOverlay.style.display = 'none'` as first statement in handler |
-| `main.js renderTurnUI` | `player.disconnected` flag | dimmed badge + `(reconnecting)` text | VERIFIED | Lines 544-546: `if (player.disconnected)` renders `disconnected` class and `(reconnecting)` text |
-| `game.test.js` | `game.js reservePlayerSlot` | direct function call tests | VERIFIED | `reservePlayerSlot` imported at line 25; called directly in 8+ test cases |
-| `socket.test.js` | `socket.js reconnectRoom handler` | `trigger(socket, 'reconnectRoom', ...)` | VERIFIED | Line 654 and 678: `trigger(socket, 'reconnectRoom', ...)` fires the handler |
+| Artifact                         | Expected                                                  | Status     | Details                                                                                           |
+|----------------------------------|-----------------------------------------------------------|------------|---------------------------------------------------------------------------------------------------|
+| `server/src/game.js`             | disconnected flag, advanceTurn skip logic, getPublicState | VERIFIED   | Lines 38, 363: `disconnected: false` in createLobby + addPlayer; lines 169-178: cycle-guard loop; line 214: `disconnected: p.disconnected === true` |
+| `server/src/socket.js`           | Set/clear flag, stateUpdate broadcast, all-disconnect cleanup | VERIFIED | Lines 361-374: game-phase hold block; lines 318-319: reconnect clear; lines 402-412: allDisconnected cleanup |
+| `client/main.js`                 | renderTurnUI dim-class, renderLobbyUpdate dim-class, room:error game-screen branch, connect handler | VERIFIED | Lines 197, 548: classList.add; lines 1060-1070: game-screen branch; lines 1082-1091: connect handler |
+| `client/style.css`               | .player-badge.disconnected and #player-list li.disconnected dim styles | VERIFIED | Lines 435-446: CSS block with opacity 0.45 + grayscale(0.6) + transition                         |
+| `server/src/game.test.js`        | advanceTurn skip tests, getPublicState disconnected field tests | VERIFIED | Lines 1007-1065: 2 describe blocks, 5 tests                                                      |
+| `server/src/socket.test.js`      | disconnect hold tests, reconnect clear tests              | VERIFIED   | Lines 635-696: 2 describe blocks, 3 tests                                                        |
 
 ---
 
-### Requirements Coverage
+## Key Link Verification
 
-| Requirement | Source Plan(s) | Description | Status | Evidence |
-|-------------|---------------|-------------|--------|----------|
-| RECON-01 | 15-01, 15-03 | Server-side 30s slot reservation, turn skip, eviction on timeout | SATISFIED | `reservePlayerSlot`, `reconnectPlayer`, `advanceTurn` skip all implemented and tested; 97/97 game tests pass |
-| RECON-02 | 15-01, 15-02, 15-03 | `reconnectRoom` socket event; `game:playerDisconnected`/`Reconnected` events; `disconnected` flag in state | SATISFIED | `reconnectRoom` handler in `socket.js:296`; both notification events emitted; `getPublicState` includes `disconnected` flag; 28/28 socket tests pass |
-| RECON-03 | 15-02, 15-03 | Client overlay; badge rendering; `room:error` session-expired path | SATISFIED | Overlay in `index.html:88`; CSS in `style.css:1052`; `main.js` handlers wired; badge rendering in `renderTurnUI`; `room:error` game-screen branch drops to start screen |
-
-**Note on REQUIREMENTS.md:** RECON-01, RECON-02, RECON-03 are defined in ROADMAP.md (Phase 15 section) but are NOT listed in `.planning/REQUIREMENTS.md`. That file tracks v1.0 and v1.1 requirements (GRID-*, PIEC-*, CTRL-*) only. The RECON requirements are a v1.2 feature set defined exclusively in the ROADMAP and phase plans. This is not a gap — the authoritative source for RECON requirements is the ROADMAP.md success criteria, all of which are satisfied.
-
----
-
-### Anti-Patterns Found
-
-| File | Line | Pattern | Severity | Impact |
-|------|------|---------|----------|--------|
-| None detected | — | — | — | — |
-
-No TODO/FIXME/placeholder comments, no empty implementations, no stub return values, no unhandled wiring found in any of the 7 modified files.
+| From                                          | To                                    | Via                                                           | Status  | Details                                                  |
+|-----------------------------------------------|---------------------------------------|---------------------------------------------------------------|---------|----------------------------------------------------------|
+| socket.js disconnecting handler               | game.js player.disconnected           | `pendingPlayer.disconnected = true` (line 364)                | WIRED   | Pattern found at socket.js:364                           |
+| socket.js reconnectRoom handler               | game.js player.disconnected           | `existingPlayer.disconnected = false` (line 318)              | WIRED   | Pattern found at socket.js:318                           |
+| game.js advanceTurn                           | lobby.players[i].disconnected         | for-loop checking `!lobby.players[lobby.activeTurnIndex].disconnected` | WIRED | game.js:174                                              |
+| client/main.js renderTurnUI                   | state.players[i].disconnected         | `badge.classList.add('disconnected')` (line 548)              | WIRED   | Conditional `if (player.disconnected === true)` at 548   |
+| client/main.js renderLobbyUpdate              | state.players[i].disconnected         | `li.classList.add('disconnected')` (line 197)                 | WIRED   | Conditional `if (player.disconnected === true)` at 197   |
+| client/main.js socket.on('room:error')        | game-screen branch                    | `gameScreen.classList.contains('active')` check (line 1060)   | WIRED   | Three-branch handler at lines 1050-1075                  |
 
 ---
 
-### Human Verification Required
+## Anti-Patterns Found
 
-#### 1. Reconnecting Overlay Visual Behaviour
+No blockers or warnings. Scanned game.js, socket.js, main.js, style.css, game.test.js, socket.test.js.
 
-**Test:** In two browser tabs, create a room in tab A, join from tab B, start the game. In tab B (non-host), open DevTools Network and disable the network (or kill the server briefly). Observe that a "Reconnecting..." overlay covers the game screen.
-**Expected:** Semi-transparent dark overlay with "Reconnecting..." text appears immediately; overlay auto-dismisses when connectivity is restored and `game:stateUpdate` arrives from the server.
-**Why human:** Visual overlay timing and appearance cannot be verified programmatically.
-
-#### 2. Full 30-Second Expiry Flow
-
-**Test:** Disconnect a client during a game (close the tab, not just network drop) and wait 30 seconds. Observe remaining players.
-**Expected:** After exactly 30 seconds, remaining players receive a `lobby:playerLeft` notification and a `game:stateUpdate` that removes the disconnected badge. The game continues normally without the evicted player.
-**Why human:** The 30-second `setTimeout` callback interacts with live Socket.IO state; tests verify the reservation state but not the full timer-to-eviction flow.
-
-#### 3. Page Reload vs. Auto-Reconnect Distinction
-
-**Test:** During an active game, refresh the page (F5). Verify the page shows the start screen normally and does NOT emit `reconnectRoom`.
-**Expected:** After reload, `gameScreen.classList.contains('active')` is false and `myRoomCode` is null, so `reconnectRoom` is never emitted. The server slot expires after 30 seconds.
-**Why human:** Requires browser manipulation to distinguish auto-reconnect (socket drop, same tab) from page reload (full page unload).
+| File | Pattern | Severity | Result  |
+|------|---------|----------|---------|
+| All modified files | TODO/FIXME/placeholder | Check | None found in Phase 15 additions |
+| socket.js | `return null\|return {}` | Check | No stub returns in Phase 15 blocks |
+| main.js | `(reconnecting)` text | Forbidden | Absent — confirmed 0 matches |
+| main.js/style.css | `game:playerDisconnected/Reconnected` | Forbidden | Absent — confirmed 0 matches |
+| main.js | `reconnect-overlay` | Forbidden | Absent — confirmed 0 matches |
 
 ---
 
-### Commit Verification
+## Human Verification Required
 
-All commits from SUMMARY files are present in git history:
+### 1. Browser Reload Mid-Game Rejoins Correctly
 
-| Commit | Summary Reference | Status |
-|--------|-------------------|--------|
-| `0e2c219` | 15-01-SUMMARY: Task 1 game.js | VERIFIED |
-| `3ba224d` | 15-01-SUMMARY: Task 2 socket.js | VERIFIED |
-| `2ffe0ee` | 15-02-SUMMARY: Task 1 HTML+CSS | VERIFIED |
-| `f682211` | 15-02-SUMMARY: Task 2 main.js | VERIFIED |
-| `e77144f` | 15-03-SUMMARY: Task 1 game.test.js | VERIFIED |
-| `d2ef781` | 15-03-SUMMARY: Task 2 socket.test.js | VERIFIED |
+**Test:** Open two browser tabs, start a game. In one tab reload the page. Within 5 seconds the other tab should still show the first player's badge dimmed, then undimmed once the reload reconnects.
+**Expected:** Reloaded player lands back on game screen with correct state; other tab's badge un-dims; turn rotation continues.
+**Why human:** Requires a live server and two browser sessions; cannot be verified programmatically.
+
+### 2. Expired Hold Window Drops to Start Screen
+
+**Test:** Open two browser tabs, start a game. Kill one tab's network connection (or close the tab), wait more than 5 seconds, then try to reconnect from that tab.
+**Expected:** Server emits `room:error`; client shows error on start screen; other tab sees `lobby:playerLeft`.
+**Why human:** Requires real timer expiry and live server interaction.
+
+### 3. All-Players-Disconnect Lobby Cleanup
+
+**Test:** Start a game with two players, disconnect both within the 5-second hold window (e.g., kill server connections back-to-back).
+**Expected:** Lobby is deleted server-side — no orphan state. Neither player can reconnect to the room after expiry.
+**Why human:** Requires orchestrating two simultaneous disconnects against a live server.
+
+### 4. Dimmed Badge Visual Appearance
+
+**Test:** Disconnect one player mid-game and observe the badge on the other player's screen.
+**Expected:** The disconnected player's badge appears visually dimmed (opacity ~0.45, slightly desaturated) without any text change or notification banner.
+**Why human:** Visual appearance requires human eyes; CSS rendering cannot be automated here.
 
 ---
 
-### Test Results
+## Gaps Summary
 
-- `node --test server/src/game.test.js`: **97 pass, 0 fail** (includes 12 new Phase 15 reconnect tests)
-- `node --test server/src/socket.test.js`: **28 pass, 0 fail** (includes 2 new Phase 15 reconnect tests)
-
----
-
-### Gaps Summary
-
-No gaps found. All 14 must-have truths are verified, all 7 artifacts pass all three levels (exists, substantive, wired), all 8 key links are confirmed in the actual code, all 3 RECON requirements are satisfied, and no anti-patterns were found. Three items require human verification (visual, timing, and browser-behaviour concerns) but automated checks are fully satisfied.
+None. All automated checks passed. The RECON-01/02/03 IDs are not in REQUIREMENTS.md (the file was not updated for v1.2), but the behavior they describe is fully implemented and covered by tests. This is a documentation hygiene issue, not a functional gap.
 
 ---
 
-_Verified: 2026-04-10T14:45:00Z_
+_Verified: 2026-04-17T13:00:00Z_
 _Verifier: Claude (gsd-verifier)_
