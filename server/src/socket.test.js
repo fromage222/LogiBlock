@@ -8,7 +8,7 @@
  * This avoids needing socket.io-client while fully exercising handler logic.
  */
 
-const { describe, it, before, beforeEach, afterEach } = require('node:test');
+const { describe, it, before, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
@@ -694,5 +694,341 @@ describe('reconnectRoom handler - clears disconnected flag', () => {
     // Verify flag is cleared
     assert.strictEqual(alice.disconnected, false, 'disconnected flag should be cleared');
     assert.strictEqual(alice.disconnectedAt, undefined, 'disconnectedAt should be deleted');
+  });
+});
+
+// -- host disconnect timer fires in playing phase — must NOT emit lobby:hostLeft -------
+
+describe('disconnecting timer — playing phase host', () => {
+  afterEach(() => {
+    mock.timers.reset();
+    lobbies.delete('HC-PLAY01');
+    lobbies.delete('HC-PLAY02');
+    lobbies.delete('HC-LOBBY01');
+  });
+
+  it('does NOT emit lobby:hostLeft when host grace timer fires during playing phase', () => {
+    mock.timers.enable({ apis: ['setTimeout'] });
+
+    const roomCode = 'HC-PLAY01';
+    makePlayingLobby(roomCode);
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(socket, 'disconnecting');
+
+    // Advance fake timers past the 5 s grace period.
+    mock.timers.tick(6000);
+
+    assert.ok(!emitted.room['lobby:hostLeft'],
+      'lobby:hostLeft must NOT be emitted when host disconnects during playing phase');
+  });
+
+  it('emits game:stateUpdate (not lobby:hostLeft) when host grace timer fires during playing phase', () => {
+    mock.timers.enable({ apis: ['setTimeout'] });
+
+    const roomCode = 'HC-PLAY02';
+    makePlayingLobby(roomCode);
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(socket, 'disconnecting');
+
+    // Clear the stateUpdate emitted by the immediate disconnecting handler so
+    // we can detect only the timer-fired emission.
+    delete emitted.room['game:stateUpdate'];
+
+    mock.timers.tick(6000);
+
+    assert.ok(emitted.room['game:stateUpdate'],
+      'game:stateUpdate should be emitted when host timer fires in playing phase');
+  });
+
+  it('STILL emits lobby:hostLeft when host grace timer fires during lobby phase', () => {
+    mock.timers.enable({ apis: ['setTimeout'] });
+
+    const roomCode = 'HC-LOBBY01';
+    // Create a lobby but do NOT start the game — phase stays 'lobby'.
+    lobbies.delete(roomCode);
+    const { createLobby: cl, addPlayer: ap } = require('./game');
+    cl(roomCode, 'host-socket', 'Alice');
+    ap(roomCode, 'p2-socket', 'Bob');
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+    // In lobby phase, disconnecting handler skips the game-phase block.
+    trigger(socket, 'disconnecting');
+
+    mock.timers.tick(6000);
+
+    assert.ok(emitted.room['lobby:hostLeft'],
+      'lobby:hostLeft should still be emitted when host disconnects in lobby phase');
+  });
+});
+
+// -- reconnect-before-disconnect race condition (Fix A) ---------------------------
+// When the new socket connects and emits reconnectRoom BEFORE the old socket's
+// 'disconnecting' event fires, replacePlayerSocket updates player.socketId to the
+// new socket id. The old socket's disconnecting handler must NOT mark the player
+// disconnected or advance the turn in this case.
+
+describe('disconnecting handler - skips hold when player already reconnected', () => {
+  afterEach(() => {
+    lobbies.delete('FIX-A01');
+    lobbies.delete('FIX-A02');
+  });
+
+  it('does NOT set disconnected=true when player socketId already changed (reconnect-before-disconnect)', () => {
+    const roomCode = 'FIX-A01';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 1; // Bob is active; Alice is NOT active
+
+    // Simulate reconnect already happened: Alice's socketId is now 'new-alice-socket'
+    const alice = lobby.players.find(p => p.name === 'Alice');
+    alice.socketId = 'new-alice-socket';
+    // Also update hostId so replacePlayerSocket result is consistent
+    lobby.hostId = 'new-alice-socket';
+
+    // Old socket fires 'disconnecting' with the OLD socket id
+    const { socket } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(socket, 'disconnecting');
+
+    // Alice's disconnected flag must remain false — her old socket disconnecting
+    // must not clobber the live player's state
+    assert.strictEqual(alice.disconnected, false,
+      'disconnected must NOT be set when player already reconnected with new socket');
+    assert.strictEqual(alice.disconnectedAt, undefined,
+      'disconnectedAt must NOT be set when player already reconnected');
+  });
+
+  it('does NOT advance the turn when disconnecting socket is stale (player already reconnected)', () => {
+    const roomCode = 'FIX-A02';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+
+    // Simulate reconnect already happened: Alice's socketId is now 'new-alice-socket'
+    const alice = lobby.players.find(p => p.name === 'Alice');
+    alice.socketId = 'new-alice-socket';
+    lobby.hostId = 'new-alice-socket';
+
+    const { socket } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(socket, 'disconnecting');
+
+    // activeTurnIndex must NOT have advanced — Alice is still live and active
+    assert.strictEqual(lobby.activeTurnIndex, 0,
+      'activeTurnIndex must NOT advance when old socket disconnects after player already reconnected');
+  });
+});
+
+// -- player stays in lobby after grace timer expires in playing phase (Fix B) -----
+// When the grace timer fires without a reconnect, the player must remain in
+// lobby.players as a disconnected slot (not be removed). This allows a late
+// reconnectRoom (page load slower than 5s) to still find and reactivate them.
+
+describe('disconnecting timer — player kept in lobby after timer expires in playing phase', () => {
+  afterEach(() => {
+    mock.timers.reset();
+    lobbies.delete('FIX-B01');
+    lobbies.delete('FIX-B02');
+  });
+
+  it('keeps the host in lobby.players after the grace timer fires in playing phase', () => {
+    mock.timers.enable({ apis: ['setTimeout'] });
+
+    const roomCode = 'FIX-B01';
+    const lobby = makePlayingLobby(roomCode);
+
+    const { socket } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(socket, 'disconnecting');
+
+    // Before timer: Alice is still there
+    assert.ok(lobby.players.find(p => p.name === 'Alice'),
+      'Alice should be in lobby.players before timer fires');
+
+    mock.timers.tick(6000); // grace period expires
+
+    // After timer: Alice must STILL be in lobby.players (not removed)
+    const alice = lobby.players.find(p => p.name === 'Alice');
+    assert.ok(alice,
+      'Alice must remain in lobby.players after grace timer fires in playing phase');
+    assert.strictEqual(alice.disconnected, true,
+      'Alice should remain marked disconnected after timer fires');
+  });
+
+  it('allows reconnectRoom to succeed even after the grace timer has fired', () => {
+    mock.timers.enable({ apis: ['setTimeout'] });
+
+    const roomCode = 'FIX-B02';
+    const lobby = makePlayingLobby(roomCode);
+
+    // Old socket disconnects
+    const { socket } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(socket, 'disconnecting');
+
+    // Grace timer fires — old path would have removed Alice, blocking reconnect
+    mock.timers.tick(6000);
+
+    // Now Alice reconnects with a new socket (late — after the grace window)
+    const { socket: newSocket, emitted: newEmitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(newSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // reconnectRoom must NOT emit room:error — player should be found in lobby
+    assert.ok(!newEmitted.socket['room:error'],
+      'room:error must NOT be emitted — Alice must still be findable after timer fires');
+
+    // game:reconnect must be emitted to restore her game screen
+    assert.ok(newEmitted.socket['game:reconnect'],
+      'game:reconnect must be emitted so Alice can restore the game screen');
+
+    // Alice should no longer be marked disconnected
+    const alice = lobby.players.find(p => p.name === 'Alice');
+    assert.strictEqual(alice.disconnected, false,
+      'disconnected flag must be cleared after successful late reconnect');
+  });
+});
+
+// -- Fix C: fast-reload must not grant active player an extra turn (host-reload-extra-turn) --
+// When reconnectRoom fires BEFORE the old socket's disconnecting event (fast reload),
+// the disconnecting guard (socketId check) prevents advanceTurn from being called —
+// leaving activeTurnIndex pointing at the reconnecting player. Without the fix, the
+// reconnecting player could take an "extra" turn and the other player's client would
+// never receive a game:stateUpdate telling it the turn changed, leaving Bob's bank
+// non-interactive until Alice moved.
+// Fix: reconnectRoom advances the turn when the reconnecting player is the active player,
+// AND broadcasts game:stateUpdate to the room so all clients (including Bob) get updated.
+
+describe('reconnectRoom handler - fast-reload must not grant active player extra turn (Fix C)', () => {
+  afterEach(() => {
+    lobbies.delete('FIX-C01');
+    lobbies.delete('FIX-C02');
+    lobbies.delete('FIX-C03');
+    lobbies.delete('FIX-C04');
+    lobbies.delete('FIX-C05');
+    lobbies.delete('FIX-C06');
+  });
+
+  it('advances activeTurnIndex to Bob when Alice (active) reconnects before her old socket disconnects', () => {
+    const roomCode = 'FIX-C01';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is the active player
+
+    // Fast-reload: new socket emits reconnectRoom BEFORE old socket fires disconnecting.
+    // At this point player.socketId is still 'host-socket' (reconnectRoom will update it).
+    const { socket: newSocket } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(newSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // After reconnectRoom, activeTurnIndex must have advanced to Bob (index 1)
+    assert.strictEqual(lobby.activeTurnIndex, 1,
+      'activeTurnIndex must advance to Bob (1) when active player reconnects via fast-reload');
+  });
+
+  it('game:reconnect payload shows Bob as active player after Alice fast-reloads', () => {
+    const roomCode = 'FIX-C02';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is the active player
+
+    const { socket: newSocket, emitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(newSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    assert.ok(emitted.socket['game:reconnect'], 'game:reconnect must be emitted');
+    const reconnectPayload = emitted.socket['game:reconnect'][0];
+    assert.strictEqual(reconnectPayload.activePlayerName, 'Bob',
+      'game:reconnect must show Bob as active player after Alice fast-reloads');
+    assert.strictEqual(reconnectPayload.activeTurnIndex, 1,
+      'game:reconnect activeTurnIndex must be 1 (Bob) after Alice fast-reloads');
+  });
+
+  it('does NOT double-advance turn when Alice reconnects via slow-reload (disconnect fires first)', () => {
+    // Slow-reload: disconnecting fires first, advanceTurn → Bob. Then reconnectRoom.
+    // reconnectRoom must NOT call advanceTurn again (that would skip Bob and go back to Alice).
+    const roomCode = 'FIX-C03';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is the active player
+
+    // Step 1: Old socket disconnects first (slow-reload ordering)
+    const { socket: oldSocket } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(oldSocket, 'disconnecting');
+
+    // After disconnecting: advanceTurn should have moved turn to Bob (1)
+    assert.strictEqual(lobby.activeTurnIndex, 1,
+      'After disconnecting, activeTurnIndex should be 1 (Bob)');
+
+    // Step 2: Alice reconnects with new socket
+    const { socket: newSocket } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(newSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // activeTurnIndex must still be 1 (Bob) — must NOT have double-advanced back to Alice
+    assert.strictEqual(lobby.activeTurnIndex, 1,
+      'activeTurnIndex must remain 1 (Bob) after slow-reload reconnect — no double-advance');
+  });
+
+  it('broadcasts game:stateUpdate to room in fast-reload so Bob knows it is his turn', () => {
+    // In fast-reload, disconnecting's game-phase block is SKIPPED (socketId guard fails),
+    // so no game:stateUpdate is broadcast by disconnecting. reconnectRoom must broadcast
+    // game:stateUpdate itself so Bob's client gets the updated turn state.
+    const roomCode = 'FIX-C04';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+
+    const { socket: newSocket, emitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(newSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    assert.ok(emitted.room['game:stateUpdate'],
+      'game:stateUpdate must be broadcast to room in fast-reload reconnect');
+    const su = emitted.room['game:stateUpdate'][0].payload;
+    assert.strictEqual(su.activeTurnIndex, 1,
+      'broadcast game:stateUpdate must show Bob (1) as active player');
+    assert.strictEqual(su.activePlayerName, 'Bob',
+      'broadcast game:stateUpdate must name Bob as active player');
+  });
+
+  it('broadcasts game:stateUpdate to room in slow-reload so clients see Alice is no longer disconnected', () => {
+    // In slow-reload, disconnecting broadcasts stateUpdate (Alice disconnected, Bob active).
+    // Then reconnectRoom clears Alice.disconnected. reconnectRoom must broadcast another
+    // stateUpdate so all clients see Alice is back (not showing disconnected badge).
+    const roomCode = 'FIX-C05';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+
+    // Step 1: Old socket disconnects first
+    const { socket: oldSocket } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(oldSocket, 'disconnecting');
+
+    // Verify stateUpdate from disconnecting shows Alice disconnected
+    // (captured on oldSocket's emitted - it's the io.to broadcast)
+    // We won't check oldSocket's emitted here, just verify the reconnect does its own
+
+    // Step 2: Alice reconnects
+    const { socket: newSocket, emitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(newSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    assert.ok(emitted.room['game:stateUpdate'],
+      'game:stateUpdate must be broadcast to room in slow-reload reconnect');
+    const su = emitted.room['game:stateUpdate'][0].payload;
+    // Alice should NOT be showing as disconnected in the broadcast
+    const aliceInPayload = su.players.find(p => p.name === 'Alice');
+    assert.strictEqual(aliceInPayload.disconnected, false,
+      'Alice must NOT be shown as disconnected in the stateUpdate after reconnect');
+    // Bob must still be the active player
+    assert.strictEqual(su.activePlayerName, 'Bob',
+      'Bob must still be active player in slow-reload stateUpdate');
+  });
+
+  it('server blocks Alice from moving after fast-reload (activeTurnIndex has advanced to Bob)', () => {
+    // Even if Alice somehow tries to emit game:move after reconnecting, the server
+    // must reject it because activeTurnIndex now points to Bob.
+    const roomCode = 'FIX-C06';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+
+    // Fast-reload: reconnectRoom fires first
+    const { socket: reconnectSocket } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(reconnectSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // Now Alice tries to make a move with her new socket
+    const { socket: moveSocket, emitted: moveEmitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(moveSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+
+    assert.ok(moveEmitted.socket['game:error'],
+      'server must reject Alice\'s move with game:error after her turn was advanced');
+    assert.strictEqual(moveEmitted.socket['game:error'][0], 'Not your turn',
+      'error must be "Not your turn" because activeTurnIndex is now Bob\'s');
   });
 });
