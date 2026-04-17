@@ -630,3 +630,69 @@ describe('game:move - double_turn extra-turn gate', () => {
   });
 });
 
+// -- Phase 15: disconnect hold tests --------------------------------------
+
+describe('disconnecting handler - game phase hold', () => {
+  afterEach(() => {
+    // Cancel any pending disconnect timers to prevent test runner from hanging.
+    // We do this by triggering reconnectRoom which clears the timer via socket.js internal logic,
+    // or by deleting lobbies so the timer callback exits early.
+    // Deleting lobbies is the simplest approach since all test lobbies are isolated.
+    lobbies.delete('DC-HOLD01');
+    lobbies.delete('DC-HOLD02');
+  });
+
+  it('sets player.disconnected = true and broadcasts game:stateUpdate when game-phase player disconnects', () => {
+    const roomCode = 'DC-HOLD01';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 1; // Bob is active, Alice disconnects
+
+    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(socket, 'disconnecting');
+
+    // Check the flag was set on Alice
+    const alice = lobby.players.find(p => p.name === 'Alice');
+    assert.strictEqual(alice.disconnected, true, 'Alice should be marked disconnected');
+    assert.strictEqual(typeof alice.disconnectedAt, 'number', 'disconnectedAt should be set');
+
+    // Check game:stateUpdate was broadcast
+    assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate should be broadcast');
+  });
+
+  it('advances turn when the disconnecting player was the active player', () => {
+    const roomCode = 'DC-HOLD02';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active and disconnects
+
+    const { socket } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(socket, 'disconnecting');
+
+    // After Alice disconnects and is marked disconnected, advanceTurn should
+    // have been called, moving active turn to Bob (index 1)
+    assert.strictEqual(lobby.activeTurnIndex, 1, 'activeTurnIndex should advance to Bob');
+  });
+});
+
+describe('reconnectRoom handler - clears disconnected flag', () => {
+  afterEach(() => {
+    lobbies.delete('DC-RECON01');
+  });
+
+  it('clears player.disconnected on successful reconnect', () => {
+    const roomCode = 'DC-RECON01';
+    const lobby = makePlayingLobby(roomCode);
+
+    // Simulate Alice having disconnected (flag set by disconnecting handler)
+    const alice = lobby.players.find(p => p.name === 'Alice');
+    alice.disconnected = true;
+    alice.disconnectedAt = Date.now();
+
+    // Create a new socket for Alice reconnecting
+    const { socket } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(socket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // Verify flag is cleared
+    assert.strictEqual(alice.disconnected, false, 'disconnected flag should be cleared');
+    assert.strictEqual(alice.disconnectedAt, undefined, 'disconnectedAt should be deleted');
+  });
+});
