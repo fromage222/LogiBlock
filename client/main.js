@@ -1049,6 +1049,7 @@ socket.on('game:win', (state) => {
 // Inline error — show under the join input on start screen; or as notification in lobby
 socket.on('room:error', (message) => {
   if (startScreen.classList.contains('active')) {
+    // Start screen: auto-rejoin failed or join/create error
     if (pendingAutoRejoin) {
       pendingAutoRejoin = false;
       localStorage.removeItem('logiblock_roomCode');
@@ -1056,7 +1057,19 @@ socket.on('room:error', (message) => {
       myPlayerName = null;
     }
     showJoinError(message);
+  } else if (gameScreen.classList.contains('active')) {
+    // Game screen: session expired after hold window -- drop to start screen
+    clearInterval(timerInterval);
+    timerInterval = null;
+    myRoomCode = null;
+    amIHost = false;
+    localStorage.removeItem('logiblock_roomCode');
+    localStorage.removeItem('logiblock_playerName');
+    showScreen('start-screen');
+    showJoinError(message);
+    setTimeout(clearJoinError, 4000);
   } else {
+    // Lobby screen: show as notification
     showLobbyNotification(`Error: ${message}`);
   }
 });
