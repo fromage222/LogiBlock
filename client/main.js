@@ -70,6 +70,7 @@ let pieceColors = {};
 let currentGrid = null;
 let currentGridSize = null;
 let currentBankShapes = [];
+let previousPlacedIds = new Set();  // tracks shapeIds already on grid — used to skip animation on re-render
 let lastHoveredRow = null;
 let lastHoveredCol = null;
 let pendingRotate = false;
@@ -180,6 +181,33 @@ joinRoomBtn.addEventListener('click', () => {
 puzzleSelect.addEventListener('change', () => { if (amIHost) socket.emit('lobby:selectPuzzle', { puzzleId: puzzleSelect.value }); });
 startGameBtn.addEventListener('click', () => { if (amIHost) socket.emit('startGame'); });
 
+// ─── Copy room code button ───────────────────────────────────────────────────
+document.getElementById('copy-code-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const code = roomCodeText.textContent;
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.getElementById('copy-code-btn');
+    btn.classList.add('copied');
+    btn.textContent = '✓';
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '&#128203;'; }, 1500);
+  }).catch(() => {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = code;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    const btn = document.getElementById('copy-code-btn');
+    btn.classList.add('copied');
+    btn.textContent = '✓';
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '&#128203;'; }, 1500);
+  });
+});
+
 // ─── Lobby rendering ──────────────────────────────────────────────────────────
 function renderLobbyUpdate(state) {
   playerList.innerHTML = '';
@@ -226,6 +254,16 @@ function renderGrid(state) {
   const { rows, cols } = state.gridSize;
   gameGrid.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
   gameGrid.style.gridTemplateRows    = `repeat(${rows}, var(--cell-size))`;
+
+  // Collect currently placed movable shapeIds to compare with previous render
+  const currentPlacedIds = new Set();
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const content = state.grid[r][c];
+      if (content && content.movable !== false) currentPlacedIds.add(content.shapeId);
+    }
+  }
+
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = document.createElement('div');
@@ -236,11 +274,13 @@ function renderGrid(state) {
       else if (content === null) { cell.classList.add('empty'); }
       else if (content.movable === false) {
         cell.classList.add('anchor');
-        // NO textContent — just visual styling via CSS
       } else {
         cell.classList.add('placed');
-        // NO textContent — color-only identification
         cell.style.background = pieceColors[content.shapeId] || '#81c784';
+        // Only animate if this piece was NOT on the grid in the previous render
+        if (!previousPlacedIds.has(content.shapeId)) {
+          cell.classList.add('just-placed');
+        }
       }
       cell.addEventListener('mousemove', () => {
         lastHoveredRow = r; lastHoveredCol = c;
@@ -275,6 +315,9 @@ function renderGrid(state) {
       gameGrid.appendChild(cell);
     }
   }
+
+  // Update previous state for next render comparison
+  previousPlacedIds = currentPlacedIds;
 }
 
 // ─── Bank rendering — NO label text ──────────────────────────────────────────
@@ -612,9 +655,11 @@ socket.on('lobby:hostLeft', ({ message }) => {
   showScreen('start-screen'); showJoinError(message || 'Host left — lobby closed'); setTimeout(clearJoinError, 4000);
 });
 socket.on('game:start', (state) => {
+  previousPlacedIds = new Set();  // reset so anchors render without animation
   showScreen('game-screen'); initPieceColors(state); renderGrid(state); renderBank(state); renderTurnUI(state); updateRotationButtons(); startLiveTimer(state.startTime);
 });
 socket.on('game:reconnect', (state) => {
+  previousPlacedIds = new Set();  // reset on reconnect — no animations for existing state
   pendingAutoRejoin = false; myRoomCode = state.roomCode;
   showScreen('game-screen'); initPieceColors(state); renderGrid(state); renderBank(state); renderTurnUI(state); updateRotationButtons(); startLiveTimer(state.startTime);
 });
@@ -650,4 +695,4 @@ socket.on('connect', () => {
   const savedRoom = localStorage.getItem('logiblock_roomCode'), savedName = localStorage.getItem('logiblock_playerName');
   if (savedRoom && savedName && startScreen.classList.contains('active')) { myPlayerName = savedName; pendingAutoRejoin = true; socket.emit('reconnectRoom', { roomCode: savedRoom, playerName: savedName }); }
 });
-socket.on('leaderboard:update', (entries) => renderLeaderboard(entries)); 
+socket.on('leaderboard:update', (entries) => renderLeaderboard(entries));
