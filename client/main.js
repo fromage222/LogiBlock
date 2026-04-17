@@ -650,4 +650,4 @@ socket.on('connect', () => {
   const savedRoom = localStorage.getItem('logiblock_roomCode'), savedName = localStorage.getItem('logiblock_playerName');
   if (savedRoom && savedName && startScreen.classList.contains('active')) { myPlayerName = savedName; pendingAutoRejoin = true; socket.emit('reconnectRoom', { roomCode: savedRoom, playerName: savedName }); }
 });
-socket.on('leaderboard:update', (entries) => renderLeaderboard(entries));
+socket.on('leaderboard:update', (entries) => renderLeaderboard(entries)); 
