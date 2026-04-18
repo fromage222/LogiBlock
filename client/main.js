@@ -303,7 +303,10 @@ function renderGrid(state) {
       });
       cell.addEventListener('click', () => {
         if (suppressNextGridClick) { suppressNextGridClick = false; return; }
-        if (selectedShapeId) {
+        if (content && content.movable !== false) {
+          // Placed movable piece: return takes priority over placing
+          handleReturnClick(content.shapeId);
+        } else if (selectedShapeId) {
           const shape = currentBankShapes.find(s => s.id === selectedShapeId);
           let originRow = r, originCol = c;
           if (shape) {
@@ -315,8 +318,6 @@ function renderGrid(state) {
           socket.emit('game:move', { action: 'place', shapeId: selectedShapeId, rotation: selectedRotation, originRow, originCol });
           selectedShapeId = null; selectedRotation = 0;
           clearGhostPreview(); refreshCursorPiece(); updateBankSelection(); updateRotationButtons();
-        } else if (content && content.movable !== false) {
-          handleReturnClick(content.shapeId);
         }
       });
       if (content && content.movable !== false && !content.inactive) {
@@ -569,8 +570,7 @@ document.addEventListener('touchend', (e) => {
 
 // ─── Return piece ─────────────────────────────────────────────────────────────
 function handleReturnClick(shapeId) {
-  const banner = document.getElementById('turn-banner');
-  if (banner && banner.textContent.startsWith("It's your turn")) socket.emit('game:move', { action: 'return', shapeId });
+  socket.emit('game:move', { action: 'return', shapeId });
 }
 
 // ─── Timer ────────────────────────────────────────────────────────────────────
@@ -618,10 +618,6 @@ quitModal.addEventListener('click', (e) => { if (e.target === quitModal) quitMod
 
 // ─── Game notifications ───────────────────────────────────────────────────────
 function ensureGameNotification() {
-  if (!document.getElementById('game-notification')) {
-    const el = document.createElement('p'); el.id = 'game-notification'; el.className = 'notification'; el.setAttribute('aria-live','polite');
-    document.getElementById('game-screen').appendChild(el);
-  }
   return document.getElementById('game-notification');
 }
 function showGameError(msg) { const el = ensureGameNotification(); el.textContent = `Move rejected: ${msg}`; setTimeout(() => { el.textContent = ''; }, 3500); }
