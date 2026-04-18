@@ -49,10 +49,12 @@
 
   <!-- ── Lobby Screen ──────────────────────────────────────────────────── -->
   <div id="lobby-screen" class="screen">
+    <button id="lobby-exit-btn" class="lobby-exit-btn" aria-label="Zurück zum Hauptmenü">&#8592;</button>
     <h2>Lobby</h2>
 
     <div class="room-code-display">
       <span id="room-code-text"></span>
+      <button id="copy-code-btn" class="copy-code-btn" aria-label="Code kopieren" title="Code kopieren">&#128203;</button>
     </div>
 
     <div class="lobby-content">
@@ -106,7 +108,21 @@
 
     <!-- Help button: bottom-right, less prominent -->
     <button id="controls-info-btn" class="controls-info-btn" aria-label="Steuerung anzeigen">?</button>
+    <!-- Exit button: bottom-left, mirrors controls-info-btn -->
+    <button id="game-exit-btn" class="game-exit-btn" aria-label="Spiel verlassen">&#8592;</button>
   </div>
+
+  <!-- Quit confirmation dialog -->
+  <dialog id="quit-modal" class="quit-modal">
+    <div class="quit-modal__content">
+      <h2>Leave Game?</h2>
+      <p>Are you sure you want to quit and return to the main menu?</p>
+      <div class="quit-modal__actions">
+        <button id="quit-confirm-btn" class="quit-modal__confirm">Leave</button>
+        <button id="quit-cancel-btn" class="quit-modal__cancel">Keep Playing</button>
+      </div>
+    </div>
+  </dialog>
 
   <!-- Controls help modal -->
   <dialog id="controls-modal" class="controls-modal">

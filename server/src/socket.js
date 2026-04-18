@@ -378,6 +378,36 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     }
   });
 
+  // ── leaveRoom ──────────────────────────────────────────────────────────────
+  // Client emits: {}  (lobby phase only — the in-game exit button is not exposed)
+  // Intentional voluntary leave: no grace period, immediate cleanup.
+  // Socket leaves the Socket.IO room before notifying others so the leaving
+  // player does not receive lobby:hostLeft or lobby:update for themselves.
+  socket.on('leaveRoom', () => {
+    const roomCode = socket.data.roomCode;
+    if (!roomCode) return;
+
+    const lobby = getLobby(roomCode);
+    if (!lobby) return;
+
+    const playerName = socket.data.playerName;
+    const socketId = socket.id;
+    const timerKey = `${roomCode}:${playerName}`;
+
+    // Cancel any pending grace timer — this is intentional, not a reload.
+    if (disconnectTimers.has(timerKey)) {
+      clearTimeout(disconnectTimers.get(timerKey));
+      disconnectTimers.delete(timerKey);
+    }
+
+    // Clear socket state so the subsequent 'disconnecting' event skips cleanup.
+    socket.data.roomCode = null;
+    socket.data.playerName = null;
+    socket.leave(roomCode);
+
+    performLeave(io, roomCode, playerName, socketId);
+  });
+
   // ── disconnecting ──────────────────────────────────────────────────────────
   // CRITICAL: Use 'disconnecting' (not 'disconnect') — socket.rooms is still
   // populated here. socket.data.roomCode is the authoritative room reference.
@@ -394,7 +424,6 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     if (!lobby) return;
 
     // Capture values now — socket may be GC'd by the time the timer fires.
-    const wasHost = lobby.hostId === socket.id;
     const playerName = socket.data.playerName || 'Unknown';
     const oldSocketId = socket.id;
     const key = `${roomCode}:${playerName}`;
@@ -485,6 +514,40 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     disconnectTimers.set(key, timer);
   });
 
+}
+
+// ── performLeave ─────────────────────────────────────────────────────────────
+// Shared removal logic used by both leaveRoom (immediate) and the disconnecting
+// grace-period timer. Guards against stale socketId before removing.
+// Handles both 'lobby' and 'playing' phases correctly.
+function performLeave(io, roomCode, playerName, socketId) {
+  const lobby = getLobby(roomCode);
+  if (!lobby) return;
+
+  const player = lobby.players.find(p => p.name === playerName);
+  if (!player || player.socketId !== socketId) return;
+
+  const isHost = lobby.hostId === socketId;
+  const inGame = lobby.phase === 'playing';
+
+  // Adjust turn index BEFORE removal so the next player inherits the correct slot.
+  if (inGame) advanceTurnIfActive(lobby, socketId);
+
+  removePlayer(roomCode, socketId);
+
+  if (lobby.players.length === 0) {
+    deleteLobby(roomCode);
+    return;
+  }
+
+  if (isHost) {
+    deleteLobby(roomCode);
+    io.to(roomCode).emit('lobby:hostLeft', { message: 'Host left — lobby closed' });
+    return;
+  }
+
+  io.to(roomCode).emit('lobby:playerLeft', { playerName });
+  io.to(roomCode).emit(inGame ? 'game:stateUpdate' : 'lobby:update', getPublicState(roomCode));
 }
 
 module.exports = registerSocketHandlers;

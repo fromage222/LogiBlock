@@ -70,6 +70,7 @@ let pieceColors = {};
 let currentGrid = null;
 let currentGridSize = null;
 let currentBankShapes = [];
+let previousPlacedIds = new Set();  // tracks shapeIds already on grid — used to skip animation on re-render
 let lastHoveredRow = null;
 let lastHoveredCol = null;
 let pendingRotate = false;
@@ -120,6 +121,11 @@ function initPieceColors(state) {
 const startScreen = document.getElementById('start-screen');
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen  = document.getElementById('game-screen');
+const lobbyExitBtn  = document.getElementById('lobby-exit-btn');
+const gameExitBtn   = document.getElementById('game-exit-btn');
+const quitModal     = document.getElementById('quit-modal');
+const quitConfirmBtn = document.getElementById('quit-confirm-btn');
+const quitCancelBtn  = document.getElementById('quit-cancel-btn');
 const playerNameInput  = document.getElementById('player-name-input');
 const createRoomBtn    = document.getElementById('create-room-btn');
 const roomCodeInput    = document.getElementById('room-code-input');
@@ -137,6 +143,15 @@ const gameGrid         = document.getElementById('game-grid');
 const controlsInfoBtn  = document.getElementById('controls-info-btn');
 const controlsModal    = document.getElementById('controls-modal');
 const controlsModalClose = document.getElementById('controls-modal-close');
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function resetToStart() {
+  clearInterval(timerInterval); timerInterval = null;
+  myRoomCode = null; amIHost = false;
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
+  showScreen('start-screen');
+}
 
 // ─── Screen switching ─────────────────────────────────────────────────────────
 function showScreen(screenId) {
@@ -179,6 +194,33 @@ joinRoomBtn.addEventListener('click', () => {
 });
 puzzleSelect.addEventListener('change', () => { if (amIHost) socket.emit('lobby:selectPuzzle', { puzzleId: puzzleSelect.value }); });
 startGameBtn.addEventListener('click', () => { if (amIHost) socket.emit('startGame'); });
+
+// ─── Copy room code button ───────────────────────────────────────────────────
+document.getElementById('copy-code-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const code = roomCodeText.textContent;
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.getElementById('copy-code-btn');
+    btn.classList.add('copied');
+    btn.textContent = '✓';
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '&#128203;'; }, 1500);
+  }).catch(() => {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = code;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    const btn = document.getElementById('copy-code-btn');
+    btn.classList.add('copied');
+    btn.textContent = '✓';
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '&#128203;'; }, 1500);
+  });
+});
 
 // ─── Lobby rendering ──────────────────────────────────────────────────────────
 function renderLobbyUpdate(state) {
@@ -227,6 +269,16 @@ function renderGrid(state) {
   const { rows, cols } = state.gridSize;
   gameGrid.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
   gameGrid.style.gridTemplateRows    = `repeat(${rows}, var(--cell-size))`;
+
+  // Collect currently placed movable shapeIds to compare with previous render
+  const currentPlacedIds = new Set();
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const content = state.grid[r][c];
+      if (content && content.movable !== false) currentPlacedIds.add(content.shapeId);
+    }
+  }
+
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = document.createElement('div');
@@ -237,11 +289,13 @@ function renderGrid(state) {
       else if (content === null) { cell.classList.add('empty'); }
       else if (content.movable === false) {
         cell.classList.add('anchor');
-        // NO textContent — just visual styling via CSS
       } else {
         cell.classList.add('placed');
-        // NO textContent — color-only identification
         cell.style.background = pieceColors[content.shapeId] || '#81c784';
+        // Only animate if this piece was NOT on the grid in the previous render
+        if (!previousPlacedIds.has(content.shapeId)) {
+          cell.classList.add('just-placed');
+        }
       }
       cell.addEventListener('mousemove', () => {
         lastHoveredRow = r; lastHoveredCol = c;
@@ -277,6 +331,9 @@ function renderGrid(state) {
       gameGrid.appendChild(cell);
     }
   }
+
+  // Update previous state for next render comparison
+  previousPlacedIds = currentPlacedIds;
 }
 
 // ─── Bank rendering — NO label text ──────────────────────────────────────────
@@ -546,6 +603,18 @@ document.getElementById('play-again-btn').addEventListener('click', () => {
   showScreen('start-screen'); myRoomCode = null; amIHost = false;
   localStorage.removeItem('logiblock_roomCode'); localStorage.removeItem('logiblock_playerName');
 });
+lobbyExitBtn.addEventListener('click', () => {
+  socket.emit('leaveRoom');
+  resetToStart();
+});
+gameExitBtn.addEventListener('click', () => { quitModal.showModal(); });
+quitCancelBtn.addEventListener('click', () => { quitModal.close(); });
+quitConfirmBtn.addEventListener('click', () => {
+  quitModal.close();
+  socket.emit('leaveRoom');
+  resetToStart();
+});
+quitModal.addEventListener('click', (e) => { if (e.target === quitModal) quitModal.close(); });
 
 // ─── Game notifications ───────────────────────────────────────────────────────
 function ensureGameNotification() {
@@ -618,10 +687,12 @@ socket.on('lobby:hostLeft', ({ message }) => {
 });
 socket.on('game:start', (state) => {
   console.log('[DEBUG game:start] activePlayerName=', state.activePlayerName, 'myPlayerName=', myPlayerName);
+  previousPlacedIds = new Set();  // reset so anchors render without animation
   showScreen('game-screen'); initPieceColors(state); renderGrid(state); renderBank(state); renderTurnUI(state); updateRotationButtons(); startLiveTimer(state.startTime);
 });
 socket.on('game:reconnect', (state) => {
   console.log('[DEBUG game:reconnect] activePlayerName=', state.activePlayerName, 'myPlayerName=', myPlayerName, 'selectedShapeId_before=', selectedShapeId);
+  previousPlacedIds = new Set();  // reset on reconnect — no animations for existing state
   pendingAutoRejoin = false; myRoomCode = state.roomCode;
   selectedShapeId = null; selectedRotation = 0;
   showScreen('game-screen'); initPieceColors(state); renderGrid(state); renderBank(state); renderTurnUI(state); updateRotationButtons(); startLiveTimer(state.startTime);
@@ -691,4 +762,4 @@ socket.on('connect', () => {
 socket.on('leaderboard:update', (entries) => {
   renderLeaderboard(entries);
 });
-socket.on('leaderboard:update', (entries) => renderLeaderboard(entries)); 
+socket.on('leaderboard:update', (entries) => renderLeaderboard(entries));
