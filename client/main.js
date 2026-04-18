@@ -121,6 +121,11 @@ function initPieceColors(state) {
 const startScreen = document.getElementById('start-screen');
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen  = document.getElementById('game-screen');
+const lobbyExitBtn  = document.getElementById('lobby-exit-btn');
+const gameExitBtn   = document.getElementById('game-exit-btn');
+const quitModal     = document.getElementById('quit-modal');
+const quitConfirmBtn = document.getElementById('quit-confirm-btn');
+const quitCancelBtn  = document.getElementById('quit-cancel-btn');
 const playerNameInput  = document.getElementById('player-name-input');
 const createRoomBtn    = document.getElementById('create-room-btn');
 const roomCodeInput    = document.getElementById('room-code-input');
@@ -138,6 +143,15 @@ const gameGrid         = document.getElementById('game-grid');
 const controlsInfoBtn  = document.getElementById('controls-info-btn');
 const controlsModal    = document.getElementById('controls-modal');
 const controlsModalClose = document.getElementById('controls-modal-close');
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function resetToStart() {
+  clearInterval(timerInterval); timerInterval = null;
+  myRoomCode = null; amIHost = false;
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
+  showScreen('start-screen');
+}
 
 // ─── Screen switching ─────────────────────────────────────────────────────────
 function showScreen(screenId) {
@@ -584,6 +598,18 @@ document.getElementById('play-again-btn').addEventListener('click', () => {
   showScreen('start-screen'); myRoomCode = null; amIHost = false;
   localStorage.removeItem('logiblock_roomCode'); localStorage.removeItem('logiblock_playerName');
 });
+lobbyExitBtn.addEventListener('click', () => {
+  socket.emit('leaveRoom');
+  resetToStart();
+});
+gameExitBtn.addEventListener('click', () => { quitModal.showModal(); });
+quitCancelBtn.addEventListener('click', () => { quitModal.close(); });
+quitConfirmBtn.addEventListener('click', () => {
+  quitModal.close();
+  socket.emit('leaveRoom');
+  resetToStart();
+});
+quitModal.addEventListener('click', (e) => { if (e.target === quitModal) quitModal.close(); });
 
 // ─── Game notifications ───────────────────────────────────────────────────────
 function ensureGameNotification() {
