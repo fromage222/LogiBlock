@@ -302,10 +302,7 @@ function renderGrid(state) {
       });
       cell.addEventListener('click', () => {
         if (suppressNextGridClick) { suppressNextGridClick = false; return; }
-        if (content && content.movable !== false) {
-          // Placed movable piece: return takes priority over placing
-          handleReturnClick(content.shapeId);
-        } else if (selectedShapeId) {
+        if (selectedShapeId) {
           const shape = currentBankShapes.find(s => s.id === selectedShapeId);
           let originRow = r, originCol = c;
           if (shape) {
@@ -316,6 +313,8 @@ function renderGrid(state) {
           socket.emit('game:move', { action: 'place', shapeId: selectedShapeId, rotation: selectedRotation, originRow, originCol });
           selectedShapeId = null; selectedRotation = 0;
           clearGhostPreview(); refreshCursorPiece(); updateBankSelection(); updateRotationButtons();
+        } else if (content && content.movable !== false) {
+          handleReturnClick(content.shapeId);
         }
       });
       if (content && content.movable !== false && !content.inactive) {
