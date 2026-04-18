@@ -1,7 +1,7 @@
 {
   "id": "level_02",
   "name": "Level 2",
-  "difficulty": "hard",
+  "difficulty": "easy",
   "gridSize": { "rows": 5, "cols": 9 },
   "inactiveCells": [[4,0],[4,8]],
   "shapes": [

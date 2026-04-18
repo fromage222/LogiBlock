@@ -299,7 +299,11 @@ function registerSocketHandlers(io, socket, puzzleMap) {
 
     // Cancel any pending grace-period removal for this player.
     const timerKey = `${roomCode}:${name}`;
-    if (disconnectTimers.has(timerKey)) {
+    // Capture whether this reconnect is resuming from a grace-period disconnect
+    // (disconnecting already fired) vs a fast-reload (disconnecting hasn't fired yet).
+    // This is used below to correctly evaluate Fix C without a false positive.
+    const wasInGracePeriod = disconnectTimers.has(timerKey);
+    if (wasInGracePeriod) {
       clearTimeout(disconnectTimers.get(timerKey));
       disconnectTimers.delete(timerKey);
     }
@@ -327,53 +331,37 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       socket.emit('puzzle:list', getPuzzleListForClient());
       io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
     } else {
-      // Playing phase — two things must happen:
-      //
-      // 1. Turn correction for fast-reload race (reconnectRoom fires BEFORE disconnecting):
-      //    The disconnecting guard (socketId check) will skip advanceTurn for the old socket,
-      //    so activeTurnIndex stays on the reconnecting player — giving them an "extra" turn.
-      //    If the reconnecting player is still the active player, advance now.
-      //    In the slow-reload case, disconnecting already advanced the turn to another player
-      //    so this check is false and no double-advance occurs.
+      // Playing phase: restore connection state, apply Fix C if needed, then broadcast.
+
       const reconnectingIndex = lobby.players.indexOf(existingPlayer);
-      console.log(`[DEBUG reconnectRoom] player=${name} reconnectingIndex=${reconnectingIndex} activeTurnIndex=${lobby.activeTurnIndex}`);
-      if (reconnectingIndex === lobby.activeTurnIndex) {
-        // Fix C: reconnecting player was the active player — advance the turn so they don't
-        // get a free extra turn.
-        //
-        // We advance directly to (reconnectingIndex + 1) % len instead of calling advanceTurn().
-        // advanceTurn() skips players marked disconnected=true, which would loop back to the
-        // reconnecting player if all other players are currently in a grace-period disconnect
-        // (e.g., a fast reload raced ahead of the other player's reconnect). Looping back gives
-        // the reconnecting player an unearned extra turn — the same bug we are trying to fix.
-        //
-        // Direct index assignment is safe: a grace-period disconnected player is expected to
-        // reconnect shortly and will pick up the turn when their own reconnectRoom fires.
-        // If they never reconnect, the grace-timer / slow-disconnect path handles advancing
-        // past them at that point.
+
+      // Fix C: fast-reload race guard.
+      // When the new socket emits reconnectRoom BEFORE the old socket's 'disconnecting'
+      // fires (!wasInGracePeriod), and the reconnecting player is the active player,
+      // advance the turn now — otherwise they keep their turn forever (the old socket's
+      // FAST-RELOAD disconnecting path will be a no-op since the socketId already changed).
+      //
+      // wasInGracePeriod=true means disconnecting already fired and handled the advance
+      // (slow-reload path). In that case we must NOT advance again.
+      if (!wasInGracePeriod && reconnectingIndex === lobby.activeTurnIndex) {
         lobby.activeTurnIndex = (reconnectingIndex + 1) % lobby.players.length;
-        console.log(`[DEBUG reconnectRoom] Fix-C fired → new activeTurnIndex=${lobby.activeTurnIndex} activePlayer=${lobby.players[lobby.activeTurnIndex]?.name}`);
+        // Mark the newly promoted player so that a racing 'disconnecting' from their OLD
+        // socket cannot mistake them for "genuinely active" and advance the turn again.
+        const promotedPlayer = lobby.players[lobby.activeTurnIndex];
+        if (promotedPlayer) {
+          promotedPlayer.fixCPromotionSocketId = promotedPlayer.socketId;
+        }
       }
 
-      const publicState = getPublicState(roomCode);
-      console.log(`[DEBUG reconnectRoom] broadcasting stateUpdate activePlayerName=${publicState.activePlayerName}`);
+      // Cleanup flags on the reconnecting player — they are now live again.
+      delete existingPlayer.wasActiveDuringDisconnect;
+      delete existingPlayer.fixCPromotionSocketId;
 
-      // 2. Broadcast updated state to ALL players in the room.
-      //    This is necessary in BOTH reload paths:
-      //    - Fast-reload: disconnecting's game-phase block is skipped (socketId guard), so
-      //      no game:stateUpdate was ever broadcast. Without this broadcast, other players'
-      //      clients never learn the turn changed — they remain stuck showing the old active
-      //      player. Bob's bank stays non-interactive even though it's now his turn.
-      //    - Slow-reload: disconnecting DID broadcast a stateUpdate (showing Alice disconnected),
-      //      but reconnectRoom just cleared Alice.disconnected. Without another broadcast,
-      //      other players keep seeing Alice as disconnected in the player list.
-      io.to(roomCode).emit('game:stateUpdate', publicState);
+      // Broadcast to all: clears the disconnected badge and shows correct game state.
+      io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
 
-      // Send full current state so client can restore the game screen.
-      // This is sent AFTER game:stateUpdate so Alice's screen ends up fully initialized
-      // (game:reconnect does showScreen + full re-render, which is the correct final state).
+      // Send full game state to reconnecting player to restore their screen.
       const reconnectState = { ...getPublicState(roomCode), startTime: lobby.startTime };
-      console.log(`[DEBUG reconnectRoom] sending game:reconnect to ${name} activePlayerName=${reconnectState.activePlayerName}`);
       socket.emit('game:reconnect', reconnectState);
     }
   });
@@ -436,20 +424,42 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     //    the hold entirely so we don't clobber the live player's state.
     if (lobby.phase === 'playing') {
       const pendingPlayer = lobby.players.find(p => p.name === playerName);
-      console.log(`[DEBUG disconnecting] player=${playerName} socketMatch=${pendingPlayer && pendingPlayer.socketId === socket.id} activeTurnIndex=${lobby.activeTurnIndex}`);
+      const playerIndex = pendingPlayer ? lobby.players.indexOf(pendingPlayer) : -1;
+      const wasActive = playerIndex !== -1 && playerIndex === lobby.activeTurnIndex;
+
       if (pendingPlayer && pendingPlayer.socketId === socket.id) {
+        // SLOW PATH: disconnecting fires before reconnectRoom (no page reload yet, or no reconnect).
+        // Mark disconnected so the grace-period timer and advanceTurn know to skip this player.
         pendingPlayer.disconnected = true;
         pendingPlayer.disconnectedAt = Date.now();
-        // If the disconnecting player is the active player, advance the turn
-        // so the game doesn't stall during the hold window.
-        if (lobby.activeTurnIndex === lobby.players.indexOf(pendingPlayer)) {
-          advanceTurn(lobby);
-          console.log(`[DEBUG disconnecting] slow-reload advance → new activeTurnIndex=${lobby.activeTurnIndex}`);
+
+        // fixCPromotionSocketId guard: this player was promoted to active by another player's
+        // Fix C (or slow-path advance) while their socket was still alive. Their socket is
+        // only now dropping — but since they EARNED the turn via promotion, we must NOT
+        // advance away from them. Only the exact socket that was current at promotion time
+        // triggers this guard (socket-ID specificity prevents stale matches).
+        const isPromotedPlayer = pendingPlayer.fixCPromotionSocketId &&
+          socket.id === pendingPlayer.fixCPromotionSocketId;
+
+        if (wasActive && !isPromotedPlayer) {
+          // Record that this player was genuinely active at disconnect time.
+          // reconnectRoom uses this (via wasInGracePeriod check) to avoid re-firing Fix C.
+          pendingPlayer.wasActiveDuringDisconnect = true;
+          // Advance directly: advanceTurn skips disconnected players which could loop back
+          // to this player if all others are also in grace-period. Direct index is safe.
+          lobby.activeTurnIndex = (playerIndex + 1) % lobby.players.length;
+          // Mark the newly promoted player so that a racing 'disconnecting' from their OLD
+          // socket cannot mistake them for "genuinely active" and advance the turn again.
+          const promotedPlayer = lobby.players[lobby.activeTurnIndex];
+          if (promotedPlayer) {
+            promotedPlayer.fixCPromotionSocketId = promotedPlayer.socketId;
+          }
         }
-        // Broadcast updated state immediately so other players see the dimmed badge.
         io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
-      } else {
-        console.log(`[DEBUG disconnecting] FAST-RELOAD: socketId mismatch, skipping game-phase hold`);
+      } else if (pendingPlayer) {
+        // FAST-RELOAD PATH: reconnectRoom already fired and replaced the socket.
+        // Fix C in reconnectRoom handled the turn advance (if the player was active).
+        // Nothing to do here — the player is live again and the state is already correct.
       }
     }
 
