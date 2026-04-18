@@ -341,8 +341,8 @@ function renderBank(state) {
   const existingCountdown = document.getElementById('blind-countdown');
   bank.innerHTML = '';
   if (existingCountdown) bank.appendChild(existingCountdown);
-  const amIActive = state.activePlayerName === myPlayerName;
-  console.log('[DEBUG renderBank] activePlayerName=', state.activePlayerName, 'myPlayerName=', myPlayerName, 'amIActive=', amIActive);
+  const amIActive = state.activeSocketId === socket.id;
+  console.log('[DEBUG renderBank] activeSocketId=', state.activeSocketId, 'socket.id=', socket.id, 'amIActive=', amIActive);
   (state.bankShapes || []).forEach((shape, idx) => {
     const pieceEl = document.createElement('div');
     pieceEl.classList.add('bank-piece');
@@ -450,7 +450,7 @@ function updateBankSelection() {
 function renderTurnUI(state) {
   const banner = document.getElementById('turn-banner');
   if (state.activePlayerName) {
-    const isMyTurn = state.activePlayerName === myPlayerName;
+    const isMyTurn = state.activeSocketId === socket.id;
     banner.textContent = isMyTurn ? "It's your turn!" : `It's ${state.activePlayerName}'s turn`;
     banner.style.color = isMyTurn ? 'var(--clr-primary)' : '';
   } else { banner.textContent = ''; }
@@ -681,7 +681,10 @@ socket.on('lobby:hostLeft', ({ message }) => {
 });
 socket.on('game:start', (state) => {
   console.log('[DEBUG game:start] activePlayerName=', state.activePlayerName, 'myPlayerName=', myPlayerName);
-  previousPlacedIds = new Set();  // reset so anchors render without animation
+  // Refresh während des Spiels → Hauptmenü (kein Reconnect ins laufende Spiel)
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
+  previousPlacedIds = new Set();
   showScreen('game-screen'); initPieceColors(state); renderGrid(state); renderBank(state); renderTurnUI(state); updateRotationButtons(); startLiveTimer(state.startTime);
 });
 socket.on('game:reconnect', (state) => {

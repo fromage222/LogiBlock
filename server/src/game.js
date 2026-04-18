@@ -166,15 +166,24 @@ function returnPiece(lobby, shapeId) {
 // ─── Turn helpers (GAME-07, GAME-08, GAME-09) ─────────────────────────────────
 
 // Advance the active turn to the next player (circular), skipping disconnected players.
-function advanceTurn(lobby) {
+// skipDisconnected=true: überspringt getrennte Spieler (für echten Disconnect nach Grace-Period).
+// skipDisconnected=false: rückt immer genau um 1 vor (für normalen Spielzug und Reconnect-Szenario).
+function advanceTurn(lobby, skipDisconnected = true) {
   if (!lobby.players || lobby.players.length === 0) return;
   const len = lobby.players.length;
+  if (!skipDisconnected) {
+    lobby.activeTurnIndex = (lobby.activeTurnIndex + 1) % len;
+    lobby.activeTurnSocketId = lobby.players[lobby.activeTurnIndex]?.socketId ?? null;
+    return;
+  }
   for (let i = 0; i < len; i++) {
     lobby.activeTurnIndex = (lobby.activeTurnIndex + 1) % len;
-    if (!lobby.players[lobby.activeTurnIndex].disconnected) return;
+    if (!lobby.players[lobby.activeTurnIndex].disconnected) {
+      lobby.activeTurnSocketId = lobby.players[lobby.activeTurnIndex].socketId;
+      return;
+    }
   }
-  // Every player is disconnected -- leave activeTurnIndex where it landed.
-  // socket.js hold-timer callback handles lobby deletion when all players disconnect.
+  // Alle Spieler getrennt — bleibt wo es gelandet ist, keine Socket-ID setzen.
 }
 
 // ─── Safe serialization (GAME-06 invariant: solution NEVER leaves server) ────
@@ -211,7 +220,7 @@ function getPublicState(roomCode) {
       name: p.name,
       isHost: p.isHost,
       socketId: p.socketId,
-      disconnected: p.disconnected === true,
+      disconnected: p.disconnected === true || p.reconnecting === true,
     })),
     selectedPuzzleName: puzzle ? puzzle.name : null,
     selectedPuzzleDifficulty: puzzle ? (puzzle.difficulty ?? null) : null,
@@ -219,6 +228,7 @@ function getPublicState(roomCode) {
     grid: lobby.grid,         // null in lobby phase; 2D array in playing phase
     gridSize: puzzle ? puzzle.gridSize : null,
     activePlayerName: activePlayer ? activePlayer.name : null,
+    activeSocketId: lobby.activeTurnSocketId ?? null,
     activeTurnIndex,
     bankShapes,
     randomMode: lobby.randomModeEnabled ?? false,
@@ -379,6 +389,11 @@ function replacePlayerSocket(roomCode, playerName, newSocketId) {
   if (!lobby) return false;
   const player = lobby.players.find(p => p.name === playerName);
   if (!player) return false;
+  // Wenn dieser Spieler gerade dran ist, Socket-ID des aktiven Zugs direkt nachziehen.
+  // Das ist der einzige Ort wo activeTurnSocketId bei Reconnect aktualisiert werden muss.
+  if (lobby.activeTurnSocketId === player.socketId) {
+    lobby.activeTurnSocketId = newSocketId;
+  }
   if (lobby.hostId === player.socketId) {
     lobby.hostId = newSocketId;
   }
@@ -437,7 +452,7 @@ function triggerRandomEvent(lobby, _forceEventType) {
 
   if (eventType === 'skip_turn') {
     if (lobby.players.length <= 1) return null;
-    advanceTurn(lobby);
+    advanceTurn(lobby, false);
     return {
       type: 'skip_turn',
       description: `Chaos! ${activePlayerName} verliert seinen Zug!`,
@@ -466,6 +481,7 @@ function triggerRandomEvent(lobby, _forceEventType) {
   if (eventType === 'shuffle_order') {
     shuffleArray(lobby.players);
     lobby.activeTurnIndex = 0;
+    lobby.activeTurnSocketId = lobby.players[0]?.socketId ?? null;
     return {
       type: 'shuffle_order',
       description: 'Chaos! Die Spielerreihenfolge wurde durchgemischt!',
@@ -484,6 +500,7 @@ function triggerRandomEvent(lobby, _forceEventType) {
   if (eventType === 'reverse_order') {
     lobby.players.reverse();
     lobby.activeTurnIndex = 0;
+    lobby.activeTurnSocketId = lobby.players[0]?.socketId ?? null;
     return {
       type: 'reverse_order',
       description: 'Chaos! Die Reihenfolge wurde umgekehrt!',
@@ -511,9 +528,10 @@ function startGame(roomCode) {
 
   lobby.phase = 'playing';
   lobby.grid = buildInitialGrid(puzzle);
-  lobby.activeTurnIndex = 0;          // Phase 2 uses this; set here for consistency
-  lobby.startTime = Date.now();       // TIME-01: authoritative start moment
-  lobby.extraTurns = 0;              // Phase 14: reset on game restart (Pitfall 3)
+  lobby.activeTurnIndex = 0;
+  lobby.activeTurnSocketId = lobby.players[0].socketId; // autoritäre Socket-ID des aktiven Spielers
+  lobby.startTime = Date.now();
+  lobby.extraTurns = 0;
   return { ok: true };
 }
 
@@ -555,17 +573,15 @@ function advanceTurnIfActive(lobby, socketId) {
   const newLength = lobby.players.length - 1;
 
   if (disconnectingIndex === lobby.activeTurnIndex) {
-    // Active player disconnecting
     if (newLength === 0) {
       lobby.activeTurnIndex = 0;
     } else {
       lobby.activeTurnIndex = lobby.activeTurnIndex % newLength;
     }
   } else if (disconnectingIndex < lobby.activeTurnIndex) {
-    // Non-active player with index below active player — shift down
     lobby.activeTurnIndex = Math.max(0, lobby.activeTurnIndex - 1);
   }
-  // Non-active player with index >= activeTurnIndex: no change
+  lobby.activeTurnSocketId = lobby.players[lobby.activeTurnIndex]?.socketId ?? null;
 }
 
 
