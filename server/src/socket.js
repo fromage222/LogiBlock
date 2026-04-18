@@ -336,9 +336,27 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       //    In the slow-reload case, disconnecting already advanced the turn to another player
       //    so this check is false and no double-advance occurs.
       const reconnectingIndex = lobby.players.indexOf(existingPlayer);
+      console.log(`[DEBUG reconnectRoom] player=${name} reconnectingIndex=${reconnectingIndex} activeTurnIndex=${lobby.activeTurnIndex}`);
       if (reconnectingIndex === lobby.activeTurnIndex) {
-        advanceTurn(lobby);
+        // Fix C: reconnecting player was the active player — advance the turn so they don't
+        // get a free extra turn.
+        //
+        // We advance directly to (reconnectingIndex + 1) % len instead of calling advanceTurn().
+        // advanceTurn() skips players marked disconnected=true, which would loop back to the
+        // reconnecting player if all other players are currently in a grace-period disconnect
+        // (e.g., a fast reload raced ahead of the other player's reconnect). Looping back gives
+        // the reconnecting player an unearned extra turn — the same bug we are trying to fix.
+        //
+        // Direct index assignment is safe: a grace-period disconnected player is expected to
+        // reconnect shortly and will pick up the turn when their own reconnectRoom fires.
+        // If they never reconnect, the grace-timer / slow-disconnect path handles advancing
+        // past them at that point.
+        lobby.activeTurnIndex = (reconnectingIndex + 1) % lobby.players.length;
+        console.log(`[DEBUG reconnectRoom] Fix-C fired → new activeTurnIndex=${lobby.activeTurnIndex} activePlayer=${lobby.players[lobby.activeTurnIndex]?.name}`);
       }
+
+      const publicState = getPublicState(roomCode);
+      console.log(`[DEBUG reconnectRoom] broadcasting stateUpdate activePlayerName=${publicState.activePlayerName}`);
 
       // 2. Broadcast updated state to ALL players in the room.
       //    This is necessary in BOTH reload paths:
@@ -349,15 +367,14 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       //    - Slow-reload: disconnecting DID broadcast a stateUpdate (showing Alice disconnected),
       //      but reconnectRoom just cleared Alice.disconnected. Without another broadcast,
       //      other players keep seeing Alice as disconnected in the player list.
-      io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
+      io.to(roomCode).emit('game:stateUpdate', publicState);
 
       // Send full current state so client can restore the game screen.
       // This is sent AFTER game:stateUpdate so Alice's screen ends up fully initialized
       // (game:reconnect does showScreen + full re-render, which is the correct final state).
-      socket.emit('game:reconnect', {
-        ...getPublicState(roomCode),
-        startTime: lobby.startTime,
-      });
+      const reconnectState = { ...getPublicState(roomCode), startTime: lobby.startTime };
+      console.log(`[DEBUG reconnectRoom] sending game:reconnect to ${name} activePlayerName=${reconnectState.activePlayerName}`);
+      socket.emit('game:reconnect', reconnectState);
     }
   });
 
@@ -390,6 +407,7 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     //    the hold entirely so we don't clobber the live player's state.
     if (lobby.phase === 'playing') {
       const pendingPlayer = lobby.players.find(p => p.name === playerName);
+      console.log(`[DEBUG disconnecting] player=${playerName} socketMatch=${pendingPlayer && pendingPlayer.socketId === socket.id} activeTurnIndex=${lobby.activeTurnIndex}`);
       if (pendingPlayer && pendingPlayer.socketId === socket.id) {
         pendingPlayer.disconnected = true;
         pendingPlayer.disconnectedAt = Date.now();
@@ -397,9 +415,12 @@ function registerSocketHandlers(io, socket, puzzleMap) {
         // so the game doesn't stall during the hold window.
         if (lobby.activeTurnIndex === lobby.players.indexOf(pendingPlayer)) {
           advanceTurn(lobby);
+          console.log(`[DEBUG disconnecting] slow-reload advance → new activeTurnIndex=${lobby.activeTurnIndex}`);
         }
         // Broadcast updated state immediately so other players see the dimmed badge.
         io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
+      } else {
+        console.log(`[DEBUG disconnecting] FAST-RELOAD: socketId mismatch, skipping game-phase hold`);
       }
     }
 

@@ -257,6 +257,7 @@ function renderGrid(state) {
             const [pivotDr, pivotDc] = getPivotOffset(cells);
             originRow = r - pivotDr; originCol = c - pivotDc;
           }
+          console.log('[DEBUG grid:place] shapeId=', selectedShapeId, 'myPlayerName=', myPlayerName);
           socket.emit('game:move', { action: 'place', shapeId: selectedShapeId, rotation: selectedRotation, originRow, originCol });
           selectedShapeId = null; selectedRotation = 0;
           clearGhostPreview(); refreshCursorPiece(); updateBankSelection(); updateRotationButtons();
@@ -285,6 +286,7 @@ function renderBank(state) {
   bank.innerHTML = '';
   if (existingCountdown) bank.appendChild(existingCountdown);
   const amIActive = state.activePlayerName === myPlayerName;
+  console.log('[DEBUG renderBank] activePlayerName=', state.activePlayerName, 'myPlayerName=', myPlayerName, 'amIActive=', amIActive);
   (state.bankShapes || []).forEach((shape, idx) => {
     const pieceEl = document.createElement('div');
     pieceEl.classList.add('bank-piece');
@@ -297,6 +299,7 @@ function renderBank(state) {
     pieceEl.appendChild(buildMiniGrid(shape.cells, color));
     // NO label span — pieces are identified by color only
     pieceEl.addEventListener('click', () => {
+      console.log('[DEBUG bank click] shapeId=', shape.id, 'amIActive=', amIActive, 'pointerEvents=', pieceEl.style.pointerEvents);
       if (!amIActive) return;
       if (selectedShapeId === shape.id) { selectedShapeId = null; selectedRotation = 0; }
       else {
@@ -614,13 +617,17 @@ socket.on('lobby:hostLeft', ({ message }) => {
   showScreen('start-screen'); showJoinError(message || 'Host left — lobby closed'); setTimeout(clearJoinError, 4000);
 });
 socket.on('game:start', (state) => {
+  console.log('[DEBUG game:start] activePlayerName=', state.activePlayerName, 'myPlayerName=', myPlayerName);
   showScreen('game-screen'); initPieceColors(state); renderGrid(state); renderBank(state); renderTurnUI(state); updateRotationButtons(); startLiveTimer(state.startTime);
 });
 socket.on('game:reconnect', (state) => {
+  console.log('[DEBUG game:reconnect] activePlayerName=', state.activePlayerName, 'myPlayerName=', myPlayerName, 'selectedShapeId_before=', selectedShapeId);
   pendingAutoRejoin = false; myRoomCode = state.roomCode;
+  selectedShapeId = null; selectedRotation = 0;
   showScreen('game-screen'); initPieceColors(state); renderGrid(state); renderBank(state); renderTurnUI(state); updateRotationButtons(); startLiveTimer(state.startTime);
 });
 socket.on('game:stateUpdate', (state) => {
+  console.log('[DEBUG game:stateUpdate] activePlayerName=', state.activePlayerName, 'myPlayerName=', myPlayerName);
   selectedShapeId = null; selectedRotation = 0; refreshCursorPiece(); updateRotationButtons(); renderGrid(state); renderBank(state); renderTurnUI(state);
 });
 socket.on('game:error', (msg) => showGameError(msg));
@@ -671,6 +678,7 @@ let pendingAutoRejoin = false;
 socket.on('connect', () => {
   const savedRoom = localStorage.getItem('logiblock_roomCode');
   const savedName = localStorage.getItem('logiblock_playerName');
+  console.log('[DEBUG connect] savedRoom=', savedRoom, 'savedName=', savedName, 'activeScreen=', document.querySelector('.screen.active')?.id);
   if (savedRoom && savedName) {
     myPlayerName = savedName;
     // pendingAutoRejoin only on initial page load (start screen); not on Socket.IO auto-reconnect

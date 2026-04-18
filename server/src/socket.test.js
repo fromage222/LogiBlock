@@ -884,6 +884,122 @@ describe('disconnecting timer — player kept in lobby after timer expires in pl
   });
 });
 
+// -- host-refresh-turn-skip: after host reloads, Bob must be able to place ---------------
+// This covers the full scenario: Alice reloads, Bob becomes active, BOB CAN PLACE.
+// Tests both fast-reload and slow-reload paths end-to-end.
+
+describe('host-refresh-turn-skip — Bob can place after Alice reconnects (fast-reload)', () => {
+  afterEach(() => {
+    lobbies.delete('HRT-FAST01');
+    lobbies.delete('HRT-FAST02');
+  });
+
+  it('fast-reload: after Alice reconnects (was active), Bob can place a piece', () => {
+    // Scenario: activeTurnIndex=0 (Alice), Alice fast-reloads.
+    // After reconnect, activeTurnIndex=1 (Bob). Bob must be able to place.
+    const roomCode = 'HRT-FAST01';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+
+    // Fast-reload: Alice's new socket emits reconnectRoom (before disconnecting)
+    const { socket: reconnectSocket } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(reconnectSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // Verify activeTurnIndex advanced to Bob
+    assert.strictEqual(lobby.activeTurnIndex, 1,
+      'activeTurnIndex must be 1 (Bob) after Alice fast-reloads');
+
+    // Now Bob tries to place a piece — must succeed
+    const { socket: bobSocket, emitted: bobEmitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
+    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+
+    assert.ok(!bobEmitted.socket['game:error'],
+      'Bob must NOT receive game:error — it is Bob\'s turn after Alice fast-reloads');
+    assert.ok(bobEmitted.room['game:stateUpdate'],
+      'game:stateUpdate must be broadcast after Bob\'s valid placement');
+  });
+
+  it('fast-reload: game:reconnect broadcast shows Bob as active so his client renders bank interactive', () => {
+    const roomCode = 'HRT-FAST02';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+
+    const { socket: reconnectSocket, emitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(reconnectSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // The room broadcast (game:stateUpdate) must show Bob as active so Bob's client
+    // renders his bank as interactive
+    assert.ok(emitted.room['game:stateUpdate'],
+      'game:stateUpdate must be broadcast to room');
+    const roomPayload = emitted.room['game:stateUpdate'][0].payload;
+    assert.strictEqual(roomPayload.activePlayerName, 'Bob',
+      'room game:stateUpdate must show Bob as active (his bank renders interactive)');
+    assert.strictEqual(roomPayload.activeTurnIndex, 1,
+      'room game:stateUpdate activeTurnIndex must be 1 (Bob)');
+  });
+});
+
+describe('host-refresh-turn-skip — Bob can place after Alice reconnects (slow-reload)', () => {
+  afterEach(() => {
+    lobbies.delete('HRT-SLOW01');
+    lobbies.delete('HRT-SLOW02');
+  });
+
+  it('slow-reload: after Alice disconnects+reconnects (was active), Bob can place a piece', () => {
+    // Scenario: activeTurnIndex=0 (Alice), Alice slow-reloads (disconnecting fires first).
+    // After reconnect, activeTurnIndex=1 (Bob). Bob must be able to place.
+    const roomCode = 'HRT-SLOW01';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+
+    // Step 1: Slow-reload — old socket disconnects first
+    const { socket: oldSocket } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(oldSocket, 'disconnecting');
+
+    // After disconnecting: turn should have advanced to Bob (Alice was active)
+    assert.strictEqual(lobby.activeTurnIndex, 1,
+      'activeTurnIndex must advance to 1 (Bob) when Alice disconnects from active state');
+
+    // Step 2: Alice reconnects with new socket
+    const { socket: newSocket } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(newSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // activeTurnIndex must still be 1 (no double-advance)
+    assert.strictEqual(lobby.activeTurnIndex, 1,
+      'activeTurnIndex must remain 1 (Bob) after slow-reload reconnect');
+
+    // Step 3: Bob tries to place — must succeed
+    const { socket: bobSocket, emitted: bobEmitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
+    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+
+    assert.ok(!bobEmitted.socket['game:error'],
+      'Bob must NOT receive game:error — it is Bob\'s turn after Alice slow-reloads');
+    assert.ok(bobEmitted.room['game:stateUpdate'],
+      'game:stateUpdate must be broadcast after Bob\'s valid placement');
+  });
+
+  it('slow-reload: game:stateUpdate from reconnectRoom shows Bob active so his bank renders interactive', () => {
+    const roomCode = 'HRT-SLOW02';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+
+    const { socket: oldSocket } = makeMocks(roomCode, 'host-socket', 'Alice');
+    trigger(oldSocket, 'disconnecting');
+
+    const { socket: newSocket, emitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(newSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // The room broadcast from reconnectRoom must show Bob as active
+    assert.ok(emitted.room['game:stateUpdate'],
+      'game:stateUpdate must be broadcast to room on reconnect');
+    const roomPayload = emitted.room['game:stateUpdate'][0].payload;
+    assert.strictEqual(roomPayload.activePlayerName, 'Bob',
+      'room game:stateUpdate must show Bob as active so his bank renders interactive');
+    assert.strictEqual(roomPayload.activeTurnIndex, 1,
+      'room game:stateUpdate activeTurnIndex must be 1 (Bob)');
+  });
+});
+
 // -- Fix C: fast-reload must not grant active player an extra turn (host-reload-extra-turn) --
 // When reconnectRoom fires BEFORE the old socket's disconnecting event (fast reload),
 // the disconnecting guard (socketId check) prevents advanceTurn from being called —
@@ -1030,5 +1146,70 @@ describe('reconnectRoom handler - fast-reload must not grant active player extra
       'server must reject Alice\'s move with game:error after her turn was advanced');
     assert.strictEqual(moveEmitted.socket['game:error'][0], 'Not your turn',
       'error must be "Not your turn" because activeTurnIndex is now Bob\'s');
+  });
+});
+
+describe('Fix-C: advance turn past reconnecting player even when other players are in grace-period', () => {
+  afterEach(() => {
+    lobbies.delete('FIX-C-GUARD01');
+    lobbies.delete('FIX-C-GUARD02');
+  });
+
+  it('Fix-C advances turn to Bob (grace-period) — Alice loses her active turn on fast reload', () => {
+    // Scenario: Alice is active (index 0), Bob is in grace-period (disconnected=true).
+    // Alice fast-reloads. Fix C must still advance to Bob (index 1) even though Bob is
+    // currently marked disconnected. Bob will pick up his turn when he reconnects.
+    // Previously a hasOtherActive guard skipped Fix-C in this case, leaving Alice active
+    // after her own reload — that was the reported bug.
+    const roomCode = 'FIX-C-GUARD01';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+
+    // Put Bob in grace-period: mark disconnected (as disconnecting handler does)
+    const bob = lobby.players.find(p => p.name === 'Bob');
+    bob.disconnected = true;
+    bob.disconnectedAt = Date.now();
+
+    // Alice fast-reloads: new socket emits reconnectRoom
+    const { socket: reconnectSocket, emitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(reconnectSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // activeTurnIndex must advance to 1 (Bob) — Fix-C fired despite Bob being in grace-period
+    assert.strictEqual(lobby.activeTurnIndex, 1,
+      'activeTurnIndex must advance to 1 (Bob) even when Bob is in grace-period disconnect');
+
+    // The game:reconnect sent to Alice must show Bob as active
+    assert.ok(emitted.socket['game:reconnect'],
+      'game:reconnect must be sent to Alice');
+    const reconnectPayload = emitted.socket['game:reconnect'][0];
+    assert.strictEqual(reconnectPayload.activePlayerName, 'Bob',
+      'game:reconnect must show Bob as active — Alice must not get a free extra turn');
+
+    // Alice must NOT be able to place — it is now Bob's turn
+    const { socket: aliceSocket, emitted: aliceEmitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(aliceSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    assert.ok(aliceEmitted.socket['game:error'],
+      'Alice must get game:error — it is now Bob\'s turn, not Alice\'s');
+    assert.strictEqual(aliceEmitted.socket['game:error'][0], 'Not your turn',
+      'error must be "Not your turn"');
+  });
+
+  it('Fix-C DOES advance turn to Bob when Bob is NOT disconnected', () => {
+    // Sanity check: normal case still works
+    const roomCode = 'FIX-C-GUARD02';
+    const lobby = makePlayingLobby(roomCode);
+    lobby.activeTurnIndex = 0; // Alice is active
+    // Bob is NOT disconnected (default state)
+
+    const { socket: reconnectSocket, emitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
+    trigger(reconnectSocket, 'reconnectRoom', { roomCode, playerName: 'Alice' });
+
+    // activeTurnIndex must advance to 1 (Bob)
+    assert.strictEqual(lobby.activeTurnIndex, 1,
+      'activeTurnIndex must advance to 1 (Bob) when Fix-C fires and Bob is connected');
+
+    const reconnectPayload = emitted.socket['game:reconnect'][0];
+    assert.strictEqual(reconnectPayload.activePlayerName, 'Bob',
+      'game:reconnect must show Bob as active');
   });
 });
