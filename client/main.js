@@ -200,26 +200,25 @@ document.getElementById('copy-code-btn').addEventListener('click', (e) => {
   e.stopPropagation();
   const code = roomCodeText.textContent;
   if (!code) return;
-  navigator.clipboard.writeText(code).then(() => {
+
+  function markCopied() {
     const btn = document.getElementById('copy-code-btn');
-    btn.classList.add('copied');
-    btn.textContent = '✓';
+    btn.classList.add('copied'); btn.textContent = '✓';
     setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '&#128203;'; }, 1500);
-  }).catch(() => {
-    // Fallback for older browsers
+  }
+  function execCopy() {
     const textarea = document.createElement('textarea');
-    textarea.value = code;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-    const btn = document.getElementById('copy-code-btn');
-    btn.classList.add('copied');
-    btn.textContent = '✓';
-    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '&#128203;'; }, 1500);
-  });
+    textarea.value = code; textarea.style.position = 'fixed'; textarea.style.opacity = '0';
+    document.body.appendChild(textarea); textarea.select();
+    document.execCommand('copy'); document.body.removeChild(textarea);
+    markCopied();
+  }
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(code).then(markCopied).catch(execCopy);
+  } else {
+    execCopy();
+  }
 });
 
 // ─── Lobby rendering ──────────────────────────────────────────────────────────
