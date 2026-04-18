@@ -213,11 +213,21 @@ button:disabled { background: var(--clr-surface-alt); color: var(--clr-text-fain
    ROOM CODE DISPLAY
    ============================================================ */
 .room-code-display {
-  display: flex; justify-content: center; align-items: center; margin: 0 auto var(--sp-lg);
+  display: flex; justify-content: center; align-items: center; gap: var(--sp-sm); margin: 0 auto var(--sp-lg);
   padding: var(--sp-sm) var(--sp-xl); width: fit-content; background: var(--clr-accent);
   border: 3px solid var(--clr-border); border-radius: var(--r-xl); box-shadow: var(--sh-lg);
   animation: roomCodePop 0.6s var(--t-spring) both; position: relative;
 }
+.copy-code-btn {
+  width: 36px; min-width: 36px; height: 36px; padding: 0;
+  font-size: 1rem; line-height: 1; background: var(--clr-surface); color: var(--clr-text);
+  border: 2px solid var(--clr-border); border-radius: var(--r-md); box-shadow: var(--sh-xs);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: transform var(--t-fast), box-shadow var(--t-fast), background var(--t-normal);
+}
+.copy-code-btn:hover:not(:disabled) { background: var(--clr-surface-alt); transform: translate(-1px,-1px); box-shadow: var(--sh-sm); }
+.copy-code-btn:active:not(:disabled) { transform: translate(1px,1px); box-shadow: none; }
+.copy-code-btn.copied { background: var(--clr-success); color: #fff; border-color: var(--clr-border); }
 .room-code-display::after {
   content: ''; position: absolute; inset: -4px; border-radius: calc(var(--r-xl) + 4px);
   border: 2px dashed var(--clr-accent-dark); animation: roomCodePulse 2s ease-in-out infinite; pointer-events: none;
@@ -293,9 +303,10 @@ button:disabled { background: var(--clr-surface-alt); color: var(--clr-text-fain
   transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
 .grid-cell.empty { background: var(--clr-cell-empty); border-color: rgba(0,0,0,0.06); }
-.grid-cell.empty:hover { background: #ede7d8; border-color: rgba(0,0,0,0.12); }
+.grid-cell.empty:hover:not(.ghost-valid):not(.ghost-invalid) { background: #ede7d8; border-color: rgba(0,0,0,0.12); }
 .grid-cell.anchor { background: var(--clr-cell-anchor); border-color: rgba(0,0,0,0.3); cursor: default; }
-.grid-cell.placed { cursor: pointer; border-color: rgba(0,0,0,0.2); animation: piecePlaced 0.35s var(--t-bounce) both; }
+.grid-cell.placed { cursor: pointer; border-color: rgba(0,0,0,0.2); }
+.grid-cell.placed.just-placed { animation: piecePlaced 0.35s var(--t-bounce) both; }
 .grid-cell.placed:hover { filter: brightness(1.1); transform: scale(1.06); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 @keyframes piecePlaced { 0%{transform:scale(0.5);opacity:0} 60%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
 .grid-cell.inactive { background: transparent; border-color: transparent; pointer-events: none; cursor: default; }
@@ -333,7 +344,7 @@ button:disabled { background: var(--clr-surface-alt); color: var(--clr-text-fain
   transform: translate(-2px,-2px) scale(1.06); animation: selectedWiggle 0.4s ease;
 }
 @keyframes selectedWiggle { 0%{transform:translate(-2px,-2px) scale(1) rotate(0)} 25%{transform:translate(-2px,-2px) scale(1.08) rotate(-2deg)} 50%{transform:translate(-2px,-2px) scale(1.06) rotate(1deg)} 100%{transform:translate(-2px,-2px) scale(1.06) rotate(0)} }
-.bank-piece[draggable="false"] { opacity: 0.35; cursor: not-allowed; filter: grayscale(0.5); }
+.bank-piece[draggable="false"] { opacity: 0.25; cursor: not-allowed; filter: grayscale(0.7) brightness(0.9); }
 /* Hide label text */
 .bank-piece span { display: none; }
 
@@ -441,6 +452,9 @@ button:disabled { background: var(--clr-surface-alt); color: var(--clr-text-fain
 #controls-modal {
   border: 3px solid var(--clr-border); border-radius: var(--r-2xl); padding: 0;
   max-width: 480px; width: 90%; max-height: 80vh; overflow-y: auto;
+  margin: auto;
+  position: fixed;
+  inset: 0;
   background: var(--clr-surface); color: var(--clr-text); box-shadow: var(--sh-lg);
   font-family: var(--font-body); animation: modalSlideUp 0.4s var(--t-spring) both;
 }
