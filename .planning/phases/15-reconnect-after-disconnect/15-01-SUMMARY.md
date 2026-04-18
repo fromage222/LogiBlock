@@ -2,32 +2,28 @@
 phase: 15-reconnect-after-disconnect
 plan: 01
 subsystem: api
-tags: [socket.io, reconnect, disconnect, timer, game-state]
+tags: [socket.io, game-state, disconnect-recovery, turn-management]
 
 # Dependency graph
 requires:
-  - phase: 09-random-mode
-    provides: advanceTurn used in skip logic
   - phase: 14-random-mode-overhaul
-    provides: game.js/socket.js baseline for modification
+    provides: advanceTurn, getPublicState, game:stateUpdate broadcast pattern
 provides:
-  - reservePlayerSlot: marks player disconnected, starts 30s expiry timer
-  - reconnectPlayer: re-associates new socket ID, clears timer, updates hostId
-  - advanceTurn skip logic: skips disconnected slots with cycle guard
-  - getPublicState disconnected flag: client can render disconnected badge
-  - socket.js game-phase hold: disconnecting handler branches on phase
-  - reconnectRoom socket event: re-associates socket ID on reconnect
-affects:
-  - 15-02: client reconnect UI (reads game:playerDisconnected, game:playerReconnected, game:stateUpdate)
-  - 15-03: integration tests for full reconnect round-trip
+  - disconnected flag on player objects (game.js)
+  - advanceTurn cycle-guard that skips disconnected slots
+  - getPublicState exposes disconnected field to clients
+  - socket.js disconnecting handler marks player.disconnected=true and broadcasts game:stateUpdate
+  - reconnectRoom clears disconnected flag before re-associating socket
+  - all-disconnect lobby cleanup in hold-timer callback
+affects: [15-reconnect-after-disconnect, client dimmed badge rendering]
 
 # Tech tracking
 tech-stack:
   added: []
   patterns:
-    - reservePlayerSlot/reconnectPlayer: stateful slot reservation via setTimeout + player.disconnected flag
-    - disconnecting handler phase-branching: game-phase hold vs. lobby-phase evict
-    - timer stored on player object: disconnectTimer cleared on reconnect or expiry
+    - "Synchronous player mutation before timer arm: mark player.disconnected=true in disconnecting handler before setTimeout to ensure state is consistent during hold window"
+    - "Cycle-guard for-loop in advanceTurn: iterate max player-count times to skip disconnected slots without infinite loop when all players disconnect"
+    - "=== true coercion guard in getPublicState: p.disconnected === true protects against undefined on pre-existing player objects"
 
 key-files:
   created: []
@@ -36,92 +32,81 @@ key-files:
     - server/src/socket.js
 
 key-decisions:
-  - "advanceTurn uses a for-loop with cycle guard (max iterations = player count) to skip disconnected slots without infinite loop"
-  - "reservePlayerSlot stores timer on player.disconnectTimer field — single source of truth, cleared on reconnect"
-  - "reconnectPlayer updates lobby.hostId when reconnecting player is host (Pitfall 1 prevention)"
-  - "disconnecting handler returns early after reservePlayerSlot in game phase — lobby-phase path unchanged"
-  - "reconnectRoom handler emits room:error with result.error (not hardcoded string) for accurate Session expired vs. Room not found messages"
+  - "advanceTurn uses for-loop with cycle guard (max iterations = player count) to skip disconnected slots without infinite loop when all players disconnect"
+  - "Synchronous disconnect marking: player.disconnected=true set before setTimeout so hold window reflects accurate state immediately"
+  - "advanceTurn remains pure — no deleteLobby call; all-disconnect cleanup delegated to socket.js hold-timer callback"
+  - "=== true coercion in getPublicState guards against undefined on player objects created before Phase 15"
 
 patterns-established:
-  - "Phase branching in disconnecting handler: wasInGame gate at top, return early — lobby path falls through unchanged"
-  - "onExpiry callback pattern: timer callback in game.js calls back into socket.js via closure for broadcast — avoids circular dependency"
+  - "Player mutation via lobby.players.find() before broadcasting — consistent with existing socket.js patterns"
+  - "game:stateUpdate broadcast on disconnect — same event as game:move broadcasts, no new event type needed"
 
-requirements-completed: [RECON-01, RECON-02]
+requirements-completed: [RECON-01]
 
 # Metrics
 duration: 2min
-completed: 2026-04-09
+completed: 2026-04-17
 ---
 
-# Phase 15 Plan 01: Reconnect After Disconnect (Server Infrastructure) Summary
+# Phase 15 Plan 01: Server-Side Disconnect Foundation Summary
 
-**30-second player slot reservation with advanceTurn skip logic, reservePlayerSlot/reconnectPlayer exports, and game-phase hold in the disconnecting handler**
+**Player disconnect hold with turn-skipping: disconnected flag on player objects, advanceTurn cycle guard, getPublicState exposure, and immediate game:stateUpdate broadcast to other players**
 
 ## Performance
 
 - **Duration:** ~2 min
-- **Started:** 2026-04-09T09:30:27Z
-- **Completed:** 2026-04-09T09:32:43Z
+- **Started:** 2026-04-17T12:13:36Z
+- **Completed:** 2026-04-17T12:15:20Z
 - **Tasks:** 2
 - **Files modified:** 2
 
 ## Accomplishments
-- Modified advanceTurn to skip disconnected slots using a loop with cycle guard — prevents infinite loop if all players disconnect
-- Added reservePlayerSlot and reconnectPlayer to game.js with correct hostId update (Pitfall 1), timer management, and host promotion on 30s expiry
-- Rewrote disconnecting handler to branch on game phase: game phase holds slot 30s via reservePlayerSlot; lobby phase evicts immediately (unchanged behavior)
-- Added reconnectRoom socket event handler that re-associates socket ID, joins room, broadcasts game:stateUpdate, emits game:playerReconnected
-- getPublicState now includes disconnected flag on all player objects for client badge rendering
-- All 111 existing tests pass (85 game + 26 socket) with no regressions
+- `createLobby` and `addPlayer` now initialize `disconnected: false` on each player object
+- `advanceTurn` replaced with a cycle-guarded for-loop that skips disconnected slots, terminating safely when all players are disconnected
+- `getPublicState` exposes `disconnected: p.disconnected === true` on every player entry so clients receive the flag
+- `disconnecting` handler in socket.js marks `player.disconnected = true` + `disconnectedAt` synchronously before the hold timer, advances the turn if the active player disconnects, and broadcasts `game:stateUpdate` so other players immediately see the dimmed badge
+- `reconnectRoom` clears `existingPlayer.disconnected = false` and deletes `disconnectedAt` before re-associating the socket
+- Hold-timer callback deletes the lobby when every remaining player has `disconnected === true` (all-disconnect cleanup)
 
 ## Task Commits
 
 Each task was committed atomically:
 
-1. **Task 1: Add reconnect functions to game.js + modify advanceTurn + update getPublicState** - `0e2c219` (feat)
-2. **Task 2: Modify socket.js disconnecting handler and add reconnectRoom event** - `3ba224d` (feat)
-
-**Plan metadata:** (docs commit follows)
+1. **Task 1: Add disconnected flag, advanceTurn skip logic, getPublicState exposure in game.js** - `cef16e8` (feat)
+2. **Task 2: Set/clear disconnected flag in socket.js; broadcast game:stateUpdate on disconnect; delete lobby when all disconnected** - `e74bd6d` (feat)
 
 ## Files Created/Modified
-- `server/src/game.js` - advanceTurn skip logic; reservePlayerSlot and reconnectPlayer functions; getPublicState disconnected flag; addPlayer/createLobby disconnected field initialization
-- `server/src/socket.js` - game-phase/lobby-phase branch in disconnecting handler; new reconnectRoom event handler; reservePlayerSlot/reconnectPlayer imports
+- `server/src/game.js` - disconnected: false in createLobby/addPlayer; advanceTurn cycle-guard; getPublicState exposes disconnected field
+- `server/src/socket.js` - disconnecting handler sets flag and broadcasts; reconnectRoom clears flag; all-disconnect lobby cleanup
 
 ## Decisions Made
-- advanceTurn uses a for-loop with cycle guard (max iterations = player count) to skip disconnected slots without infinite loop when all players disconnect
-- reservePlayerSlot stores timer on `player.disconnectTimer` field — cleared on reconnect, avoids external Map tracking
-- reconnectPlayer updates `lobby.hostId` when reconnecting player is host (Pitfall 1 prevention)
-- disconnecting handler returns early after reservePlayerSlot in game phase — lobby-phase path falls through unchanged, preserving all existing behavior
-- reconnectRoom handler emits `room:error` with `result.error` (dynamic) for accurate "Session expired" vs. "Room not found" messages
+- `advanceTurn` stays pure (no `deleteLobby` call) — all-disconnect cleanup belongs in the socket.js hold-timer callback where IO is available
+- Cycle guard uses `len` iterations (not `len - 1`) to handle the edge case where the current slot is the only non-disconnected player before the call
+- `=== true` coercion in `getPublicState` guards against `undefined` on legacy player objects
 
 ## Deviations from Plan
 
 None - plan executed exactly as written.
 
 ## Issues Encountered
-
-None - all changes applied cleanly, all existing tests passed immediately.
+None
 
 ## User Setup Required
-
 None - no external service configuration required.
 
 ## Next Phase Readiness
-
-Server reconnect infrastructure is complete and ready for Phase 15 Plan 02 (client-side reconnect UI):
-- game:playerDisconnected event emitted when player disconnects during game
-- game:playerReconnected event emitted when player successfully reconnects
-- game:stateUpdate includes disconnected flag on player objects for badge rendering
-- room:error "Session expired" emitted on failed reconnect — existing room:error handler in client handles this path
-- reconnectRoom event handler accepts { roomCode, playerName } from client on socket reconnect
+- Server-side disconnect foundation is complete
+- Plan 15-02 can implement the client-side `reconnectRoom` emit guard and dimmed badge rendering
+- Plan 15-03 can add integration tests for the full reconnect flow
 
 ## Self-Check: PASSED
 
-- server/src/game.js: FOUND
-- server/src/socket.js: FOUND
-- .planning/phases/15-reconnect-after-disconnect/15-01-SUMMARY.md: FOUND
-- commit 0e2c219: FOUND
-- commit 3ba224d: FOUND
+- FOUND: server/src/game.js
+- FOUND: server/src/socket.js
+- FOUND: .planning/phases/15-reconnect-after-disconnect/15-01-SUMMARY.md
+- FOUND commit: cef16e8 (feat(15-01): game.js changes)
+- FOUND commit: e74bd6d (feat(15-01): socket.js changes)
 
 ---
 *Phase: 15-reconnect-after-disconnect*
-*Completed: 2026-04-09*
+*Completed: 2026-04-17*

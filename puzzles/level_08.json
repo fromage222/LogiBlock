@@ -1,0 +1,26 @@
+{
+  "id": "level_08",
+  "name": "Level 8",
+  "difficulty": "hard",
+  "gridSize": { "rows": 5, "cols": 9 },
+  "inactiveCells": [[4,0],[4,8]],
+  "shapes": [
+    { "id": "P04", "cells": [[0,1],[1,0],[1,1],[1,2]],             "movable": false, "position": [0,4] },
+    { "id": "P05", "cells": [[0,0],[0,1],[0,2],[0,3],[1,0]],       "movable": false, "position": [3,1] },
+    { "id": "P06", "cells": [[0,0],[0,1],[1,0]],                   "movable": false, "position": [0,3] },
+    { "id": "P08", "cells": [[0,0],[0,1],[0,2],[1,2]],             "movable": false, "position": [2,3] },
+    { "id": "P01", "cells": [[0,0],[0,1],[0,2]],                   "movable": true  },
+    { "id": "P02", "cells": [[0,2],[0,3],[1,0],[1,1],[1,2]],       "movable": true  },
+    { "id": "P03", "cells": [[0,0],[0,1],[0,2],[1,2],[2,2]],       "movable": true  },
+    { "id": "P07", "cells": [[0,0],[0,1],[1,0],[1,1],[2,1]],       "movable": true  },
+    { "id": "P09", "cells": [[0,1],[1,0],[1,1],[2,0]],             "movable": true  },
+    { "id": "P10", "cells": [[0,0],[1,0],[2,0],[2,1],[3,0]],       "movable": true  }
+  ],
+  "solution": [
+    ["P10", "P07", "P07", "P06", "P06", "P04", "P03", "P03", "P03"],
+    ["P10", "P07", "P07", "P06", "P04", "P04", "P04", "P09", "P03"],
+    ["P10", "P10", "P07", "P08", "P08", "P08", "P09", "P09", "P03"],
+    ["P10", "P05", "P05", "P05", "P05", "P08", "P09", "P02", "P02"],
+    [null,  "P05", "P01", "P01", "P01", "P02", "P02", "P02", null ]
+  ]
+}

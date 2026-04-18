@@ -35,7 +35,7 @@ function createLobby(roomCode, hostSocketId, hostName) {
     hostId: hostSocketId,
     selectedPuzzleId: firstPuzzleId,
     phase: 'lobby',
-    players: [{ socketId: hostSocketId, name: hostName, isHost: true }],
+    players: [{ socketId: hostSocketId, name: hostName, isHost: true, disconnected: false }],
     grid: null,
     randomModeEnabled: false,
     extraTurns: 0,           // Phase 14: double_turn gate
@@ -165,10 +165,16 @@ function returnPiece(lobby, shapeId) {
 
 // ─── Turn helpers (GAME-07, GAME-08, GAME-09) ─────────────────────────────────
 
-// Advance the active turn to the next player (circular).
+// Advance the active turn to the next player (circular), skipping disconnected players.
 function advanceTurn(lobby) {
   if (!lobby.players || lobby.players.length === 0) return;
-  lobby.activeTurnIndex = (lobby.activeTurnIndex + 1) % lobby.players.length;
+  const len = lobby.players.length;
+  for (let i = 0; i < len; i++) {
+    lobby.activeTurnIndex = (lobby.activeTurnIndex + 1) % len;
+    if (!lobby.players[lobby.activeTurnIndex].disconnected) return;
+  }
+  // Every player is disconnected -- leave activeTurnIndex where it landed.
+  // socket.js hold-timer callback handles lobby deletion when all players disconnect.
 }
 
 // ─── Safe serialization (GAME-06 invariant: solution NEVER leaves server) ────
@@ -205,6 +211,7 @@ function getPublicState(roomCode) {
       name: p.name,
       isHost: p.isHost,
       socketId: p.socketId,
+      disconnected: p.disconnected === true,
     })),
     selectedPuzzleName: puzzle ? puzzle.name : null,
     selectedPuzzleDifficulty: puzzle ? (puzzle.difficulty ?? null) : null,
@@ -353,7 +360,7 @@ function loadPuzzles() {
 function addPlayer(roomCode, socketId, name) {
   const lobby = lobbies.get(roomCode);
   if (!lobby) return false;
-  lobby.players.push({ socketId, name, isHost: false });
+  lobby.players.push({ socketId, name, isHost: false, disconnected: false });
   return true;
 }
 

@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 LogiBlock MVP** — Phases 1-3 (shipped 2009-03-10)
 - ✅ **v1.1 Grid & Pieces Redesign** — Phases 4-10 (shipped 2026-04-06)
-- 🚧 **v1.2 Spielqualität & Features** — Phases 11-15 (in progress)
+- 🚧 **v1.2 Spielqualitat & Features** — Phases 11-15 (in progress)
 
 ## Phases
 
@@ -21,7 +21,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 ### 🚧 v1.1 Grid & Pieces Redesign (In Progress)
 
-**Milestone Goal:** Irregular 5×9 grid (43 active cells, 4 missing corners), 10 custom pieces that tile it exactly, and a new click interaction model (single-click rotates, double-click places).
+**Milestone Goal:** Irregular 5x9 grid (43 active cells, 4 missing corners), 10 custom pieces that tile it exactly, and a new click interaction model (single-click rotates, double-click places).
 
 - [x] **Phase 4: Schema and Server Data Model** - Introduce the irregular grid sentinel and new puzzle JSON; lock the foundational data model all other phases depend on
 - [x] **Phase 5: Server Logic Fixes** - Propagate the sentinel to win detection and placement rejection so the game plays correctly on the irregular grid
@@ -31,18 +31,18 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 ## Phase Details
 
 ### Phase 4: Schema and Server Data Model
-**Goal**: The server can load, validate, and represent the new irregular 5×9 puzzle with 10 custom pieces; all existing tests still pass
+**Goal**: The server can load, validate, and represent the new irregular 5x9 puzzle with 10 custom pieces; all existing tests still pass
 **Depends on**: Phase 3 (v1.0 complete)
 **Requirements**: GRID-01, GRID-02, PIEC-01, PIEC-02
 **Success Criteria** (what must be TRUE):
-  1. The server starts without errors when `puzzles/puzzle_v11.json` is present, loading the irregular 5×9 grid definition
+  1. The server starts without errors when `puzzles/puzzle_v11.json` is present, loading the irregular 5x9 grid definition
   2. The server grid array contains `{ inactive: true }` sentinel objects at the 2 missing corner positions [4,7] and [4,8], and `null` at all 43 active positions
   3. The schema validator rejects a puzzle JSON whose total shape cells do not match the non-null solution cell count (when inactiveCells is declared)
   4. All existing tests pass without modification after the sentinel is introduced
 **Plans**: 2 plans
 
 Plans:
-- [x] 04-01-PLAN.md — Author `puzzle_v11.json` (5×9, 43 active cells, 10 pieces) and extend `validatePuzzleSchema()` with `inactiveCells` field validation + cell-count cross-check
+- [x] 04-01-PLAN.md — Author `puzzle_v11.json` (5x9, 43 active cells, 10 pieces) and extend `validatePuzzleSchema()` with `inactiveCells` field validation + cell-count cross-check
 - [x] 04-02-PLAN.md — Replace `buildInitialGrid()` with sentinel-aware single-pass implementation; unit tests; human verification
 
 ### Phase 5: Server Logic Fixes
@@ -59,7 +59,7 @@ Plans:
 - [x] 05-01-PLAN.md — Fix `checkWin()` sentinel guard (GRID-04) and add TDD tests for win detection + inactive-cell rejection (GRID-03)
 
 ### Phase 6: Client Grid Rendering
-**Goal**: The client renders the irregular 5×9 grid correctly — inactive cells appear as transparent gaps, and all 10 pieces display with distinct colors
+**Goal**: The client renders the irregular 5x9 grid correctly — inactive cells appear as transparent gaps, and all 10 pieces display with distinct colors
 **Depends on**: Phase 5
 **Requirements**: GRID-05, GRID-06, PIEC-03
 **Success Criteria** (what must be TRUE):
@@ -105,7 +105,7 @@ Plans:
 | 12. Controls Modal | 1/1 | Complete    | 2026-04-06 | - |
 | 13. Per-Level Leaderboard | 1/1 | Complete    | 2026-04-06 | - |
 | 14. Random Mode Overhaul | 2/2 | Complete   | 2026-04-07 | - |
-| 15. Reconnect After Disconnect | 3/3 | Complete   | 2026-04-10 | - |
+| 15. Reconnect After Disconnect | 2/3 | Complete    | 2026-04-17 | - |
 
 ### Phase 8: Erstes richtiges Level bauen — Design und Implementierung eines finalen Puzzle-Levels als echtes Spielerlebnis
 
@@ -132,7 +132,7 @@ Plans:
 - [ ] 09-03-PLAN.md — TDD: socket.js lobby:randomMode handler + game:move place branch event trigger; socket integration tests
 - [ ] 09-04-PLAN.md — Human verification: lobby toggle (2 scenarios), in-game events (5 scenarios)
 
-### Phase 10: Steuerung überarbeiten und Tablet Integration
+### Phase 10: Steuerung ueberarbeiten und Tablet Integration
 
 **Goal:** Rework the control model for both desktop and tablet: replace double-click-to-place with single-click-to-place + rotation buttons, add touch drag-to-preview for tablet gameplay, and make the grid auto-scale to available screen space. Landscape tablet (1024x768+) is the tablet target.
 **Requirements**: CTRL-single-click-place, CTRL-return-click, CTRL-rotation-buttons, EXT-01-R-key, TOUCH-drag-preview, TOUCH-ghost-confirm, TOUCH-long-press, CSS-auto-scale, CSS-portrait-overlay
@@ -144,7 +144,7 @@ Plans:
 - [x] 10-02-PLAN.md — Touch event support: bank drag-to-preview, ghost-stays-on-touchend, long-press return
 - [x] 10-03-PLAN.md — Human verification of complete interaction model (23 scenarios)
 
-### 🚧 v1.2 Spielqualität & Features (In Progress)
+### 🚧 v1.2 Spielqualitat & Features (In Progress)
 
 **Milestone Goal:** Spielerfahrung verbessern durch 5 orthogonale Erweiterungen auf dem stabilen v1.1-Spiel: Profanity-Filter, Steuerungsmodal, Level-Rangliste, Random-Mode-Overhaul, Reconnect nach Disconnect.
 
@@ -152,7 +152,7 @@ Plans:
 - [x] **Phase 12: Controls Modal** - Client-side info button and `<dialog>` modal with desktop/touch control reference (completed 2026-04-06)
 - [x] **Phase 13: Per-Level Leaderboard** - Client-side tab UI filtering leaderboard entries by puzzleName (completed 2026-04-06)
 - [x] **Phase 14: Random Mode Overhaul** - Add double_turn + reverse_order + blind_bank events; rebalance trigger weights (completed 2026-04-07)
-- [x] **Phase 15: Reconnect After Disconnect** - 30-second reconnect window for mid-game disconnects with socket ID re-association (completed 2026-04-10)
+- [x] **Phase 15: Reconnect After Disconnect** - Browser-reload recovery: 5s hold window, dimmed badge, turn skipping, no overlay/notifications (replanned 2026-04-17) (completed 2026-04-17)
 
 ### Phase 11: Profanity Filter
 **Goal**: Player names containing profanity are rejected server-side before room creation or joining; existing `room:error` display handles the feedback
@@ -173,7 +173,7 @@ Plans:
 **Depends on**: Phase 11
 **Requirements**: HLP-01
 **Success Criteria** (what must be TRUE):
-  1. An info/help button (ℹ or ?) is visible in `#game-screen` and does not obscure game content
+  1. An info/help button (i or ?) is visible in `#game-screen` and does not obscure game content
   2. Clicking the button opens a modal with accurate Phase 10 control descriptions (desktop + touch sections)
   3. Modal closes on: X button click, Escape key, click-outside-backdrop
   4. Opening/closing the modal emits no socket events and does not affect game state
@@ -188,7 +188,7 @@ Plans:
 **Requirements**: LDR-01
 **Success Criteria** (what must be TRUE):
   1. The leaderboard UI shows one tab per puzzle that has entries (derived from `puzzleName` field already in every entry)
-  2. Selecting a tab filters the table to show only entries for that puzzle, ranked 1st–Nth
+  2. Selecting a tab filters the table to show only entries for that puzzle, ranked 1st-Nth
   3. The default tab is the puzzle with the most recent entry (or first alphabetically if tied)
   4. Server code is unchanged — no new socket events, no server-side filtering
 **Plans**: 1 plan
@@ -212,18 +212,18 @@ Plans:
 - [ ] 14-02-PLAN.md — Client: blind_bank `.blind` CSS class + bank opacity handler; human verification: all 7 event types fire correctly
 
 ### Phase 15: Reconnect After Disconnect
-**Goal**: A player who disconnects mid-game has a 30-second window to reconnect and resume their slot; the game continues with their turns skipped during the window
+**Goal**: A player who reloads their browser mid-game can rejoin the same game and continue playing. The server keeps the slot alive for 5s -- enough for a browser reload. During the hold, the game continues and their turn is skipped. No overlay, no notifications, no 30s timer.
 **Depends on**: Phase 14
 **Requirements**: RECON-01, RECON-02, RECON-03
 **Success Criteria** (what must be TRUE):
-  1. On disconnect mid-game: player slot is marked `{ disconnected: true, disconnectedAt }` for 30s instead of being immediately removed; turn advances past them
-  2. Remaining players see a notification "X disconnected — reconnecting..." for the 30-second window
-  3. Player reconnects (same name + room code) within 30s: slot is re-associated with new socket ID, player rejoins the game at current state
-  4. 30s expires without reconnect: slot is fully evicted, `lobby:playerLeft` broadcast, game continues
-  5. Lobby-phase disconnects are unchanged: host disconnect still closes lobby, non-host still evicted immediately
+  1. On disconnect mid-game: player slot is marked `{ disconnected: true, disconnectedAt }` for 5s instead of being immediately removed; turn advances past them; other players see dimmed badge via game:stateUpdate
+  2. Player reconnects (same name + room code) within 5s: slot is re-associated with new socket ID, disconnected flag cleared, player rejoins at current state
+  3. 5s expires without reconnect: slot is fully evicted, `lobby:playerLeft` broadcast, game continues
+  4. All players disconnect: lobby is deleted (no orphan state)
+  5. room:error on game screen drops player back to start screen with error message
 **Plans**: 3 plans
 
 Plans:
-- [x] 15-01-PLAN.md — Server: modify `disconnecting` handler for game-phase hold vs. lobby-phase evict; add 30s setTimeout per disconnecting player; new `reconnectRoom` socket handler
-- [x] 15-02-PLAN.md — Client: `reconnectRoom` emit on Socket.IO auto-reconnect; "Reconnecting..." UI state; handle `room:error "Session expired"` path
-- [x] 15-03-PLAN.md — TDD: disconnect-hold, 30s-expiry, successful reconnect, host-reconnect, all-disconnect edge cases; human verification
+- [ ] 15-01-PLAN.md — Server: add disconnected flag + advanceTurn skip logic + getPublicState exposure; set flag on disconnect + broadcast stateUpdate + clear on reconnect; all-disconnect cleanup
+- [ ] 15-02-PLAN.md — Client: .disconnected CSS dim styles + renderTurnUI/renderLobbyUpdate wiring + room:error game-screen branch + connect handler verification
+- [ ] 15-03-PLAN.md — TDD: advanceTurn skip tests, getPublicState disconnected field tests, disconnect hold tests, reconnect clear tests

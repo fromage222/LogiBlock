@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.2
-milestone_name: Spielqualität & Features
+milestone_name: Spielqualitat & Features
 status: unknown
-stopped_at: Completed 15-03-PLAN.md
-last_updated: "2026-04-10T12:32:39.131Z"
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-04-17T13:05:04.333Z"
 progress:
   total_phases: 12
   completed_phases: 12
@@ -63,6 +63,8 @@ Plan: 1 of 3
 | Phase 15-reconnect-after-disconnect P01 | 2min | 2 tasks | 2 files |
 | Phase 15-reconnect-after-disconnect P02 | 5min | 2 tasks | 3 files |
 | Phase 15 P03 | 2min | 2 tasks | 2 files |
+| Phase 15 P01 | 2 | 2 tasks | 2 files |
+| Phase 15-reconnect-after-disconnect P02 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -121,6 +123,10 @@ v1.1 decisions locked by research:
 - [Phase 15-reconnect-after-disconnect P02]: reconnectRoom emit guarded by gameScreen.classList.contains('active') + myRoomCode + myPlayerName — screen-state guard avoids spurious emit on initial page load
 - [Phase 15-reconnect-after-disconnect P02]: room:error extended to three branches: start-screen (showJoinError), game-screen (drop to start + clear state), lobby (notification)
 - [Phase 15]: cleanupTimers helper clears disconnectTimer on all players after each test to prevent 30s hang in test runner
+- [Phase 15-01]: advanceTurn uses for-loop with cycle guard (max iterations = player count) to skip disconnected slots without infinite loop when all players disconnect
+- [Phase 15-01]: advanceTurn remains pure — no deleteLobby call; all-disconnect cleanup delegated to socket.js hold-timer callback
+- [Phase 15-reconnect-after-disconnect]: reconnectRoom emit guarded by existing connect handler -- unconditional when localStorage has credentials, pendingAutoRejoin only on start screen
+- [Phase 15-reconnect-after-disconnect]: room:error extended to three branches: start-screen (showJoinError), game-screen (drop to start + clear state), lobby (notification)
 
 ### Roadmap Evolution
 
@@ -138,6 +144,6 @@ None — Phase 10 complete and human-verified. All 23 interaction scenarios pass
 
 ## Session Continuity
 
-Last session: 2026-04-10T12:32:39.129Z
-Stopped at: Completed 15-03-PLAN.md
+Last session: 2026-04-17T12:20:52.798Z
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None

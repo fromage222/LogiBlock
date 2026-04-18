@@ -299,7 +299,11 @@ function registerSocketHandlers(io, socket, puzzleMap) {
 
     // Cancel any pending grace-period removal for this player.
     const timerKey = `${roomCode}:${name}`;
-    if (disconnectTimers.has(timerKey)) {
+    // Capture whether this reconnect is resuming from a grace-period disconnect
+    // (disconnecting already fired) vs a fast-reload (disconnecting hasn't fired yet).
+    // This is used below to correctly evaluate Fix C without a false positive.
+    const wasInGracePeriod = disconnectTimers.has(timerKey);
+    if (wasInGracePeriod) {
       clearTimeout(disconnectTimers.get(timerKey));
       disconnectTimers.delete(timerKey);
     }
@@ -314,6 +318,10 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     // 5-second timer fires), the timer callback checks player.socketId !== oldSocketId
     // and returns early — so the player is never removed.
 
+    // Clear disconnected flag so the player resumes participating in turn rotation.
+    existingPlayer.disconnected = false;
+    delete existingPlayer.disconnectedAt;
+
     replacePlayerSocket(roomCode, name, socket.id);
     socket.data.roomCode = roomCode;
     socket.data.playerName = name;
@@ -323,11 +331,38 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       socket.emit('puzzle:list', getPuzzleListForClient());
       io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
     } else {
-      // Playing phase — send full current state so client can restore the game screen.
-      socket.emit('game:reconnect', {
-        ...getPublicState(roomCode),
-        startTime: lobby.startTime,
-      });
+      // Playing phase: restore connection state, apply Fix C if needed, then broadcast.
+
+      const reconnectingIndex = lobby.players.indexOf(existingPlayer);
+
+      // Fix C: fast-reload race guard.
+      // When the new socket emits reconnectRoom BEFORE the old socket's 'disconnecting'
+      // fires (!wasInGracePeriod), and the reconnecting player is the active player,
+      // advance the turn now — otherwise they keep their turn forever (the old socket's
+      // FAST-RELOAD disconnecting path will be a no-op since the socketId already changed).
+      //
+      // wasInGracePeriod=true means disconnecting already fired and handled the advance
+      // (slow-reload path). In that case we must NOT advance again.
+      if (!wasInGracePeriod && reconnectingIndex === lobby.activeTurnIndex) {
+        lobby.activeTurnIndex = (reconnectingIndex + 1) % lobby.players.length;
+        // Mark the newly promoted player so that a racing 'disconnecting' from their OLD
+        // socket cannot mistake them for "genuinely active" and advance the turn again.
+        const promotedPlayer = lobby.players[lobby.activeTurnIndex];
+        if (promotedPlayer) {
+          promotedPlayer.fixCPromotionSocketId = promotedPlayer.socketId;
+        }
+      }
+
+      // Cleanup flags on the reconnecting player — they are now live again.
+      delete existingPlayer.wasActiveDuringDisconnect;
+      delete existingPlayer.fixCPromotionSocketId;
+
+      // Broadcast to all: clears the disconnected badge and shows correct game state.
+      io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
+
+      // Send full game state to reconnecting player to restore their screen.
+      const reconnectState = { ...getPublicState(roomCode), startTime: lobby.startTime };
+      socket.emit('game:reconnect', reconnectState);
     }
   });
 
@@ -381,6 +416,53 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     const oldSocketId = socket.id;
     const key = `${roomCode}:${playerName}`;
 
+    // ── Game-phase hold: mark player as disconnected, advance turn if active,
+    //    and broadcast the updated state so other players see the dimmed badge.
+    //    Guard: only apply if the player hasn't already reconnected with a new socket.
+    //    When reconnect-before-disconnect ordering occurs, replacePlayerSocket has
+    //    already changed player.socketId to the new socket id — in that case skip
+    //    the hold entirely so we don't clobber the live player's state.
+    if (lobby.phase === 'playing') {
+      const pendingPlayer = lobby.players.find(p => p.name === playerName);
+      const playerIndex = pendingPlayer ? lobby.players.indexOf(pendingPlayer) : -1;
+      const wasActive = playerIndex !== -1 && playerIndex === lobby.activeTurnIndex;
+
+      if (pendingPlayer && pendingPlayer.socketId === socket.id) {
+        // SLOW PATH: disconnecting fires before reconnectRoom (no page reload yet, or no reconnect).
+        // Mark disconnected so the grace-period timer and advanceTurn know to skip this player.
+        pendingPlayer.disconnected = true;
+        pendingPlayer.disconnectedAt = Date.now();
+
+        // fixCPromotionSocketId guard: this player was promoted to active by another player's
+        // Fix C (or slow-path advance) while their socket was still alive. Their socket is
+        // only now dropping — but since they EARNED the turn via promotion, we must NOT
+        // advance away from them. Only the exact socket that was current at promotion time
+        // triggers this guard (socket-ID specificity prevents stale matches).
+        const isPromotedPlayer = pendingPlayer.fixCPromotionSocketId &&
+          socket.id === pendingPlayer.fixCPromotionSocketId;
+
+        if (wasActive && !isPromotedPlayer) {
+          // Record that this player was genuinely active at disconnect time.
+          // reconnectRoom uses this (via wasInGracePeriod check) to avoid re-firing Fix C.
+          pendingPlayer.wasActiveDuringDisconnect = true;
+          // Advance directly: advanceTurn skips disconnected players which could loop back
+          // to this player if all others are also in grace-period. Direct index is safe.
+          lobby.activeTurnIndex = (playerIndex + 1) % lobby.players.length;
+          // Mark the newly promoted player so that a racing 'disconnecting' from their OLD
+          // socket cannot mistake them for "genuinely active" and advance the turn again.
+          const promotedPlayer = lobby.players[lobby.activeTurnIndex];
+          if (promotedPlayer) {
+            promotedPlayer.fixCPromotionSocketId = promotedPlayer.socketId;
+          }
+        }
+        io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
+      } else if (pendingPlayer) {
+        // FAST-RELOAD PATH: reconnectRoom already fired and replaced the socket.
+        // Fix C in reconnectRoom handled the turn advance (if the player was active).
+        // Nothing to do here — the player is live again and the state is already correct.
+      }
+    }
+
     // Cancel any existing timer for this player (e.g., rapid consecutive reloads).
     if (disconnectTimers.has(key)) {
       clearTimeout(disconnectTimers.get(key));
@@ -396,7 +478,47 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       const player = currentLobby.players.find(p => p.name === playerName);
       if (!player || player.socketId !== oldSocketId) return;
 
-      performLeave(io, roomCode, playerName, oldSocketId);
+      // Playing phase: do NOT remove the player from the lobby.
+      // The player remains as a disconnected slot so that a late reconnectRoom
+      // (e.g. slow page load that exceeds the grace window) can still find them
+      // and reactivate their participation. advanceTurn already skips players
+      // marked disconnected, so the game continues without stalling.
+      if (currentLobby.phase === 'playing') {
+        // Check if all remaining players are disconnected — if so, abandon the game.
+        const allDisconnected = currentLobby.players.every(p => p.disconnected === true);
+        if (allDisconnected) {
+          for (const otherKey of Array.from(disconnectTimers.keys())) {
+            if (otherKey.startsWith(`${roomCode}:`)) {
+              clearTimeout(disconnectTimers.get(otherKey));
+              disconnectTimers.delete(otherKey);
+            }
+          }
+          deleteLobby(roomCode);
+          return;
+        }
+        // Game continues with remaining connected players; broadcast updated state.
+        io.to(roomCode).emit('game:stateUpdate', getPublicState(roomCode));
+        return;
+      }
+
+      // Lobby phase: fully remove the player and notify others.
+      const isNowHost = currentLobby.hostId === oldSocketId;
+      removePlayer(roomCode, oldSocketId);
+
+      // GAME-10: destroy lobby if empty
+      if (currentLobby.players.length === 0) {
+        deleteLobby(roomCode);
+        return;
+      }
+
+      if (isNowHost) {
+        deleteLobby(roomCode);
+        io.to(roomCode).emit('lobby:hostLeft', { message: 'Host left — lobby closed' });
+        return;
+      }
+
+      io.to(roomCode).emit('lobby:playerLeft', { playerName });
+      io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
     }, DISCONNECT_GRACE_MS);
 
     disconnectTimers.set(key, timer);

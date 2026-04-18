@@ -1002,3 +1002,66 @@ describe('pickRandomEvent - Phase 14 weight table', () => {
   });
 });
 
+// -- Phase 15: advanceTurn disconnect skip --------------------------------
+
+describe('advanceTurn - disconnected player skip', () => {
+  it('skips a disconnected player and lands on the next connected player', () => {
+    const lobby = makeLobby('AT-DC01');
+    // 2 players: Alice (index 0), Bob (index 1)
+    lobby.activeTurnIndex = 0;
+    lobby.players[1].disconnected = true;
+    // From index 0, advance should try index 1 (disconnected), then wrap to 0
+    advanceTurn(lobby);
+    assert.strictEqual(lobby.activeTurnIndex, 0, 'should wrap back to index 0 (only connected player)');
+  });
+
+  it('skips multiple disconnected players (3 players, 2 disconnected)', () => {
+    const lobby = makeLobby('AT-DC02');
+    lobby.players.push({ socketId: 'p3-socket', name: 'Carol', isHost: false, disconnected: false });
+    // Alice (0), Bob (1), Carol (2) -- disconnect Alice and Bob
+    lobby.players[0].disconnected = true;
+    lobby.players[1].disconnected = true;
+    lobby.activeTurnIndex = 2; // Carol is active
+    advanceTurn(lobby);
+    // Should skip 0 (disconnected) and 1 (disconnected), land on 2 (Carol again)
+    assert.strictEqual(lobby.activeTurnIndex, 2, 'should land back on Carol (only connected player)');
+  });
+
+  it('terminates without infinite loop when all players are disconnected', () => {
+    const lobby = makeLobby('AT-DC03');
+    lobby.players[0].disconnected = true;
+    lobby.players[1].disconnected = true;
+    lobby.activeTurnIndex = 0;
+    // Should complete without hanging -- cycle guard limits iterations to player count
+    advanceTurn(lobby);
+    // activeTurnIndex will have moved (exact value depends on implementation)
+    assert.ok(typeof lobby.activeTurnIndex === 'number', 'activeTurnIndex should be a number');
+  });
+});
+
+// -- Phase 15: getPublicState disconnected field ---------------------------
+
+describe('getPublicState - disconnected field', () => {
+  it('includes disconnected: false for connected players', () => {
+    lobbies.delete('GPS-DC01');
+    createLobby('GPS-DC01', 'host-socket', 'Alice');
+    addPlayer('GPS-DC01', 'p2-socket', 'Bob');
+    const state = getPublicState('GPS-DC01');
+    for (const player of state.players) {
+      assert.strictEqual(player.disconnected, false, `${player.name} should have disconnected: false`);
+    }
+  });
+
+  it('includes disconnected: true for a player whose flag is set', () => {
+    lobbies.delete('GPS-DC02');
+    createLobby('GPS-DC02', 'host-socket', 'Alice');
+    addPlayer('GPS-DC02', 'p2-socket', 'Bob');
+    const lobby = lobbies.get('GPS-DC02');
+    lobby.players[1].disconnected = true;
+    const state = getPublicState('GPS-DC02');
+    const bob = state.players.find(p => p.name === 'Bob');
+    assert.strictEqual(bob.disconnected, true, 'Bob should have disconnected: true');
+    const alice = state.players.find(p => p.name === 'Alice');
+    assert.strictEqual(alice.disconnected, false, 'Alice should have disconnected: false');
+  });
+});

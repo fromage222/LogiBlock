@@ -671,6 +671,25 @@ button:disabled                     { background: var(--clr-surface-alt); color:
 }
 
 /* ============================================================
+   PHASE 15 -- DISCONNECTED (dimmed) STATE
+   Applied by main.js renderTurnUI and renderLobbyUpdate when
+   state.players[i].disconnected === true. Visual-only dimming:
+   no label changes, no notification -- CONTEXT.md removed those.
+   ============================================================ */
+.player-badge.disconnected,
+#player-list li.disconnected {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+  transition: opacity var(--t-normal), filter var(--t-normal);
+}
+
+/* Keep the active-player highlight legible when active player dropped. */
+.player-badge.disconnected.active,
+.player-badge.active.disconnected {
+  opacity: 0.45;
+}
+
+/* ============================================================
    GAME AREA
    ============================================================ */
 .game-area {

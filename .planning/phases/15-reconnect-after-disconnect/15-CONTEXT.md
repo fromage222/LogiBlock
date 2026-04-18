@@ -1,12 +1,12 @@
 # Phase 15: Reconnect After Disconnect - Context
 
-**Gathered:** 2026-04-09
-**Status:** Ready for planning
+**Gathered:** 2026-04-16
+**Status:** Ready for planning (revised — simplified scope)
 
 <domain>
 ## Phase Boundary
 
-A player who disconnects mid-game has a 30-second hold window to reconnect and resume their slot. During the window, turns are skipped over the disconnected slot and the game keeps running. After 30s without reconnect, the slot is evicted and the game continues. Lobby-phase disconnect behavior is unchanged.
+A player who reloads their browser mid-game can rejoin the same game and continue playing. The server keeps the slot alive for a short hold window (5–10s) — enough for a browser reload. During the hold, the game continues and their turn is skipped. All other Phase 15 complexity (30s timer, disconnect notifications, reconnecting overlay, host promotion) is removed.
 
 </domain>
 
@@ -14,40 +14,42 @@ A player who disconnects mid-game has a 30-second hold window to reconnect and r
 ## Implementation Decisions
 
 ### Reconnect trigger mechanism
-- Auto-reconnect only — no page-reload recovery
-- Socket.IO auto-reconnect fires a `connect` event on the client; if `gameScreen` is currently active, emit `reconnectRoom` with `{ roomCode: myRoomCode, playerName: myPlayerName }`
-- Guard by screen state (game screen active) — not a flag — to avoid spurious emit on initial page load
-- Page refresh / tab close: player lands on start screen normally; slot expires after 30s
+- On `connect`, client checks localStorage for room code + player name; if present, always emits `reconnectRoom` — no screen-state guard needed
+- `pendingAutoRejoin` flag set only on start screen path (initial page load); not set on Socket.IO auto-reconnect (game screen)
+- This handles both: page reload during game AND returning from start screen to a lobby/game
 
-### Player list during hold window
-- Disconnected slot remains in the player list, visually dimmed with a "(reconnecting)" badge
-- Turn list and badges reflect `{ disconnected: true }` from server public state
-- Remaining players also see a transient notification: "X disconnected — reconnecting..."
+### Server hold window
+- Hold window: 5–10 seconds (not 30s) — sufficient for a browser reload, no complex timer visualization
+- `player.disconnected = true` + `player.disconnectedAt` set during hold; slot not immediately evicted
+- On hold expiry: slot evicted normally (`lobby:playerLeft` broadcast, game continues)
 
-### Reconnect notifications
-- On successful reconnect: emit `game:stateUpdate` to all players; show "X reconnected!" via `showGameNotification` to remaining players
-- On failed reconnect (slot already evicted): server emits `room:error "Session expired"` on the reconnect attempt; client catches it with existing `room:error` handler, shows message, drops to start screen
-
-### Reconnecting player's device UI
-- On socket disconnect while game screen is active: show "Reconnecting..." overlay (semi-transparent, with spinner text) covering the game screen
-- Overlay dismisses automatically when `game:stateUpdate` arrives after successful reconnect
-- If session expired (room:error): overlay replaced by error message → start screen
-
-### Host mid-game disconnect
-- During game phase, host is treated identically to any other player — gets 30s hold, turns skip over them, others keep playing
-- Only lobby-phase host disconnect is unchanged (lobby closes immediately)
-- If host's 30s expires without reconnect: oldest remaining player is promoted to host (`lobby.hostId` updated), slot evicted, game continues
-- Promotion is silent — no notification needed (host powers aren't used during an active game)
+### Player list during hold
+- Disconnected slot stays dimmed in the player list — no "(reconnecting)" badge text, no notification to other players
+- Other players see a briefly-grayed-out name; no banner or toast
 
 ### Turn skipping during hold
 - `advanceTurn()` skips slots where `player.disconnected === true`
-- `advanceTurn` must loop until it lands on a connected player (cycle guard to avoid infinite loop if all disconnect)
-- All-disconnect edge case: if no connected players remain after hold-slot cleanup, delete lobby
+- Loop guard to avoid infinite loop if all players disconnect
+- All-disconnect edge case: delete lobby if no connected players remain
+
+### Reconnecting player's device
+- No "Reconnecting..." overlay
+- After reload: `connect` fires → `reconnectRoom` emitted → server re-associates socketId and responds with `game:stateUpdate` → client renders game screen directly
+- No special animation or hold-state UI needed
+
+### Session expiry (hold window exceeded)
+- If player reloads after the hold window has expired and slot is evicted: server emits `room:error` (existing handler) → client shows error and drops to start screen
+- No new event type needed; existing `room:error` handler covers this path
+
+### Host mid-game disconnect
+- Host treated identically to any player — 5–10s hold, turn skipped, no host promotion
+- If host hold expires: existing player-left eviction logic applies (oldest player becomes host or lobby closes — Claude's discretion)
 
 ### Claude's Discretion
-- Exact spinner/overlay CSS design
-- Reconnecting badge styling (color, text)
-- Timer implementation for the 30s setTimeout (module-level vs. Map keyed by socketId — researcher can decide)
+- Exact hold window duration (5s vs. 10s — pragmatic choice)
+- Timer implementation (setTimeout per player on server)
+- Exact CSS for dimmed slot (opacity or color desaturation)
+- Host-eviction promotion logic if host's slot expires
 
 </decisions>
 
@@ -68,45 +70,44 @@ No external specs — requirements fully captured in decisions above and the roa
 ## Existing Code Insights
 
 ### Reusable Assets
-- `socket.on('disconnecting', ...)` in `server/src/socket.js:237` — existing handler to be modified for game-phase hold vs. lobby-phase evict
-- `advanceTurnIfActive(lobby, socket.id)` in `server/src/game.js` — already called before removePlayer; needs to account for held disconnected slot
-- `removePlayer(roomCode, socketId)` in `server/src/game.js:356` — currently immediate; Phase 15 defers this to the 30s timeout callback
-- `myRoomCode` and `myPlayerName` module-level vars in `client/main.js:24,26` — survive Socket.IO auto-reconnect; already available for reconnectRoom emit
-- `showGameNotification()` in `client/main.js` — existing notification system; reuse for "X disconnected", "X reconnected!" banners
-- `showScreen()` in `client/main.js:128` — for dropping to start-screen on session expiry
-- `room:error` handler in `client/main.js:1025` — already shows inline error + returns to start screen; `"Session expired"` fits this path
+- `socket.on('disconnecting', ...)` in `server/src/socket.js` — existing handler; modify to set hold instead of immediate evict in game phase
+- `removePlayer(roomCode, socketId)` in `server/src/game.js` — currently immediate; defer to hold-expiry callback
+- `advanceTurn()` in `server/src/game.js` — modify to skip `player.disconnected === true` slots
+- `myRoomCode` and `myPlayerName` module-level vars in `client/main.js:24,26` — survive Socket.IO auto-reconnect; available for reconnectRoom emit
+- `room:error` handler in `client/main.js:1025` — already shows inline error + returns to start screen; covers session-expired path
+- `getPublicState()` in `game.js:196` — sole serialization path; add `disconnected: true` to player objects here for dimmed slot rendering
 
 ### Established Patterns
-- `disconnecting` (not `disconnect`) event used for cleanup — `socket.rooms` still populated; MUST preserve this
+- `disconnecting` (not `disconnect`) event for cleanup — `socket.rooms` still populated; MUST preserve
 - `socket.data.roomCode` is authoritative room reference on disconnect
-- `getPublicState()` in `game.js:196` is the sole serialization path — add `disconnected: true` to player objects here so client can render badge
-- Transient notifications: `showGameNotification(msg)` used for random mode events in Phase 14; same pattern for reconnect events
-- Guard pattern for wiring listeners: `_randomModeWired` flag pattern (Phase 9) — consider similar guard if socket `connect` listener needs to be wired once
+- localStorage keys: `logiblock_roomCode`, `logiblock_playerName` — already written on join, used by reconnect handler
 
 ### Integration Points
-- New `reconnectRoom` socket event handler in `socket.js` — server looks up lobby by roomCode, finds player by name, re-associates socketId
-- `connect` event in `client/main.js` — add handler that checks `gameScreen.classList.contains('active')` and emits `reconnectRoom`
-- `lobby.players` array — extend player objects with `{ disconnected: boolean, disconnectedAt: number }` during hold period
-- `advanceTurn()` in `game.js:169` — modify to skip `disconnected: true` slots in a loop
+- `connect` handler in `client/main.js` — already emits `reconnectRoom`; remove startScreen guard so it fires from any screen
+- New `reconnectRoom` server handler — look up lobby by roomCode, find player by name, re-associate socketId, emit `game:stateUpdate`
+- `lobby.players` array — extend player objects with `{ disconnected: boolean, disconnectedAt: number }` during hold
+- `advanceTurn()` — add loop to skip disconnected slots (cycle guard needed)
 
 </code_context>
 
 <specifics>
 ## Specific Ideas
 
-- Existing comment at `client/main.js:200`: "check by name — socket.id may differ if reconnected" — the codebase already anticipated this scenario; socketId re-association is the right approach
-- The "Session expired" path reuses `room:error` — no new event type needed
+- The `connect` handler in `client/main.js` already emits `reconnectRoom` with localStorage credentials — the only change needed is removing the `startScreen.classList.contains('active')` guard so it also fires during Socket.IO auto-reconnect (game screen path)
+- The existing comment at `client/main.js:200`: "check by name — socket.id may differ if reconnected" confirms this design was anticipated from the start
 
 </specifics>
 
 <deferred>
 ## Deferred Ideas
 
-None — discussion stayed within phase scope.
+- 30-second hold window with "(reconnecting)" badge and "X disconnected" notifications — removed from scope; too complex for the Uni-Abgabe
+- "Reconnecting..." client overlay — removed; direct rejoin is simpler and sufficient
+- Host promotion on expired hold — deferred; existing lobby-close behavior is acceptable fallback
 
 </deferred>
 
 ---
 
 *Phase: 15-reconnect-after-disconnect*
-*Context gathered: 2026-04-09*
+*Context gathered: 2026-04-16 (revised — simplified to browser-reload recovery only)*
