@@ -619,7 +619,7 @@ function showGameNotification(msg) {
   const existing = document.getElementById('event-banner'); if (existing) existing.remove();
   const banner = document.createElement('div'); banner.id = 'event-banner'; banner.className = 'event-banner'; banner.textContent = msg;
   document.getElementById('game-screen').appendChild(banner);
-  setTimeout(() => { if (banner.isConnected) banner.remove(); }, 2500);
+  setTimeout(() => { if (banner.isConnected) banner.remove(); }, 5000);
 }
 
 // ─── Leaderboard ──────────────────────────────────────────────────────────────
