@@ -200,6 +200,7 @@ button:disabled { background: var(--clr-surface-alt); color: var(--clr-text-fain
   border-radius: var(--r-md); color: var(--clr-text); box-shadow: var(--sh-xs); animation: notifPop 0.35s var(--t-bounce) both;
 }
 @keyframes notifPop { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
+.game-notification { min-height: 2.6rem; text-align: center; }
 
 /* ============================================================
    START SCREEN LAYOUT
