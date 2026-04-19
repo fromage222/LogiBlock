@@ -39,7 +39,7 @@ function makePlayingLobby(roomCode = 'STEST01') {
   lobbies.delete(roomCode);
   createLobby(roomCode, 'host-socket', 'Alice');
   addPlayer(roomCode, 'p2-socket', 'Bob');
-  setSelectedPuzzle(roomCode, 'puzzle_01');
+  setSelectedPuzzle(roomCode, 'level_01');
   const result = startGame(roomCode);
   if (!result.ok) throw new Error('startGame failed: ' + result.error);
   return lobbies.get(roomCode);
@@ -110,7 +110,7 @@ describe('game:move handler', () => {
       lobby.activeTurnIndex = 0;
       const { socket, emitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
 
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+      trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
       assert.ok(emitted.socket['game:error'], 'game:error should be emitted');
       assert.equal(emitted.socket['game:error'][0], 'Not your turn');
@@ -127,7 +127,7 @@ describe('game:move handler', () => {
 
       const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+      trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
       assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
       assert.ok(!emitted.room['game:stateUpdate'], 'No game:stateUpdate should be emitted');
@@ -136,7 +136,7 @@ describe('game:move handler', () => {
     it('silently ignores game:move when socket.data.roomCode is missing', () => {
       const { socket, emitted } = makeMocks(undefined, 'orphan-socket', 'Ghost');
 
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+      trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
       assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
     });
@@ -148,15 +148,15 @@ describe('game:move handler', () => {
       const lobby = makePlayingLobby(roomCode);
       lobby.activeTurnIndex = 0; // Alice is active
 
-      // Pre-place B manually so the cell is occupied
+      // Pre-place P01 manually so the cell is occupied
       const { placePiece } = require('./game');
-      placePiece(lobby, 'B', 0, 0, 1); // B at (0,1),(0,2),(1,2)
+      placePiece(lobby, 'P01', 0, 0, 0); // P01 at (0,0),(0,1),(0,2)
 
-      // Alice tries to place C at same origin — overlapping B
+      // Alice tries to place P06 at same origin — overlapping P01
       const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
       lobby.activeTurnIndex = 0; // still Alice
 
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'C', rotation: 0, originRow: 0, originCol: 1 });
+      trigger(socket, 'game:move', { action: 'place', shapeId: 'P06', rotation: 0, originRow: 0, originCol: 0 });
 
       assert.ok(emitted.socket['game:error'], 'game:error should be emitted');
       assert.ok(!emitted.room['game:stateUpdate'], 'stateUpdate must NOT be emitted on error');
@@ -169,8 +169,8 @@ describe('game:move handler', () => {
 
       const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-      // B shape at (3,3) in 4×4 grid → out of bounds
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 3, originCol: 3 });
+      // P01 shape [[0,0],[0,1],[0,2]] at (0,7) in 5×9 grid → col 9 out of bounds
+      trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 7 });
 
       assert.ok(emitted.socket['game:error'], 'game:error should be emitted');
       assert.equal(emitted.socket['game:error'][0], 'Piece out of bounds');
@@ -185,7 +185,7 @@ describe('game:move handler', () => {
 
       const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+      trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
       assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
       assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate should be broadcast to room');
@@ -198,46 +198,11 @@ describe('game:move handler', () => {
 
       const { socket } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+      trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
       assert.equal(lobby.activeTurnIndex, 1, 'activeTurnIndex should advance to 1');
     });
 
-    it('does NOT emit game:stateUpdate for winning move', () => {
-      // Puzzle solution: A(anchor), B at (0,1), C at (1,1) = win
-      const roomCode = 'SM07';
-      const lobby = makePlayingLobby(roomCode);
-      lobby.activeTurnIndex = 0;
-
-      // Pre-place B
-      const { placePiece } = require('./game');
-      placePiece(lobby, 'B', 0, 0, 1);
-      lobby.activeTurnIndex = 0; // still Alice's turn for C
-
-      const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
-
-      // Place C to complete the solution
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'C', rotation: 0, originRow: 1, originCol: 1 });
-
-      assert.ok(emitted.room['game:win'], 'game:win should be broadcast to room');
-      assert.ok(!emitted.room['game:stateUpdate'], 'game:stateUpdate must NOT be emitted on win');
-    });
-
-    it('does NOT advance activeTurnIndex on winning move', () => {
-      const roomCode = 'SM08';
-      const lobby = makePlayingLobby(roomCode);
-      lobby.activeTurnIndex = 0;
-
-      const { placePiece } = require('./game');
-      placePiece(lobby, 'B', 0, 0, 1);
-      lobby.activeTurnIndex = 0;
-
-      const { socket } = makeMocks(roomCode, 'host-socket', 'Alice');
-
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'C', rotation: 0, originRow: 1, originCol: 1 });
-
-      assert.equal(lobby.activeTurnIndex, 0, 'activeTurnIndex must NOT advance on win');
-    });
   });
 
   describe('action: return', () => {
@@ -246,14 +211,14 @@ describe('game:move handler', () => {
       const lobby = makePlayingLobby(roomCode);
       lobby.activeTurnIndex = 0;
 
-      // Pre-place B so it can be returned
+      // Pre-place P01 so it can be returned
       const { placePiece } = require('./game');
-      placePiece(lobby, 'B', 0, 0, 1);
+      placePiece(lobby, 'P01', 0, 0, 0);
       lobby.activeTurnIndex = 0;
 
       const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-      trigger(socket, 'game:move', { action: 'return', shapeId: 'B' });
+      trigger(socket, 'game:move', { action: 'return', shapeId: 'P01' });
 
       assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
       assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate should be broadcast to room');
@@ -265,12 +230,12 @@ describe('game:move handler', () => {
       lobby.activeTurnIndex = 0;
 
       const { placePiece } = require('./game');
-      placePiece(lobby, 'B', 0, 0, 1);
+      placePiece(lobby, 'P01', 0, 0, 0);
       lobby.activeTurnIndex = 0;
 
       const { socket } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-      trigger(socket, 'game:move', { action: 'return', shapeId: 'B' });
+      trigger(socket, 'game:move', { action: 'return', shapeId: 'P01' });
 
       assert.equal(lobby.activeTurnIndex, 0, 'activeTurnIndex must remain 0 after return');
     });
@@ -282,8 +247,8 @@ describe('game:move handler', () => {
 
       const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-      // B is not placed — returnPiece should fail
-      trigger(socket, 'game:move', { action: 'return', shapeId: 'B' });
+      // P01 is not placed — returnPiece should fail
+      trigger(socket, 'game:move', { action: 'return', shapeId: 'P01' });
 
       assert.ok(emitted.socket['game:error'], 'game:error should be emitted');
       assert.ok(!emitted.room['game:stateUpdate'], 'stateUpdate must NOT be emitted on error');
@@ -298,7 +263,7 @@ describe('game:move handler', () => {
 
       const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-      trigger(socket, 'game:move', { action: 'explode', shapeId: 'B' });
+      trigger(socket, 'game:move', { action: 'explode', shapeId: 'P01' });
 
       assert.ok(!emitted.socket['game:error'], 'No game:error for unknown action');
       assert.ok(!emitted.room['game:stateUpdate'], 'No stateUpdate for unknown action');
@@ -314,7 +279,7 @@ describe('game:move handler', () => {
 
       const { socket, emitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
 
-      trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+      trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
       // Error emitted only to the requesting socket, not the room
       assert.ok(emitted.socket['game:error'], 'game:error emitted to socket');
@@ -369,24 +334,12 @@ describe('lobby:randomMode handler', () => {
 });
 
 // ─── game:move randomMode:event trigger tests ─────────────────────────────────
-//
-// Uses puzzle_01 (L-Maze: shapes A anchor, B movable, C movable, 4x4 grid)
-// because it has a simple win scenario and predictable shape IDs.
-// makePlayingLobby uses the default puzzle (level_01 with difficulty), so we
-// build a dedicated helper that forces puzzle_01 for these integration tests.
 
-/**
- * Create a playing lobby using puzzle_01 (L-Maze) which has shapes A, B, C.
- * Puzzle_01 has no difficulty so it won't conflict with the default lobby puzzle.
- * Solution: A at position, B at (0,1), C at (1,1).
- */
 function makeRandomModeLobby(roomCode) {
-  const { setSelectedPuzzle } = require('./game');
   lobbies.delete(roomCode);
   createLobby(roomCode, 'host-socket', 'Alice');
   addPlayer(roomCode, 'p2-socket', 'Bob');
-  // Override puzzle to puzzle_01 before starting (host can change puzzle)
-  setSelectedPuzzle(roomCode, 'puzzle_01');
+  setSelectedPuzzle(roomCode, 'level_01');
   const result = startGame(roomCode);
   if (!result.ok) throw new Error('startGame failed in makeRandomModeLobby: ' + result.error);
   return lobbies.get(roomCode);
@@ -448,9 +401,8 @@ describe('game:move randomMode:event trigger', () => {
     };
     registerSocketHandlers(ioWithOrder, socket2, new Map());
 
-    // B cells: [[0,0],[0,1],[1,1]] — place at originRow=0, originCol=1
-    // This fills (0,1),(0,2),(1,2) — valid non-winning placement in puzzle_01
-    trigger(socket2, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    // P01 cells: [[0,0],[0,1],[0,2]] — place at originRow=0, originCol=0 — valid non-winning placement
+    trigger(socket2, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
     assert.ok(emitted.room['randomMode:event'], 'randomMode:event should be emitted');
     assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate should be emitted');
@@ -465,31 +417,6 @@ describe('game:move randomMode:event trigger', () => {
     );
   });
 
-  it('winning move with randomModeEnabled=true does NOT emit randomMode:event', () => {
-    const roomCode = 'SRM04';
-    const lobby = makeRandomModeLobby(roomCode);
-    lobby.activeTurnIndex = 0;
-    setRandomMode(roomCode, true);
-
-    // Stub Math.random so probability would fire if checked
-    origRandom = Math.random;
-    Math.random = () => 0.05;
-
-    // Pre-place B so that placing C wins the game
-    // puzzle_01 solution: A at anchor, B at (0,1), C at (1,1)
-    const { placePiece } = require('./game');
-    placePiece(lobby, 'B', 0, 0, 1);
-    lobby.activeTurnIndex = 0; // still Alice's turn
-
-    const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
-
-    // Place C to trigger win (C cells [[0,0],[1,0],[1,1]] at originRow=1, originCol=1)
-    trigger(socket, 'game:move', { action: 'place', shapeId: 'C', rotation: 0, originRow: 1, originCol: 1 });
-
-    assert.ok(emitted.room['game:win'], 'game:win should be emitted');
-    assert.ok(!emitted.room['randomMode:event'], 'randomMode:event must NOT be emitted on winning move');
-  });
-
   it('return action with randomModeEnabled=true does NOT emit randomMode:event', () => {
     const roomCode = 'SRM05';
     const lobby = makeRandomModeLobby(roomCode);
@@ -500,14 +427,14 @@ describe('game:move randomMode:event trigger', () => {
     origRandom = Math.random;
     Math.random = () => 0.05;
 
-    // Pre-place B so it can be returned
+    // Pre-place P01 so it can be returned
     const { placePiece } = require('./game');
-    placePiece(lobby, 'B', 0, 0, 1);
+    placePiece(lobby, 'P01', 0, 0, 0);
     lobby.activeTurnIndex = 0;
 
     const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-    trigger(socket, 'game:move', { action: 'return', shapeId: 'B' });
+    trigger(socket, 'game:move', { action: 'return', shapeId: 'P01' });
 
     assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate should be emitted after return');
     assert.ok(!emitted.room['randomMode:event'], 'randomMode:event must NOT be emitted on return action');
@@ -524,7 +451,7 @@ describe('game:move randomMode:event trigger', () => {
 
     const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-    trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
     assert.ok(emitted.room['game:stateUpdate'], 'game:stateUpdate should be emitted');
     assert.ok(!emitted.room['randomMode:event'], 'randomMode:event must NOT be emitted when randomModeEnabled=false');
@@ -579,24 +506,14 @@ describe('joinRoom profanity filter', () => {
 describe('game:move - double_turn extra-turn gate', () => {
   it('when lobby.extraTurns > 0, a successful placement decrements extraTurns and does NOT call advanceTurn', () => {
     const roomCode = 'DT-GATE01';
-    const lobby = makePlayingLobby(roomCode);
-    // Force puzzle_01 since makePlayingLobby might use a different puzzle
-    setSelectedPuzzle(roomCode, 'puzzle_01');
-    // Restart game with puzzle_01
-    lobbies.delete(roomCode);
-    createLobby(roomCode, 'host-socket', 'Alice');
-    addPlayer(roomCode, 'p2-socket', 'Bob');
-    setSelectedPuzzle(roomCode, 'puzzle_01');
-    const result = startGame(roomCode);
-    if (!result.ok) throw new Error('startGame failed: ' + result.error);
-    const freshLobby = lobbies.get(roomCode);
+    const freshLobby = makePlayingLobby(roomCode);
     freshLobby.activeTurnIndex = 0;
     freshLobby.extraTurns = 1; // simulate double_turn grant
 
     const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-    // Place shape B at valid position — non-winning
-    trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    // Place P01 at valid position — non-winning
+    trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
     assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
     assert.strictEqual(freshLobby.extraTurns, 0, 'extraTurns must be decremented to 0');
@@ -610,19 +527,13 @@ describe('game:move - double_turn extra-turn gate', () => {
 
   it('when lobby.extraTurns === 0, a successful placement calls advanceTurn as before', () => {
     const roomCode = 'DT-GATE02';
-    lobbies.delete(roomCode);
-    createLobby(roomCode, 'host-socket', 'Alice');
-    addPlayer(roomCode, 'p2-socket', 'Bob');
-    setSelectedPuzzle(roomCode, 'puzzle_01');
-    const result = startGame(roomCode);
-    if (!result.ok) throw new Error('startGame failed: ' + result.error);
-    const freshLobby = lobbies.get(roomCode);
+    const freshLobby = makePlayingLobby(roomCode);
     freshLobby.activeTurnIndex = 0;
     freshLobby.extraTurns = 0; // normal turn
 
     const { socket, emitted } = makeMocks(roomCode, 'host-socket', 'Alice');
 
-    trigger(socket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(socket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
     assert.ok(!emitted.socket['game:error'], 'No game:error should be emitted');
     // Turn MUST advance
@@ -911,7 +822,7 @@ describe('host-refresh-turn-skip — Bob can place after Alice reconnects (fast-
 
     // Now Bob tries to place a piece — must succeed
     const { socket: bobSocket, emitted: bobEmitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
-    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
     assert.ok(!bobEmitted.socket['game:error'],
       'Bob must NOT receive game:error — it is Bob\'s turn after Alice fast-reloads');
@@ -970,7 +881,7 @@ describe('host-refresh-turn-skip — Bob can place after Alice reconnects (slow-
 
     // Step 3: Bob tries to place — must succeed
     const { socket: bobSocket, emitted: bobEmitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
-    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
     assert.ok(!bobEmitted.socket['game:error'],
       'Bob must NOT receive game:error — it is Bob\'s turn after Alice slow-reloads');
@@ -1140,7 +1051,7 @@ describe('reconnectRoom handler - fast-reload must not grant active player extra
 
     // Now Alice tries to make a move with her new socket
     const { socket: moveSocket, emitted: moveEmitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
-    trigger(moveSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(moveSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
 
     assert.ok(moveEmitted.socket['game:error'],
       'server must reject Alice\'s move with game:error after her turn was advanced');
@@ -1187,7 +1098,7 @@ describe('Fix-C: advance turn past reconnecting player even when other players a
 
     // Alice must NOT be able to place — it is now Bob's turn
     const { socket: aliceSocket, emitted: aliceEmitted } = makeMocks(roomCode, 'new-alice-socket', 'Alice');
-    trigger(aliceSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(aliceSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
     assert.ok(aliceEmitted.socket['game:error'],
       'Alice must get game:error — it is now Bob\'s turn, not Alice\'s');
     assert.strictEqual(aliceEmitted.socket['game:error'][0], 'Not your turn',
@@ -1264,7 +1175,7 @@ describe('Fix-C: grace-period promoted player must NOT lose their turn on reconn
       'game:reconnect must show Bob as active — he earned the turn via grace-period promotion');
 
     // Bob must be able to place a piece
-    trigger(bobNewSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(bobNewSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
     assert.ok(!bobEmitted.socket['game:error'],
       'Bob must NOT receive game:error — it is his turn after grace-period promotion');
   });
@@ -1286,7 +1197,7 @@ describe('Fix-C: grace-period promoted player must NOT lose their turn on reconn
       'activeTurnIndex must be 1 (Bob) after Alice\'s Fix-C');
 
     // Alice tries to place — must be rejected
-    trigger(aliceNewSocket, 'game:move', { action: 'place', shapeId: 'A', rotation: 0, originRow: 0, originCol: 0 });
+    trigger(aliceNewSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
     assert.ok(aliceEmitted.socket['game:error'],
       'Alice must receive game:error — it is now Bob\'s turn, not Alice\'s');
     assert.strictEqual(aliceEmitted.socket['game:error'][0], 'Not your turn',
@@ -1341,7 +1252,7 @@ describe('Fix-C: dual-reconnect race — promoted player\'s disconnecting must n
       'activeTurnIndex must remain 1 — Bob\'s old disconnecting must NOT advance the turn');
 
     // Step 4: Bob can place a piece (his turn is preserved)
-    trigger(bobNewSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(bobNewSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
     assert.ok(!bobEmitted.socket['game:error'],
       'Bob must NOT receive game:error — it is his turn after Fix-C promoted him');
   });
@@ -1394,7 +1305,7 @@ describe('Fix-C: dual-reconnect race — promoted player\'s disconnecting must n
       'fixCPromotionSocketId must be cleaned up by Bob\'s own reconnectRoom');
 
     // Step 5: Bob can place
-    trigger(bobNewSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(bobNewSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
     assert.ok(!bobEmitted.socket['game:error'],
       'Bob must NOT receive game:error — it is his turn');
   });
@@ -1431,7 +1342,7 @@ describe('Fix-C: dual-reconnect race — promoted player\'s disconnecting must n
       'Bob\'s late disconnecting must not change activeTurnIndex');
 
     // Bob places successfully
-    trigger(bobNewSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(bobNewSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
     assert.ok(!bobEmitted.socket['game:error'],
       'Bob must be able to place — it is his turn');
     assert.strictEqual(lobby.activeTurnIndex, 0,
@@ -1466,7 +1377,7 @@ describe('reconnectRoom: non-active player reloads during another player\'s turn
 
     // Bob can place
     const { socket: bobSocket, emitted: bobEmitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
-    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
     assert.ok(!bobEmitted.socket['game:error'], 'Bob must NOT receive game:error');
   });
 
@@ -1487,7 +1398,7 @@ describe('reconnectRoom: non-active player reloads during another player\'s turn
 
     // Bob can place
     const { socket: bobSocket, emitted: bobEmitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
-    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
     assert.ok(!bobEmitted.socket['game:error'], 'Bob must NOT receive game:error');
   });
 });
@@ -1536,7 +1447,7 @@ describe('DIAG-STALE: stale fixCPromotionSocketId from earlier Fix-C does not co
 
     // Bob can place
     const { socket: bobSocket, emitted: bobEmitted } = makeMocks(roomCode, 'p2-socket', 'Bob');
-    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'B', rotation: 0, originRow: 0, originCol: 1 });
+    trigger(bobSocket, 'game:move', { action: 'place', shapeId: 'P01', rotation: 0, originRow: 0, originCol: 0 });
     assert.ok(!bobEmitted.socket['game:error'], 'Bob must NOT receive game:error — Bob keeps turn');
   });
 

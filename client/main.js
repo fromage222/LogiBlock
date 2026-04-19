@@ -471,7 +471,9 @@ function renderTurnUI(state) {
 // ─── Ghost preview ────────────────────────────────────────────────────────────
 function clearGhostPreview() { document.querySelectorAll('.ghost-valid, .ghost-invalid').forEach(el => el.classList.remove('ghost-valid', 'ghost-invalid')); }
 function getPivotOffset(cells) {
-  return [Math.floor(Math.max(...cells.map(([r]) => r)) / 2), Math.floor(Math.max(...cells.map(([, c]) => c)) / 2)];
+  const pivotR = Math.round(cells.reduce((s, [r]) => s + r, 0) / cells.length);
+  const pivotC = Math.round(cells.reduce((s, [, c]) => s + c, 0) / cells.length);
+  return [pivotR, pivotC];
 }
 function updateGhostPreview(hoverRow, hoverCol) {
   clearGhostPreview();
@@ -666,10 +668,15 @@ function renderLeaderboard(entries) {
 }
 
 // ─── Socket events ────────────────────────────────────────────────────────────
-socket.on('room:created', ({ roomCode }) => {
+socket.on('room:created', ({ roomCode, reconnectToken }) => {
   myRoomCode = roomCode; roomCodeText.textContent = roomCode;
-  localStorage.setItem('logiblock_roomCode', roomCode); localStorage.setItem('logiblock_playerName', myPlayerName);
+  localStorage.setItem('logiblock_roomCode', roomCode);
+  localStorage.setItem('logiblock_playerName', myPlayerName);
+  if (reconnectToken) localStorage.setItem('logiblock_reconnectToken', reconnectToken);
   showScreen('lobby-screen');
+});
+socket.on('room:joined', ({ reconnectToken }) => {
+  if (reconnectToken) localStorage.setItem('logiblock_reconnectToken', reconnectToken);
 });
 socket.on('puzzle:list', (puzzles) => {
   puzzleSelect.innerHTML = '';
@@ -691,7 +698,9 @@ socket.on('lobby:update', (state) => {
 socket.on('lobby:playerLeft', ({ playerName }) => showLobbyNotification(`${playerName} left the game`));
 socket.on('lobby:hostLeft', ({ message }) => {
   myRoomCode = null; amIHost = false;
-  localStorage.removeItem('logiblock_roomCode'); localStorage.removeItem('logiblock_playerName');
+  localStorage.removeItem('logiblock_roomCode');
+  localStorage.removeItem('logiblock_playerName');
+  localStorage.removeItem('logiblock_reconnectToken');
   showScreen('start-screen'); showJoinError(message || 'Host left — lobby closed'); setTimeout(clearJoinError, 4000);
 });
 socket.on('game:start', (state) => {
@@ -749,6 +758,7 @@ socket.on('room:error', (message) => {
     amIHost = false;
     localStorage.removeItem('logiblock_roomCode');
     localStorage.removeItem('logiblock_playerName');
+    localStorage.removeItem('logiblock_reconnectToken');
     showScreen('start-screen');
     showJoinError(message);
     setTimeout(clearJoinError, 4000);
@@ -761,12 +771,13 @@ let pendingAutoRejoin = false;
 socket.on('connect', () => {
   const savedRoom = localStorage.getItem('logiblock_roomCode');
   const savedName = localStorage.getItem('logiblock_playerName');
+  const savedToken = localStorage.getItem('logiblock_reconnectToken');
   console.log('[DEBUG connect] savedRoom=', savedRoom, 'savedName=', savedName, 'activeScreen=', document.querySelector('.screen.active')?.id);
-  if (savedRoom && savedName) {
+  if (savedRoom && savedName && savedToken) {
     myPlayerName = savedName;
     // pendingAutoRejoin only on initial page load (start screen); not on Socket.IO auto-reconnect
     if (startScreen.classList.contains('active')) pendingAutoRejoin = true;
-    socket.emit('reconnectRoom', { roomCode: savedRoom, playerName: savedName });
+    socket.emit('reconnectRoom', { roomCode: savedRoom, playerName: savedName, reconnectToken: savedToken });
   }
 });
 
@@ -774,4 +785,3 @@ socket.on('connect', () => {
 socket.on('leaderboard:update', (entries) => {
   renderLeaderboard(entries);
 });
-socket.on('leaderboard:update', (entries) => renderLeaderboard(entries));
