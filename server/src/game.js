@@ -1,5 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+// ─── Reconnect token generation ───────────────────────────────────────────────
+function generateReconnectToken() {
+  return crypto.randomBytes(24).toString('hex');
+}
 
 // ─── In-memory store ────────────────────────────────────────────────────────
 // lobbies: Map<roomCode, LobbyState>
@@ -18,7 +24,11 @@ const leaderboard = [];
 let puzzleMap = new Map();
 
 // ─── Room code generation ────────────────────────────────────────────────────
+const MAX_LOBBIES = 200;
+const MAX_PLAYERS_PER_ROOM = 4;
+
 function generateRoomCode() {
+  if (lobbies.size >= MAX_LOBBIES) return null;
   let code;
   do {
     code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -35,7 +45,7 @@ function createLobby(roomCode, hostSocketId, hostName) {
     hostId: hostSocketId,
     selectedPuzzleId: firstPuzzleId,
     phase: 'lobby',
-    players: [{ socketId: hostSocketId, name: hostName, isHost: true, disconnected: false }],
+    players: [{ socketId: hostSocketId, name: hostName, isHost: true, disconnected: false, reconnectToken: generateReconnectToken() }],
     grid: null,
     randomModeEnabled: false,
     extraTurns: 0,           // Phase 14: double_turn gate
@@ -99,6 +109,9 @@ function checkWin(lobby, puzzle) {
 
 // Place a movable piece on the grid.
 function placePiece(lobby, shapeId, rotation, originRow, originCol) {
+  if (!Number.isInteger(originRow) || !Number.isInteger(originCol)) {
+    return { ok: false, error: 'Invalid coordinates' };
+  }
   const puzzle = puzzleMap.get(lobby.selectedPuzzleId);
   if (!puzzle) return { ok: false, error: 'Puzzle not found' };
 
@@ -219,7 +232,6 @@ function getPublicState(roomCode) {
     players: lobby.players.map(p => ({
       name: p.name,
       isHost: p.isHost,
-      socketId: p.socketId,
       disconnected: p.disconnected === true || p.reconnecting === true,
     })),
     selectedPuzzleName: puzzle ? puzzle.name : null,
@@ -370,8 +382,10 @@ function loadPuzzles() {
 function addPlayer(roomCode, socketId, name) {
   const lobby = lobbies.get(roomCode);
   if (!lobby) return false;
-  lobby.players.push({ socketId, name, isHost: false, disconnected: false });
-  return true;
+  if (lobby.players.length >= MAX_PLAYERS_PER_ROOM) return false;
+  const reconnectToken = generateReconnectToken();
+  lobby.players.push({ socketId, name, isHost: false, disconnected: false, reconnectToken });
+  return reconnectToken;
 }
 
 function removePlayer(roomCode, socketId) {
@@ -452,10 +466,13 @@ function triggerRandomEvent(lobby, _forceEventType) {
 
   if (eventType === 'skip_turn') {
     if (lobby.players.length <= 1) return null;
+    const triggerIndex = (lobby.activeTurnIndex - 1 + lobby.players.length) % lobby.players.length;
+    const triggerName = lobby.players[triggerIndex]?.name ?? 'Unbekannt';
+    const victimName = activePlayerName;
     advanceTurn(lobby, false);
     return {
       type: 'skip_turn',
-      description: `Chaos! ${activePlayerName} verliert seinen Zug!`,
+      description: `Chaos! ${triggerName} überspringt den Zug von ${victimName}!`,
     };
   }
 
@@ -480,8 +497,9 @@ function triggerRandomEvent(lobby, _forceEventType) {
 
   if (eventType === 'shuffle_order') {
     shuffleArray(lobby.players);
-    lobby.activeTurnIndex = 0;
-    lobby.activeTurnSocketId = lobby.players[0]?.socketId ?? null;
+    // Start from -1 so advanceTurn wraps to 0 and skips any disconnected players.
+    lobby.activeTurnIndex = -1;
+    advanceTurn(lobby, true);
     return {
       type: 'shuffle_order',
       description: 'Chaos! Die Spielerreihenfolge wurde durchgemischt!',
@@ -499,8 +517,9 @@ function triggerRandomEvent(lobby, _forceEventType) {
 
   if (eventType === 'reverse_order') {
     lobby.players.reverse();
-    lobby.activeTurnIndex = 0;
-    lobby.activeTurnSocketId = lobby.players[0]?.socketId ?? null;
+    // Start from -1 so advanceTurn wraps to 0 and skips any disconnected players.
+    lobby.activeTurnIndex = -1;
+    advanceTurn(lobby, true);
     return {
       type: 'reverse_order',
       description: 'Chaos! Die Reihenfolge wurde umgekehrt!',
@@ -573,30 +592,12 @@ function resetToLobby(roomCode) {
   lobby.activeTurnSocketId = null;
   lobby.startTime = null;
   lobby.extraTurns = 0;
+  lobby.playAgainVotes = new Set();
+  lobby.winnerDeclared = false;
   lobby.players.forEach(p => { p.disconnected = false; delete p.reconnecting; });
   return true;
 }
 
-// GAME-09: advance turn index when a player disconnects.
-// Called BEFORE the player is removed from lobby.players.
-function advanceTurnIfActive(lobby, socketId) {
-  if (!lobby || lobby.phase !== 'playing') return;
-  const disconnectingIndex = lobby.players.findIndex(p => p.socketId === socketId);
-  if (disconnectingIndex === -1) return;
-
-  const newLength = lobby.players.length - 1;
-
-  if (disconnectingIndex === lobby.activeTurnIndex) {
-    if (newLength === 0) {
-      lobby.activeTurnIndex = 0;
-    } else {
-      lobby.activeTurnIndex = lobby.activeTurnIndex % newLength;
-    }
-  } else if (disconnectingIndex < lobby.activeTurnIndex) {
-    lobby.activeTurnIndex = Math.max(0, lobby.activeTurnIndex - 1);
-  }
-  lobby.activeTurnSocketId = lobby.players[lobby.activeTurnIndex]?.socketId ?? null;
-}
 
 
 module.exports = {
@@ -622,7 +623,6 @@ module.exports = {
   returnPiece,
   checkWin,
   advanceTurn,
-  advanceTurnIfActive,
   // Phase 3 exports:
   recordLeaderboardEntry,
   getLeaderboard,

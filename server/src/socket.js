@@ -8,7 +8,6 @@ const {
   replacePlayerSocket,
   setSelectedPuzzle,
   startGame,
-  advanceTurnIfActive,
   getPublicState,
   getPuzzleListForClient,
   // NEW from Plan 02-01:
@@ -24,6 +23,7 @@ const {
   resetToLobby,
 } = require('./game');
 
+const crypto = require('crypto');
 const BadWordsFilter = require('bad-words');
 const profanityFilter = new BadWordsFilter();
 
@@ -68,7 +68,8 @@ function registerSocketHandlers(io, socket, puzzleMap) {
   //   socket.emit('room:created', { roomCode })        — to creator
   //   socket.emit('puzzle:list', [{ id, name }])       — to creator (host needs dropdown)
   //   io.to(roomCode).emit('lobby:update', state)      — to all (including creator)
-  socket.on('createRoom', ({ playerName } = {}) => {
+  socket.on('createRoom', (payload) => {
+    const { playerName } = (payload && typeof payload === 'object') ? payload : {};
     if (!playerName || typeof playerName !== 'string' || playerName.trim() === '') {
       return socket.emit('room:error', 'Player name is required');
     }
@@ -77,13 +78,19 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       return socket.emit('room:error', 'Player name is not allowed');
     }
     const roomCode = generateRoomCode();
+    if (!roomCode) {
+      return socket.emit('room:error', 'Server is fully booked. Bitte versuche es später noch einmal.');
+    }
 
     createLobby(roomCode, socket.id, name);
     socket.data.roomCode = roomCode;
     socket.data.playerName = name;
     socket.join(roomCode);
 
-    socket.emit('room:created', { roomCode });
+    // Send token to host — stored client-side for reconnect authentication.
+    const lobby = getLobby(roomCode);
+    const hostPlayer = lobby.players.find(p => p.name === name);
+    socket.emit('room:created', { roomCode, reconnectToken: hostPlayer.reconnectToken });
     socket.emit('puzzle:list', getPuzzleListForClient());
     io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
   });
@@ -93,7 +100,8 @@ function registerSocketHandlers(io, socket, puzzleMap) {
   // Server responds:
   //   socket.emit('room:error', message)               — if invalid (inline error)
   //   io.to(roomCode).emit('lobby:update', state)      — to all on success
-  socket.on('joinRoom', ({ roomCode, playerName } = {}) => {
+  socket.on('joinRoom', (payload) => {
+    const { roomCode, playerName } = (payload && typeof payload === 'object') ? payload : {};
     if (!roomCode || typeof roomCode !== 'string') {
       return socket.emit('room:error', 'Room code is required');
     }
@@ -129,16 +137,24 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       socket.data.roomCode = roomCode;
       socket.data.playerName = name;
       socket.join(roomCode);
+      // Re-send the existing token so the client can store it after a reload.
+      const rejoiningPlayer = getLobby(roomCode).players.find(p => p.name === name);
+      socket.emit('room:joined', { reconnectToken: rejoiningPlayer.reconnectToken });
       socket.emit('puzzle:list', getPuzzleListForClient());
       io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
       return;
     }
 
-    addPlayer(roomCode, socket.id, name);
+    const reconnectToken = addPlayer(roomCode, socket.id, name);
+    if (!reconnectToken) {
+      return socket.emit('room:error', 'Room is full (max 4 players) oder nicht gefunden.');
+    }
     socket.data.roomCode = roomCode;
     socket.data.playerName = name;
     socket.join(roomCode);
 
+    // Send token to the new joiner — stored client-side for reconnect authentication.
+    socket.emit('room:joined', { reconnectToken });
     // Send puzzle list to the new joiner (they can see the selected puzzle name)
     socket.emit('puzzle:list', getPuzzleListForClient());
     io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
@@ -148,7 +164,8 @@ function registerSocketHandlers(io, socket, puzzleMap) {
   // Client emits: { puzzleId: string }  (host only)
   // Server responds:
   //   io.to(roomCode).emit('lobby:update', state)      — real-time update for all
-  socket.on('lobby:selectPuzzle', ({ puzzleId } = {}) => {
+  socket.on('lobby:selectPuzzle', (payload) => {
+    const { puzzleId } = (payload && typeof payload === 'object') ? payload : {};
     const roomCode = socket.data.roomCode;
     if (!roomCode) return;
 
@@ -171,7 +188,8 @@ function registerSocketHandlers(io, socket, puzzleMap) {
   // Server responds:
   //   socket.emit('room:error', message)               — if not host
   //   io.to(roomCode).emit('lobby:update', state)      — to all on success
-  socket.on('lobby:randomMode', ({ enabled } = {}) => {
+  socket.on('lobby:randomMode', (payload) => {
+    const { enabled } = (payload && typeof payload === 'object') ? payload : {};
     const roomCode = socket.data.roomCode;
     if (!roomCode) return;
     const lobby = getLobby(roomCode);
@@ -217,7 +235,8 @@ function registerSocketHandlers(io, socket, puzzleMap) {
   // Client emits: { action, shapeId, rotation?, originRow?, originCol? }
   // action 'place': validates, places piece, advances turn or emits game:win
   // action 'return': validates, returns piece to bank, does NOT advance turn
-  socket.on('game:move', ({ action, shapeId, rotation, originRow, originCol } = {}) => {
+  socket.on('game:move', (payload) => {
+    const { action, shapeId, rotation, originRow, originCol } = (payload && typeof payload === 'object') ? payload : {};
     const roomCode = socket.data.roomCode;
     if (!roomCode) return;
 
@@ -237,6 +256,7 @@ function registerSocketHandlers(io, socket, puzzleMap) {
         // WIN-01 + WIN-02: emit game:win to all; do NOT advance turn; do NOT emit stateUpdate
         // TIME-02: authoritative elapsed time computed server-side
         const elapsedMs = Date.now() - lobby.startTime;
+        lobby.winnerDeclared = true;
         recordLeaderboardEntry(lobby, elapsedMs);
         io.to(roomCode).emit('game:win', {
           ...getPublicState(roomCode),
@@ -280,9 +300,11 @@ function registerSocketHandlers(io, socket, puzzleMap) {
   //   socket.emit('room:error', message)               — if room/player not found
   //   puzzle:list + lobby:update                       — if phase is 'lobby'
   //   socket.emit('game:reconnect', state)             — if phase is 'playing'
-  socket.on('reconnectRoom', ({ roomCode, playerName } = {}) => {
+  socket.on('reconnectRoom', (payload) => {
+    const { roomCode, playerName, reconnectToken } = (payload && typeof payload === 'object') ? payload : {};
     if (!roomCode || typeof roomCode !== 'string') return;
     if (!playerName || typeof playerName !== 'string' || playerName.trim() === '') return;
+    if (!reconnectToken || typeof reconnectToken !== 'string') return;
 
     const name = playerName.trim().slice(0, 20);
     const lobby = getLobby(roomCode);
@@ -295,16 +317,20 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     if (!existingPlayer) {
       return socket.emit('room:error', 'You are not part of this room');
     }
+    // Constant-time comparison prevents timing attacks on the token.
+    const expectedToken = existingPlayer.reconnectToken ?? '';
+    const providedToken = reconnectToken ?? '';
+    const tokenBuf1 = Buffer.from(expectedToken.padEnd(48, '\0'), 'utf8');
+    const tokenBuf2 = Buffer.from(providedToken.padEnd(48, '\0'), 'utf8');
+    if (!crypto.timingSafeEqual(tokenBuf1, tokenBuf2)) {
+      return socket.emit('room:error', 'Invalid reconnect token');
+    }
 
     // Cancel any pending grace-period removal for this player.
     const timerKey = `${roomCode}:${name}`;
     // Capture whether this reconnect is resuming from a grace-period disconnect
     // (disconnecting already fired) vs a fast-reload (disconnecting hasn't fired yet).
     // This is used below to correctly evaluate Fix C without a false positive.
-    // Spielphase: kein Reconnect ins laufende Spiel — Spieler landet im Hauptmenü.
-    if (lobby.phase === 'playing') {
-      return socket.emit('room:error', 'Game already in progress');
-    }
 
     const wasInGracePeriod = disconnectTimers.has(timerKey);
     if (wasInGracePeriod) {
@@ -356,14 +382,14 @@ function registerSocketHandlers(io, socket, puzzleMap) {
     const roomCode = socket.data.roomCode;
     if (!roomCode) return;
     const lobby = getLobby(roomCode);
-    if (!lobby || lobby.phase !== 'playing') return;
+    if (!lobby || lobby.phase !== 'playing' || !lobby.winnerDeclared) return;
 
     const playerName = socket.data.playerName;
     if (!lobby.playAgainVotes) lobby.playAgainVotes = new Set();
     lobby.playAgainVotes.add(playerName);
 
     const votes = lobby.playAgainVotes.size;
-    const total = lobby.players.length;
+    const total = lobby.players.filter(p => !p.disconnected).length;
 
     if (votes < total) {
       // Noch nicht alle — Zwischenstand an alle senden
@@ -486,9 +512,6 @@ function performLeave(io, roomCode, playerName, socketId) {
 
   const isHost = lobby.hostId === socketId;
   const inGame = lobby.phase === 'playing';
-
-  // Adjust turn index BEFORE removal so the next player inherits the correct slot.
-  if (inGame) advanceTurnIfActive(lobby, socketId);
 
   removePlayer(roomCode, socketId);
 

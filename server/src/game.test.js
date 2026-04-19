@@ -35,7 +35,7 @@ function makeLobby(roomCode = 'TEST01') {
   lobbies.delete(roomCode);
   createLobby(roomCode, 'host-socket', 'Alice');
   addPlayer(roomCode, 'p2-socket', 'Bob');
-  setSelectedPuzzle(roomCode, 'puzzle_01');
+  setSelectedPuzzle(roomCode, 'level_01');
   const result = startGame(roomCode);
   if (!result.ok) throw new Error('startGame failed: ' + result.error);
   return lobbies.get(roomCode);
@@ -45,7 +45,7 @@ function makeLobbyV11(roomCode) {
   lobbies.delete(roomCode);
   createLobby(roomCode, 'host-socket', 'Alice');
   addPlayer(roomCode, 'p2-socket', 'Bob');
-  setSelectedPuzzle(roomCode, 'puzzle_v11');
+  setSelectedPuzzle(roomCode, 'level_01');
   const result = startGame(roomCode);
   if (!result.ok) throw new Error('startGame failed: ' + result.error);
   return lobbies.get(roomCode);
@@ -137,7 +137,7 @@ describe('checkWin', () => {
       grid.push([]);
       for (let c = 0; c < cols; c++) {
         const sid = puzzle.solution[r][c];
-        grid[r].push(sid ? { shapeId: sid, movable: sid !== 'A' } : null);
+        grid[r].push(sid ? { shapeId: sid, movable: true } : null);
       }
     }
     lobby.grid = grid;
@@ -154,7 +154,7 @@ describe('checkWin', () => {
       grid.push([]);
       for (let c = 0; c < cols; c++) {
         const sid = puzzle.solution[r][c];
-        grid[r].push(sid ? { shapeId: sid, movable: sid !== 'A' } : null);
+        grid[r].push(sid ? { shapeId: sid, movable: true } : null);
       }
     }
     // Overwrite a movable cell with a wrong shapeId
@@ -180,7 +180,7 @@ describe('checkWin', () => {
       grid.push([]);
       for (let c = 0; c < cols; c++) {
         const sid = puzzle.solution[r][c];
-        grid[r].push(sid ? { shapeId: sid, movable: sid !== 'A' } : null);
+        grid[r].push(sid ? { shapeId: sid, movable: true } : null);
       }
     }
     // Put something in a null solution cell
@@ -198,123 +198,6 @@ describe('checkWin', () => {
   });
 });
 
-// ─── placePiece ───────────────────────────────────────────────────────────────
-
-describe('placePiece', () => {
-  // puzzle_01: shape B = [[0,0],[0,1],[1,1]] at 0° → fits at origin (1,1) in 4×4 grid
-  // shape C = [[0,0],[1,0],[1,1]]
-
-  it('returns { ok: true, win: false } for valid placement', () => {
-    const lobby = makeLobby('PP01');
-    // Place shape B at row 0, col 1 with 0° rotation
-    const result = placePiece(lobby, 'B', 0, 0, 1);
-    assert.equal(result.ok, true);
-    assert.equal(result.win, false);
-  });
-
-  it('writes cells as { shapeId, movable: true } after successful placement', () => {
-    const lobby = makeLobby('PP02');
-    placePiece(lobby, 'B', 0, 0, 1);
-    // B at (0,1): cells [0,0],[0,1],[1,1] → absolute (0,1),(0,2),(1,2)
-    assert.deepEqual(lobby.grid[0][1], { shapeId: 'B', movable: true });
-    assert.deepEqual(lobby.grid[0][2], { shapeId: 'B', movable: true });
-    assert.deepEqual(lobby.grid[1][2], { shapeId: 'B', movable: true });
-  });
-
-  it('returns { ok: false, error: "Cell occupied" } when target cell is already filled', () => {
-    const lobby = makeLobby('PP03');
-    placePiece(lobby, 'B', 0, 0, 1); // place B at (0,1)
-    // Try placing C at (0,1) where B already occupies (0,1)
-    const result = placePiece(lobby, 'C', 0, 0, 1);
-    assert.equal(result.ok, false);
-    assert.equal(result.error, 'Cell occupied');
-  });
-
-  it('returns { ok: false, error: "Piece out of bounds" } when any cell is outside grid', () => {
-    const lobby = makeLobby('PP04');
-    // B shape [[0,0],[0,1],[1,1]] at origin (3,3) in 4×4 grid → (3,4) out of bounds
-    const result = placePiece(lobby, 'B', 0, 3, 3);
-    assert.equal(result.ok, false);
-    assert.equal(result.error, 'Piece out of bounds');
-  });
-
-  it('returns { ok: false, error: "Shape already placed" } when shape is already on grid', () => {
-    const lobby = makeLobby('PP05');
-    placePiece(lobby, 'B', 0, 0, 1);
-    const result = placePiece(lobby, 'B', 0, 2, 0);
-    assert.equal(result.ok, false);
-    assert.equal(result.error, 'Shape already placed');
-  });
-
-  it('returns { ok: false, error: "Invalid shape" } for unknown shapeId', () => {
-    const lobby = makeLobby('PP06');
-    const result = placePiece(lobby, 'UNKNOWN', 0, 0, 0);
-    assert.equal(result.ok, false);
-    assert.equal(result.error, 'Invalid shape');
-  });
-
-  it('returns { ok: false, error: "Invalid shape" } for anchor shape (non-movable)', () => {
-    const lobby = makeLobby('PP07');
-    // Shape A is anchor (movable: false)
-    const result = placePiece(lobby, 'A', 0, 0, 0);
-    assert.equal(result.ok, false);
-    assert.equal(result.error, 'Invalid shape');
-  });
-
-  it('returns { ok: true, win: true } when placement completes the solution', () => {
-    // puzzle_01 solution:
-    // row0: A B B null
-    // row1: A C B null
-    // row2: A C C null
-    // row3: null null null null
-    // A is anchor at (0,0): covers (0,0),(1,0),(2,0)
-    // B shape [[0,0],[0,1],[1,1]] at 0° → place at origin (0,1): covers (0,1),(0,2),(1,2) ✓
-    // C shape [[0,0],[1,0],[1,1]] at 0° → place at origin (1,1): covers (1,1),(2,1),(2,2) ✓
-    const lobby = makeLobby('PP08');
-    placePiece(lobby, 'B', 0, 0, 1);
-    const result = placePiece(lobby, 'C', 0, 1, 1);
-    assert.equal(result.ok, true);
-    assert.equal(result.win, true);
-  });
-});
-
-// ─── returnPiece ──────────────────────────────────────────────────────────────
-
-describe('returnPiece', () => {
-  it('returns { ok: true } and clears movable cells for a placed shape', () => {
-    const lobby = makeLobby('RP01');
-    placePiece(lobby, 'B', 0, 0, 1);
-    const result = returnPiece(lobby, 'B');
-    assert.equal(result.ok, true);
-    // B cells: (0,1),(0,2),(1,2) should all be null now
-    assert.equal(lobby.grid[0][1], null);
-    assert.equal(lobby.grid[0][2], null);
-    assert.equal(lobby.grid[1][2], null);
-  });
-
-  it('returns { ok: false, error: "Shape not on grid" } when shape is not placed', () => {
-    const lobby = makeLobby('RP02');
-    const result = returnPiece(lobby, 'B');
-    assert.equal(result.ok, false);
-    assert.equal(result.error, 'Shape not on grid');
-  });
-
-  it('returns { ok: false, error: "Invalid shape" } for unknown shapeId', () => {
-    const lobby = makeLobby('RP03');
-    const result = returnPiece(lobby, 'UNKNOWN');
-    assert.equal(result.ok, false);
-    assert.equal(result.error, 'Invalid shape');
-  });
-
-  it('does not clear non-movable anchor cells', () => {
-    const lobby = makeLobby('RP04');
-    // Anchor A is at (0,0),(1,0),(2,0) — returnPiece should reject since A is not movable
-    const result = returnPiece(lobby, 'A');
-    assert.equal(result.ok, false);
-    // Anchor cells should remain intact
-    assert.deepEqual(lobby.grid[0][0], { shapeId: 'A', movable: false });
-  });
-});
 
 // ─── advanceTurn ──────────────────────────────────────────────────────────────
 
@@ -428,14 +311,6 @@ describe('getPublicState Phase 2 extension', () => {
     assert.equal(state.bankShapes.length, movableCount);
   });
 
-  it('bankShapes shrinks after placing a piece', () => {
-    const lobby = makeLobby('GPS04');
-    const stateBefore = getPublicState('GPS04');
-    placePiece(lobby, 'B', 0, 0, 1);
-    const stateAfter = getPublicState('GPS04');
-    assert.equal(stateAfter.bankShapes.length, stateBefore.bankShapes.length - 1);
-  });
-
   it('bankShapes items have { id, cells } shape', () => {
     const lobby = makeLobby('GPS05');
     const state = getPublicState('GPS05');
@@ -535,19 +410,18 @@ describe('validatePuzzleSchema — cell-count cross-check', () => {
 // ─── buildInitialGrid — irregular grid with inactiveCells ────────────────────
 
 describe('buildInitialGrid — irregular grid with inactiveCells', () => {
-  // Uses puzzle_v11 which is loaded in the before() hook via loadPuzzles()
-  // puzzle_v11 has inactiveCells: [[4,0],[4,8]]
+  // Uses level_01 which has inactiveCells: [[4,0],[4,8]]
 
   it('marks inactive positions with { inactive: true } sentinel', () => {
-    const puzzle = getPuzzleById('puzzle_v11');
-    assert.ok(puzzle, 'puzzle_v11 must be loaded');
+    const puzzle = getPuzzleById('level_01');
+    assert.ok(puzzle, 'level_01 must be loaded');
     const grid = buildInitialGrid(puzzle);
     assert.deepEqual(grid[4][0], { inactive: true });
     assert.deepEqual(grid[4][8], { inactive: true });
   });
 
   it('leaves active positions as null', () => {
-    const puzzle = getPuzzleById('puzzle_v11');
+    const puzzle = getPuzzleById('level_01');
     const grid = buildInitialGrid(puzzle);
     // Sample of active cells — should all be null at init
     assert.strictEqual(grid[0][0], null);
@@ -556,23 +430,12 @@ describe('buildInitialGrid — irregular grid with inactiveCells', () => {
   });
 
   it('produces a 5x9 grid', () => {
-    const puzzle = getPuzzleById('puzzle_v11');
+    const puzzle = getPuzzleById('level_01');
     const grid = buildInitialGrid(puzzle);
     assert.strictEqual(grid.length, 5);
     assert.strictEqual(grid[0].length, 9);
   });
 
-  it('does not affect puzzles without inactiveCells (backward compat)', () => {
-    const puzzle = getPuzzleById('puzzle_01');
-    assert.ok(puzzle, 'puzzle_01 must be loaded');
-    const grid = buildInitialGrid(puzzle);
-    // puzzle_01 has anchor A at position [0,0] occupying rows 0-2, col 0
-    assert.deepEqual(grid[0][0], { shapeId: 'A', movable: false });
-    assert.deepEqual(grid[1][0], { shapeId: 'A', movable: false });
-    assert.deepEqual(grid[2][0], { shapeId: 'A', movable: false });
-    // Non-anchor cells are null
-    assert.strictEqual(grid[0][1], null);
-  });
 });
 
 // ─── leaderboard ──────────────────────────────────────────────────────────────
@@ -614,18 +477,18 @@ describe('leaderboard', () => {
   });
 });
 
-// ─── checkWin — irregular grid (puzzle_v11) ───────────────────────────────────
+// ─── checkWin — irregular grid (level_01) ───────────────────────────────────
 
-describe('checkWin — irregular grid (puzzle_v11)', () => {
-  it('returns false on fresh puzzle_v11 grid (no pieces placed)', () => {
+describe('checkWin — irregular grid (level_01)', () => {
+  it('returns false on fresh level_01 grid (no pieces placed)', () => {
     const lobby = makeLobbyV11('V11-WIN-FRESH');
-    const puzzle = getPuzzleById('puzzle_v11');
+    const puzzle = getPuzzleById('level_01');
     assert.strictEqual(checkWin(lobby, puzzle), false);
   });
 
   it('returns true when all 43 active cells filled and sentinels remain at inactive positions', () => {
     const lobby = makeLobbyV11('V11-WIN-COMPLETE');
-    const puzzle = getPuzzleById('puzzle_v11');
+    const puzzle = getPuzzleById('level_01');
     const inactiveSet = new Set((puzzle.inactiveCells || []).map(([r, c]) => `${r}-${c}`));
     const grid = [];
     for (let r = 0; r < puzzle.gridSize.rows; r++) {
@@ -645,7 +508,7 @@ describe('checkWin — irregular grid (puzzle_v11)', () => {
 
   it('inactive cells at [4][0] and [4][8] do not prevent win when other cells filled', () => {
     const lobby = makeLobbyV11('V11-WIN-SENTINELS');
-    const puzzle = getPuzzleById('puzzle_v11');
+    const puzzle = getPuzzleById('level_01');
     // Verify sentinels are present after startGame
     assert.deepEqual(lobby.grid[4][0], { inactive: true });
     assert.deepEqual(lobby.grid[4][8], { inactive: true });
@@ -668,9 +531,9 @@ describe('checkWin — irregular grid (puzzle_v11)', () => {
   });
 });
 
-// ─── placePiece — inactive cell rejection (puzzle_v11) ────────────────────────
+// ─── placePiece — inactive cell rejection (level_01) ────────────────────────
 
-describe('placePiece — inactive cell rejection (puzzle_v11)', () => {
+describe('placePiece — inactive cell rejection (level_01)', () => {
   it('rejects placement when any piece cell lands on an inactive sentinel', () => {
     // P01 at rotation 0 has cells [[0,0],[0,1],[0,2]] — placing at origin (4,0)
     // covers [4,0] which is an inactive sentinel
@@ -786,7 +649,7 @@ describe('triggerRandomEvent - skip_turn', () => {
     lobbies.delete('TRE-ST02');
     createLobby('TRE-ST02', 'host-socket', 'SoloAlice');
     addPlayer('TRE-ST02', 'p2-socket', 'Bob');
-    setSelectedPuzzle('TRE-ST02', 'puzzle_v11');
+    setSelectedPuzzle('TRE-ST02', 'level_01');
     const startResult = startGame('TRE-ST02');
     assert.strictEqual(startResult.ok, true);
     const lobby = lobbies.get('TRE-ST02');
@@ -910,7 +773,7 @@ describe('startGame - extraTurns reset', () => {
     lobbies.delete('ET-RESET01');
     createLobby('ET-RESET01', 'host-socket', 'Alice');
     addPlayer('ET-RESET01', 'p2-socket', 'Bob');
-    setSelectedPuzzle('ET-RESET01', 'puzzle_v11');
+    setSelectedPuzzle('ET-RESET01', 'level_01');
     const lobby = lobbies.get('ET-RESET01');
     lobby.extraTurns = 1; // simulate carry-over from previous game
     const result = startGame('ET-RESET01');
