@@ -563,6 +563,20 @@ function getLeaderboard() {
   }));
 }
 
+// Setzt eine laufende Partie zurück in die Lobby-Phase (alle Spieler bleiben im Raum).
+function resetToLobby(roomCode) {
+  const lobby = lobbies.get(roomCode);
+  if (!lobby || lobby.phase !== 'playing') return false;
+  lobby.phase = 'lobby';
+  lobby.grid = null;
+  lobby.activeTurnIndex = 0;
+  lobby.activeTurnSocketId = null;
+  lobby.startTime = null;
+  lobby.extraTurns = 0;
+  lobby.players.forEach(p => { p.disconnected = false; delete p.reconnecting; });
+  return true;
+}
+
 // GAME-09: advance turn index when a player disconnects.
 // Called BEFORE the player is removed from lobby.players.
 function advanceTurnIfActive(lobby, socketId) {
@@ -617,4 +631,5 @@ module.exports = {
   triggerRandomEvent,
   // Phase 14 exports (Random Mode Overhaul):
   pickRandomEvent,
+  resetToLobby,
 };

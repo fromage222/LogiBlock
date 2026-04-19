@@ -1139,9 +1139,21 @@ button:disabled                     { background: var(--clr-surface-alt); color:
   margin: 0;
 }
 
-.win-card .btn-primary {
+.win-actions {
+  display: flex;
+  gap: var(--sp-sm);
   margin-top: var(--sp-sm);
   animation: winButton 0.4s 0.8s ease-out both;
+}
+
+.win-actions .btn-primary,
+.win-actions .btn-secondary {
+  flex: 1;
+}
+
+.win-actions .btn-primary:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 @keyframes winButton {

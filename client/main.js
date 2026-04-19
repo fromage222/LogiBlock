@@ -591,15 +591,28 @@ function renderWin(state) {
   if (timeEl) timeEl.textContent = formatTime(state.elapsedMs || 0);
   if (playersEl) playersEl.textContent = (state.players || []).map(p => p.name).join(', ');
   overlay.style.display = 'flex';
+  const btn = document.getElementById('play-again-btn');
+  if (btn) { btn.textContent = 'Play Again'; btn.disabled = false; }
   const winCard = overlay.querySelector('.win-card');
   if (winCard) { winCard.style.animation = 'none'; winCard.offsetHeight; winCard.style.animation = ''; }
   launchConfetti(4000);
 }
 document.getElementById('play-again-btn').addEventListener('click', () => {
+  const btn = document.getElementById('play-again-btn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'Play Again (1/?)';
+  socket.emit('game:restart');
+});
+document.getElementById('win-menu-btn').addEventListener('click', () => {
   clearInterval(timerInterval); timerInterval = null;
   document.getElementById('win-overlay').style.display = 'none';
   showScreen('start-screen'); myRoomCode = null; amIHost = false;
   localStorage.removeItem('logiblock_roomCode'); localStorage.removeItem('logiblock_playerName');
+});
+socket.on('game:playAgainVote', ({ votes, total }) => {
+  const btn = document.getElementById('play-again-btn');
+  if (btn) btn.textContent = `Play Again (${votes}/${total})`;
 });
 lobbyExitBtn.addEventListener('click', () => {
   socket.emit('leaveRoom');
@@ -670,7 +683,9 @@ socket.on('puzzle:list', (puzzles) => {
 socket.on('lobby:update', (state) => {
   myRoomCode = state.roomCode; roomCodeText.textContent = state.roomCode; pendingAutoRejoin = false;
   localStorage.setItem('logiblock_roomCode', state.roomCode); localStorage.setItem('logiblock_playerName', myPlayerName);
-  if (startScreen.classList.contains('active')) showScreen('lobby-screen');
+  clearInterval(timerInterval); timerInterval = null;
+  document.getElementById('win-overlay').style.display = 'none';
+  if (!lobbyScreen.classList.contains('active')) showScreen('lobby-screen');
   renderLobbyUpdate(state);
 });
 socket.on('lobby:playerLeft', ({ playerName }) => showLobbyNotification(`${playerName} left the game`));

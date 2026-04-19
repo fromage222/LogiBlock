@@ -21,6 +21,7 @@ const {
   // NEW from Plan 09-03 (Random Mode socket layer):
   setRandomMode,
   triggerRandomEvent,
+  resetToLobby,
 } = require('./game');
 
 const BadWordsFilter = require('bad-words');
@@ -346,6 +347,38 @@ function registerSocketHandlers(io, socket, puzzleMap) {
       const reconnectState = { ...getPublicState(roomCode), startTime: lobby.startTime };
       socket.emit('game:reconnect', reconnectState);
     }
+  });
+
+  // ── game:restart ──────────────────────────────────────────────────────────
+  // Spieler stimmt für "Play Again". Erst wenn alle Spieler gestimmt haben
+  // wird die Lobby zurückgesetzt.
+  socket.on('game:restart', () => {
+    const roomCode = socket.data.roomCode;
+    if (!roomCode) return;
+    const lobby = getLobby(roomCode);
+    if (!lobby || lobby.phase !== 'playing') return;
+
+    const playerName = socket.data.playerName;
+    if (!lobby.playAgainVotes) lobby.playAgainVotes = new Set();
+    lobby.playAgainVotes.add(playerName);
+
+    const votes = lobby.playAgainVotes.size;
+    const total = lobby.players.length;
+
+    if (votes < total) {
+      // Noch nicht alle — Zwischenstand an alle senden
+      io.to(roomCode).emit('game:playAgainVote', { votes, total });
+      return;
+    }
+
+    // Alle haben bestätigt — zurück in die Lobby
+    lobby.playAgainVotes = null;
+    if (!resetToLobby(roomCode)) return;
+
+    const hostSocket = io.sockets.sockets.get(lobby.hostId);
+    if (hostSocket) hostSocket.emit('puzzle:list', getPuzzleListForClient());
+
+    io.to(roomCode).emit('lobby:update', getPublicState(roomCode));
   });
 
   // ── leaveRoom ──────────────────────────────────────────────────────────────
