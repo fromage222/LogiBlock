@@ -460,7 +460,7 @@ function triggerRandomEvent(lobby, _forceEventType) {
   if (eventType === 'rotate_piece') {
     return {
       type: 'rotate_piece',
-      description: `Chaos! ${activePlayerName}'s Stein wurde rotiert!`,
+      description: `Achtung! Der nächste Stein von ${activePlayerName} wird gedreht!`,
     };
   }
 
