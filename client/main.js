@@ -668,15 +668,11 @@ function renderLeaderboard(entries) {
 }
 
 // ─── Socket events ────────────────────────────────────────────────────────────
-socket.on('room:created', ({ roomCode, reconnectToken }) => {
+socket.on('room:created', ({ roomCode }) => {
   myRoomCode = roomCode; roomCodeText.textContent = roomCode;
   localStorage.setItem('logiblock_roomCode', roomCode);
   localStorage.setItem('logiblock_playerName', myPlayerName);
-  if (reconnectToken) localStorage.setItem('logiblock_reconnectToken', reconnectToken);
   showScreen('lobby-screen');
-});
-socket.on('room:joined', ({ reconnectToken }) => {
-  if (reconnectToken) localStorage.setItem('logiblock_reconnectToken', reconnectToken);
 });
 socket.on('puzzle:list', (puzzles) => {
   puzzleSelect.innerHTML = '';
@@ -688,7 +684,7 @@ socket.on('puzzle:list', (puzzles) => {
   });
 });
 socket.on('lobby:update', (state) => {
-  myRoomCode = state.roomCode; roomCodeText.textContent = state.roomCode; pendingAutoRejoin = false;
+  myRoomCode = state.roomCode; roomCodeText.textContent = state.roomCode;
   localStorage.setItem('logiblock_roomCode', state.roomCode); localStorage.setItem('logiblock_playerName', myPlayerName);
   clearInterval(timerInterval); timerInterval = null;
   document.getElementById('win-overlay').style.display = 'none';
@@ -700,7 +696,6 @@ socket.on('lobby:hostLeft', ({ message }) => {
   myRoomCode = null; amIHost = false;
   localStorage.removeItem('logiblock_roomCode');
   localStorage.removeItem('logiblock_playerName');
-  localStorage.removeItem('logiblock_reconnectToken');
   showScreen('start-screen'); showJoinError(message || 'Host left — lobby closed'); setTimeout(clearJoinError, 4000);
 });
 socket.on('game:start', (state) => {
@@ -709,13 +704,6 @@ socket.on('game:start', (state) => {
   localStorage.removeItem('logiblock_roomCode');
   localStorage.removeItem('logiblock_playerName');
   previousPlacedIds = new Set();
-  showScreen('game-screen'); initPieceColors(state); renderGrid(state); renderBank(state); renderTurnUI(state); updateRotationButtons(); startLiveTimer(state.startTime);
-});
-socket.on('game:reconnect', (state) => {
-  console.log('[DEBUG game:reconnect] activePlayerName=', state.activePlayerName, 'myPlayerName=', myPlayerName, 'selectedShapeId_before=', selectedShapeId);
-  previousPlacedIds = new Set();  // reset on reconnect — no animations for existing state
-  pendingAutoRejoin = false; myRoomCode = state.roomCode;
-  selectedShapeId = null; selectedRotation = 0;
   showScreen('game-screen'); initPieceColors(state); renderGrid(state); renderBank(state); renderTurnUI(state); updateRotationButtons(); startLiveTimer(state.startTime);
 });
 socket.on('game:stateUpdate', (state) => {
@@ -742,42 +730,17 @@ socket.on('randomMode:event', ({ type, description } = {}) => {
 socket.on('game:win', (state) => { clearInterval(timerInterval); timerInterval = null; renderGrid(state); renderBank(state); renderTurnUI(state); renderWin(state); });
 socket.on('room:error', (message) => {
   if (startScreen.classList.contains('active')) {
-    // Start screen: auto-rejoin failed or join/create error
-    if (pendingAutoRejoin) {
-      pendingAutoRejoin = false;
-      localStorage.removeItem('logiblock_roomCode');
-      localStorage.removeItem('logiblock_playerName');
-      myPlayerName = null;
-    }
     showJoinError(message);
   } else if (gameScreen.classList.contains('active')) {
-    // Game screen: session expired after hold window -- drop to start screen
-    clearInterval(timerInterval);
-    timerInterval = null;
-    myRoomCode = null;
-    amIHost = false;
+    clearInterval(timerInterval); timerInterval = null;
+    myRoomCode = null; amIHost = false;
     localStorage.removeItem('logiblock_roomCode');
     localStorage.removeItem('logiblock_playerName');
-    localStorage.removeItem('logiblock_reconnectToken');
     showScreen('start-screen');
     showJoinError(message);
     setTimeout(clearJoinError, 4000);
   } else {
-    // Lobby screen: show as notification
     showLobbyNotification(`Error: ${message}`);
-  }
-});
-let pendingAutoRejoin = false;
-socket.on('connect', () => {
-  const savedRoom = localStorage.getItem('logiblock_roomCode');
-  const savedName = localStorage.getItem('logiblock_playerName');
-  const savedToken = localStorage.getItem('logiblock_reconnectToken');
-  console.log('[DEBUG connect] savedRoom=', savedRoom, 'savedName=', savedName, 'activeScreen=', document.querySelector('.screen.active')?.id);
-  if (savedRoom && savedName && savedToken) {
-    myPlayerName = savedName;
-    // pendingAutoRejoin only on initial page load (start screen); not on Socket.IO auto-reconnect
-    if (startScreen.classList.contains('active')) pendingAutoRejoin = true;
-    socket.emit('reconnectRoom', { roomCode: savedRoom, playerName: savedName, reconnectToken: savedToken });
   }
 });
 

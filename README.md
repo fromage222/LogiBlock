@@ -1,7 +1,7 @@
 # LogiBlock
 
 Ein rundenbasiertes, kooperatives Puzzle-Spiel für mehrere Spieler im Browser.  
-Entwickelt im Rahmen des Moduls **W3WI_AM302 – Fortgeschrittene Systementwicklung** an der DHBW Mannheim.
+Entwickelt im Rahmen des Moduls **WWI_24AMA – Fortgeschrittene Systementwicklung** an der DHBW Mannheim.
 
 ---
 
@@ -198,30 +198,9 @@ Die JSON-Lösung eines Puzzles (`solution`-Array) wird **niemals** an den Client
 
 Die Win-Erkennung (`checkWin`) läuft ausschließlich auf dem Server und vergleicht den Grid-State gegen die serverseitig gespeicherte Lösung.
 
-### Reconnect-Token-Authentifizierung
+### Disconnect-Verhalten
 
-Beim Erstellen oder Beitreten einer Lobby erhält jeder Spieler ein kryptografisch sicheres Reconnect-Token:
-
-```js
-crypto.randomBytes(24).toString('hex')  // → 48-stelliger Hex-String
-```
-
-Das Token wird im `localStorage` des Browsers gespeichert und beim Neuladen der Seite via `reconnectRoom` übermittelt. Der Server validiert das Token mit **constant-time comparison**, um Timing-Angriffe zu verhindern:
-
-```js
-crypto.timingSafeEqual(
-  Buffer.from(expectedToken.padEnd(48, '\0'), 'utf8'),
-  Buffer.from(providedToken.padEnd(48, '\0'), 'utf8')
-)
-```
-
-Schlägt die Token-Prüfung fehl, wird der Reconnect-Versuch mit `room:error` abgelehnt.
-
-### Grace-Period bei Disconnect
-
-Nach einem Verbindungsabbruch wird der Spieler **nicht sofort entfernt**. Stattdessen startet ein 5-Sekunden-Timer. Trifft innerhalb dieser Zeit ein `reconnectRoom`-Event mit gültigem Token ein, wird die Socket-ID des Spielers lautlos ersetzt — der State bleibt vollständig erhalten. Läuft der Timer ab, wird der Spieler entfernt und der Zug ggf. weitergerückt.
-
-Race Condition (Browser-Reload): Das neue Socket kann `reconnectRoom` senden, bevor das `disconnecting`-Event des alten Sockets feuert. In diesem Fall überschreibt `replacePlayerSocket()` die gespeicherte Socket-ID. Wenn das `disconnecting`-Event des alten Sockets später eintrifft, erkennt der Timer-Callback `player.socketId !== oldSocketId` und bricht ab — der Spieler wird nicht fälschlich entfernt.
+Ein Refresh oder Tab-Schließen während eines laufenden Spiels führt direkt zum Hauptmenü — kein automatischer Reconnect. Serverseitig startet bei einem Verbindungsabbruch ein 5-Sekunden-Timer, nach dessen Ablauf der Spieler entfernt und der Zug ggf. weitergerückt wird.
 
 ### Profanity Filter
 
@@ -303,25 +282,6 @@ Tritt einer bestehenden Lobby bei. Nur in der Lobby-Phase möglich.
 
 **Antwort-Events:** `room:joined`, `puzzle:list`, `lobby:update` (an alle)  
 **Fehler:** `room:error` (Raum nicht gefunden, Spiel läuft bereits, Name vergeben, Raum voll, Profanity)
-
----
-
-#### `reconnectRoom`
-
-Stellt die Verbindung nach einem Seiten-Reload wieder her. Funktioniert in Lobby- und Spielphase. Erfordert ein gültiges Reconnect-Token.
-
-**Payload:**
-```json
-{
-  "roomCode": "123456",
-  "playerName": "Alice",
-  "reconnectToken": "a3f9..."
-}
-```
-
-**Antwort (Lobby-Phase):** `puzzle:list`, `lobby:update` (an alle)  
-**Antwort (Spielphase):** `game:stateUpdate` (an alle), `game:reconnect` (nur an Reconnect-Spieler)  
-**Fehler:** `room:error` (Raum nicht gefunden, Spieler nicht Teil des Raums, ungültiges Token)
 
 ---
 
@@ -427,20 +387,10 @@ Freiwilliges Verlassen der Lobby (nur in der Lobby-Phase). Kein Grace-Period —
 
 #### `room:created`
 
-Bestätigung nach `createRoom`. Enthält den Raumcode und das Reconnect-Token des Hosts.
+Bestätigung nach `createRoom`. Enthält den Raumcode.
 
 ```json
-{ "roomCode": "123456", "reconnectToken": "a3f9..." }
-```
-
----
-
-#### `room:joined`
-
-Bestätigung nach erfolgreichem `joinRoom`. Enthält das Reconnect-Token des neuen Spielers.
-
-```json
-{ "reconnectToken": "b7c2..." }
+{ "roomCode": "123456" }
 ```
 
 ---
@@ -499,14 +449,6 @@ Der Host hat die Lobby verlassen — der Raum wird geschlossen.
 #### `game:start`
 
 Das Spiel startet. Enthält den initialen Spielzustand mit vorplatzierten Anker-Shapes und den Server-Zeitstempel für den Timer.
-
-**Payload:** `PublicState` + `{ "startTime": 1713612000000 }`
-
----
-
-#### `game:reconnect`
-
-Wird ausschließlich an den reconnectierenden Spieler gesendet, wenn er sich während der Spielphase wieder verbindet. Enthält den vollständigen Spielzustand inkl. Timer-Startzeit.
 
 **Payload:** `PublicState` + `{ "startTime": 1713612000000 }`
 
